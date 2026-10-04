@@ -5271,7 +5271,6 @@ function renderCmdResultados() {
     } catch { return safe; }
   };
 
-  // 👇 Ícone dinâmico conforme o que "casou" com a busca
   const iconMatch = (c) => {
     if (!termo) return 'user';
     const tn = termo.replace(/\D/g, '');
@@ -5283,7 +5282,6 @@ function renderCmdResultados() {
     return 'user';
   };
 
-  // 👇 Bolinhas de status das 3 faturas
   const statusDots = (c) => {
     const cor = (v) => {
       const st = statusFatura(v);
@@ -5312,38 +5310,34 @@ function renderCmdResultados() {
     const altFmt = alt && alt.length >= 10 ? (alt.length === 11 ? `(${alt.slice(0,2)}) ${alt.slice(2,7)}-${alt.slice(7)}` : alt) : null;
 
     const icone = iconMatch(c);
-
-    // Cores quando o item está selecionado
-    const rowCls = ativo
-      ? 'bg-[#0e8890] text-white shadow-md'
-      : 'bg-white hover:bg-slate-50 text-slate-800';
-    const subCls = ativo ? 'text-white/80' : 'text-slate-500';
-    const chipCls = ativo ? 'bg-white/20 text-white border-white/30' : 'bg-slate-100 text-slate-600 border-slate-200';
-    const iconCls = ativo ? 'text-white' : 'text-[#0e8890]';
-
     const valorTxt = c.valor_receita_contratada != null ? fmtMoeda(c.valor_receita_contratada) : null;
     const debito = String(c.debito_automatico || '').toUpperCase() === 'SIM';
 
+    // 👇 Ativo = fundo cinza sutil + barra teal à esquerda
+    const rowBase = 'cursor-pointer rounded-lg px-3 py-2.5 mb-1 transition-all duration-150 border border-transparent border-l-4';
+    const rowCls = ativo
+      ? 'bg-slate-50 border-l-[#0e8890] shadow-sm'
+      : 'border-l-transparent hover:bg-slate-50/60';
+
+    // Texto SEMPRE escuro (não fica mais branco no hover)
+    const subCls = 'text-slate-500';
+
     return `
       <div data-idx="${i}" data-cliente-id="${c.id}"
-        class="cursor-pointer rounded-lg px-3 py-2.5 mb-1 transition-all border border-transparent ${rowCls}">
+        class="${rowBase} ${rowCls} text-slate-800">
         <div class="flex items-start gap-3">
 
-          <!-- Ícone do tipo de match -->
-          <div class="shrink-0 w-8 h-8 rounded-full ${ativo ? 'bg-white/15' : 'bg-[#0e8890]/10'} flex items-center justify-center mt-0.5">
-            <i data-lucide="${icone}" class="w-4 h-4 ${iconCls}"></i>
+          <div class="shrink-0 w-8 h-8 rounded-full bg-[#0e8890]/10 flex items-center justify-center mt-0.5">
+            <i data-lucide="${icone}" class="w-4 h-4 text-[#0e8890]"></i>
           </div>
 
-          <!-- Coluna central: informações -->
           <div class="min-w-0 flex-1">
 
-            <!-- Linha 1: Nome + Plano -->
             <div class="flex items-center justify-between gap-2">
               <p class="font-bold text-[13px] truncate">${highlight(capitalizar(c.nome))}</p>
-              ${c.plano ? `<span class="shrink-0 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase ${chipCls} max-w-[130px] truncate">${escapeHTML(c.plano)}</span>` : ''}
+              ${c.plano ? `<span class="shrink-0 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase bg-slate-100 text-slate-600 border-slate-200 max-w-[130px] truncate">${escapeHTML(c.plano)}</span>` : ''}
             </div>
 
-            <!-- Linha 2: CPF + Linha + Alt -->
             <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] ${subCls}">
               <span class="font-mono flex items-center gap-1">
                 <i data-lucide="id-card" class="w-2.5 h-2.5"></i> ${highlight(cpfFmt)}
@@ -5355,26 +5349,23 @@ function renderCmdResultados() {
               ${altFmt ? `<span class="opacity-40">·</span><span class="font-mono text-[10px] opacity-70">alt ${highlight(altFmt)}</span>` : ''}
             </div>
 
-            <!-- Linha 3: Consultor + Base + Vencimento + Valor -->
             <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] ${subCls}">
               ${c.consultor ? `<span class="flex items-center gap-1 font-bold uppercase"><i data-lucide="user-check" class="w-2.5 h-2.5"></i> ${escapeHTML(c.consultor)}</span>` : ''}
               ${c.ano_base ? `<span class="opacity-40">·</span><span class="font-bold">BASE ${escapeHTML(c.ano_base)}</span>` : ''}
               ${c.data_vencimento_base ? `<span class="opacity-40">·</span><span>venc. dia <strong>${escapeHTML(c.data_vencimento_base)}</strong></span>` : ''}
-              ${valorTxt ? `<span class="opacity-40">·</span><span class="font-black ${ativo ? 'text-white' : 'text-emerald-700'}">${valorTxt}/mês</span>` : ''}
-              ${debito ? `<span class="px-1.5 py-0.5 rounded ${ativo ? 'bg-white/20 text-white' : 'bg-sky-100 text-sky-700'} text-[9px] font-black uppercase">DACC</span>` : ''}
+              ${valorTxt ? `<span class="opacity-40">·</span><span class="font-black text-emerald-700">${valorTxt}/mês</span>` : ''}
+              ${debito ? `<span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[9px] font-black uppercase">DACC</span>` : ''}
             </div>
           </div>
 
-          <!-- Coluna direita: status dots -->
           <div class="shrink-0 flex flex-col items-end gap-1.5 mt-1">
             ${statusDots(c)}
-            <span class="text-[9px] font-black uppercase opacity-60">faturas</span>
+            <span class="text-[9px] font-black uppercase text-slate-400">faturas</span>
           </div>
         </div>
       </div>`;
   }).join('');
 
-  // Scroll automático no item ativo
   if (_cmdIdx >= 0) {
     const el = box.querySelector(`[data-idx="${_cmdIdx}"]`);
     el?.scrollIntoView({ block: 'nearest' });
