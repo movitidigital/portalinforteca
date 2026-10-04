@@ -96,7 +96,14 @@
 #sidebar.collapsed #sidebarToggleIcon {
   transform: rotate(180deg);
 }
-    
+    .cmd-item {
+  border-left: 3px solid transparent;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.cmd-item.cmd-active {
+  background-color: #f1f5f9;      /* slate-100 */
+  border-left-color: #0e8890;     /* teal da marca */
+}
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -5301,7 +5308,6 @@ function renderCmdResultados() {
   };
 
   box.innerHTML = _cmdResultados.map((c, i) => {
-    const ativo = i === _cmdIdx;
     const cpf = normalizarCPF(c.cpf);
     const cpfFmt = cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
     const tel = normalizarTelefone(c.telefone);
@@ -5313,18 +5319,10 @@ function renderCmdResultados() {
     const valorTxt = c.valor_receita_contratada != null ? fmtMoeda(c.valor_receita_contratada) : null;
     const debito = String(c.debito_automatico || '').toUpperCase() === 'SIM';
 
-    // 👇 Ativo = fundo cinza sutil + barra teal à esquerda
-    const rowBase = 'cursor-pointer rounded-lg px-3 py-2.5 mb-1 transition-all duration-150 border border-transparent border-l-4';
-    const rowCls = ativo
-      ? 'bg-slate-50 border-l-[#0e8890] shadow-sm'
-      : 'border-l-transparent hover:bg-slate-50/60';
-
-    // Texto SEMPRE escuro (não fica mais branco no hover)
-    const subCls = 'text-slate-500';
-
+    // 👇 Classe única de item — sem "ativo", o JS adiciona/remove no hover
     return `
       <div data-idx="${i}" data-cliente-id="${c.id}"
-        class="${rowBase} ${rowCls} text-slate-800">
+        class="cmd-item cursor-pointer rounded-md px-3 py-2.5 mb-0.5">
         <div class="flex items-start gap-3">
 
           <div class="shrink-0 w-8 h-8 rounded-full bg-[#0e8890]/10 flex items-center justify-center mt-0.5">
@@ -5334,11 +5332,11 @@ function renderCmdResultados() {
           <div class="min-w-0 flex-1">
 
             <div class="flex items-center justify-between gap-2">
-              <p class="font-bold text-[13px] truncate">${highlight(capitalizar(c.nome))}</p>
+              <p class="font-bold text-[13px] truncate text-slate-800">${highlight(capitalizar(c.nome))}</p>
               ${c.plano ? `<span class="shrink-0 px-1.5 py-0.5 rounded border text-[9px] font-black uppercase bg-slate-100 text-slate-600 border-slate-200 max-w-[130px] truncate">${escapeHTML(c.plano)}</span>` : ''}
             </div>
 
-            <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] ${subCls}">
+            <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[11px] text-slate-500">
               <span class="font-mono flex items-center gap-1">
                 <i data-lucide="id-card" class="w-2.5 h-2.5"></i> ${highlight(cpfFmt)}
               </span>
@@ -5349,7 +5347,7 @@ function renderCmdResultados() {
               ${altFmt ? `<span class="opacity-40">·</span><span class="font-mono text-[10px] opacity-70">alt ${highlight(altFmt)}</span>` : ''}
             </div>
 
-            <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] ${subCls}">
+            <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-slate-500">
               ${c.consultor ? `<span class="flex items-center gap-1 font-bold uppercase"><i data-lucide="user-check" class="w-2.5 h-2.5"></i> ${escapeHTML(c.consultor)}</span>` : ''}
               ${c.ano_base ? `<span class="opacity-40">·</span><span class="font-bold">BASE ${escapeHTML(c.ano_base)}</span>` : ''}
               ${c.data_vencimento_base ? `<span class="opacity-40">·</span><span>venc. dia <strong>${escapeHTML(c.data_vencimento_base)}</strong></span>` : ''}
@@ -5445,24 +5443,18 @@ document.addEventListener('keydown', (e) => {
     if (item) irParaCliente(item.dataset.clienteId);
   });
 
-  // 🖱️ Hover — só troca as classes, SEM re-renderizar
+  // 🖱️ Hover — só adiciona/remove a classe .cmd-active, ZERO re-render
   box.addEventListener('mouseover', (e) => {
     const item = e.target.closest('[data-idx]');
     if (!item) return;
+
     const idx = parseInt(item.dataset.idx);
     if (idx === _cmdIdx) return;
 
     _cmdIdx = idx;
 
-    // Atualiza só as classes dos itens, sem recriar HTML
-    box.querySelectorAll('[data-idx]').forEach(el => {
-      const i = parseInt(el.dataset.idx);
-      const ativo = i === idx;
-      el.classList.toggle('bg-[#0e8890]', ativo);
-      el.classList.toggle('text-white', ativo);
-      el.classList.toggle('shadow-md', ativo);
-      el.classList.toggle('bg-white', !ativo);
-      el.classList.toggle('text-slate-800', !ativo);
+    box.querySelectorAll('.cmd-item').forEach(el => {
+      el.classList.toggle('cmd-active', parseInt(el.dataset.idx) === idx);
     });
   });
 
@@ -5471,6 +5463,6 @@ document.addEventListener('keydown', (e) => {
     if (e.target === palette) fecharBuscaGlobal();
   });
 })();
-  </script>
+</script>
 </body>
 </html>
