@@ -3425,9 +3425,18 @@ async function processarPontosVendas() {
   lucide.createIcons();
 
   try {
-    const { data, error } = await supabaseClient.rpc('processar_pontos_vendas', {
-      p_data_minima: DATA_LANCAMENTO
-    });
+const { data, error } = await supabaseClient.rpc('processar_pontos_vendas', {
+  p_data_minima: DATA_LANCAMENTO
+});
+
+// 🏅 Verifica conquistas automaticamente após processar pontos
+if (data?.success && data.processados > 0) {
+  try {
+    await supabaseClient.rpc('verificar_conquistas');
+  } catch (e) {
+    console.warn('[Conquistas]', e);
+  }
+}
 
     if (error) throw error;
     if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido ao processar.');
