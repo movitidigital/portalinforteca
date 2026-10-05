@@ -636,6 +636,11 @@
         class="flex-1 md:flex-initial bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
         <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Selecionar Datasys
       </button>
+<button onclick="processarPontosVendas()" id="btnProcessarPontos"
+  class="flex-1 md:flex-initial bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2">
+  <i data-lucide="trophy" class="w-4 h-4"></i>
+  <span id="btnProcessarPontosLabel">Processar Pontos</span>
+</button>
       <button onclick="carregarGestao()"
         class="flex-1 md:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center justify-center gap-2">
         <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar
@@ -3391,6 +3396,121 @@ function filtrarBoasVindas() {
   tbody.innerHTML = filtrados.map(b => linhaBoasVindasHTML(b)).join('');
   lucide.createIcons();
 }
+
+    /* ==========================================================
+   PROCESSAR PONTOS — Inforteca Premiada
+   Roda a RPC que gera pontos para todas as vendas não pontuadas
+   desde 01/10/2026 (data de lançamento do programa).
+   ========================================================== */
+async function processarPontosVendas() {
+  const btn = document.getElementById('btnProcessarPontos');
+  const label = document.getElementById('btnProcessarPontosLabel');
+  if (!btn || !label) return;
+
+  const DATA_LANCAMENTO = '2026-10-01';
+
+  // Confirmação
+  const confirmar = confirm(
+    '🏆 Processar Pontos — Inforteca Premiada\n\n' +
+    'Isso vai gerar pontos para todas as vendas ainda não pontuadas ' +
+    'desde ' + DATA_LANCAMENTO + '.\n\n' +
+    'Vendas já processadas são ignoradas automaticamente.\n\n' +
+    'Continuar?'
+  );
+  if (!confirmar) return;
+
+  // Estado de loading
+  const labelOriginal = label.textContent;
+  btn.disabled = true;
+  btn.classList.add('opacity-70', 'cursor-not-allowed');
+  label.textContent = 'Processando…';
+  btn.querySelector('i').setAttribute('data-lucide', 'loader-2');
+  btn.querySelector('i').classList.add('animate-spin');
+  lucide.createIcons();
+
+  try {
+    // Chama a RPC
+    const { data, error } = await supabaseClient.rpc('processar_pontos_vendas', {
+      p_data_minima: DATA_LANCAMENTO
+    });
+
+    if (error) throw error;
+
+    if (!data?.success) {
+      throw new Error(data?.erro || 'Erro desconhecido ao processar.');
+    }
+
+    // Feedback
+    const processados = data.processados || 0;
+    const ignoradas = data.ignorados || 0;
+    const naoPontuavel = data.nao_pontuavel || 0;
+    const semConsultor = data.sem_consultor || 0;
+
+    if (processados === 0) {
+      mostrarAlertaGestao(
+        `ℹ️ Nenhuma venda nova para pontuar. ${ignoradas + naoPontuavel} já processadas/ignoradas.`,
+        'amber'
+      );
+      toast('Nenhuma venda nova para pontuar.');
+    } else {
+      const partes = [`✅ ${processados} venda(s) pontuada(s)`];
+      if (naoPontuavel > 0) partes.push(`${naoPontuavel} troca de aparelho ignorada`);
+      if (ignoradas > 0) partes.push(`${ignoradas} ignorada(s) (plano não elegível)`);
+      if (semConsultor > 0) partes.push(`⚠️ ${semConsultor} sem consultor`);
+
+      mostrarAlertaGestao(partes.join(' · '), 'emerald');
+      toast(`✅ ${processados} venda(s) pontuada(s)!`);
+    }
+
+    // Log detalhado
+    console.log('[PROCESSAR PONTOS] Resultado:', data);
+
+    // Se o módulo "premiada" tem badge, atualiza (futuro)
+    // if (typeof atualizarBadgePremiada === 'function') atualizarBadgePremiada();
+
+  } catch (err) {
+    console.error('[PROCESSAR PONTOS] Erro:', err);
+    mostrarAlertaGestao('❌ Erro: ' + err.message, 'red');
+  } finally {
+    // Restaura o botão
+    btn.disabled = false;
+    btn.classList.remove('opacity-70', 'cursor-not-allowed');
+    label.textContent = labelOriginal;
+
+    const icone = btn.querySelector('i');
+    icone.classList.remove('animate-spin');
+    icone.setAttribute('data-lucide', 'trophy');
+    lucide.createIcons();
+  }
+}
+
+/* Helper para mostrar alerta no card de Gestão de Clientes */
+function mostrarAlertaGestao(msg, cor) {
+  // Reutiliza o elemento 'gestaoImportStatus' que já existe
+  const statusEl = document.getElementById('gestaoImportStatus');
+  if (!statusEl) {
+    alert(msg);
+    return;
+  }
+
+  const cores = {
+    emerald: 'text-emerald-600',
+    amber: 'text-amber-600',
+    red: 'text-red-600',
+  };
+
+  statusEl.textContent = msg;
+  statusEl.className = `text-xs font-semibold mt-1 ${cores[cor] || ''}`;
+
+  // Reset visual depois de 8s
+  setTimeout(() => {
+    if (statusEl.textContent === msg) {
+      statusEl.textContent = 'Nenhum arquivo selecionado';
+      statusEl.className = 'text-xs font-semibold text-slate-400 mt-1';
+    }
+  }, 8000);
+}
+    
     /* ==========================================================
    IMPORTAÇÃO DATASYS (XLSX)
    ========================================================== */
