@@ -473,8 +473,20 @@ try {
 } catch (e) {
   console.warn('[Boas-vindas]', e);
 }
+// 🏅 Verifica conquistas
+try {
+  const { data: conquistas } = await supabaseClient.rpc('verificar_conquistas', {
+    p_user_id: state.user.id
+  });
+  if (conquistas?.total > 0) {
+    // Guarda os badges ganhos pra mostrar depois
+    window.__badgesGanhos = conquistas.badges || [];
+  }
+} catch (e) {
+  console.warn('[Conquistas]', e);
+}
 
-    return true;
+return true;
   }
 
   async function garantirConsultor() {
@@ -1345,6 +1357,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       toast(`🎉 Bem-vindo à Inforteca Premiada! +${window.__mostrarBoasVindas} pts de boas-vindas`, 'ok');
       window.__mostrarBoasVindas = null;
     }, 1200);
+  }
+
+  // 🏅 Toast de conquistas (uma por vez, com intervalo)
+  if (window.__badgesGanhos && window.__badgesGanhos.length > 0) {
+    window.__badgesGanhos.forEach((badge, i) => {
+      setTimeout(() => {
+        toast(`🏅 Conquista desbloqueada: ${badge.icone} ${badge.nome}!`, 'ok');
+      }, 2500 + (i * 2500));
+    });
+    // Limpa depois que todos aparecerem
+    setTimeout(() => { window.__badgesGanhos = null; }, 2500 + (window.__badgesGanhos.length * 2500) + 1000);
   }
 });
   /* ==========================================================
