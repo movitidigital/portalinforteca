@@ -426,8 +426,20 @@
     const { data: configs } = await supabaseClient.from('premiada_config').select('*');
     (configs || []).forEach(c => { state.config[c.chave] = c.valor; });
 
-    // Garante que o consultor existe na tabela
-    await garantirConsultor();
+// Garante que o consultor existe na tabela
+await garantirConsultor();
+
+// 🎁 Verifica boas-vindas
+try {
+  const { data: bv } = await supabaseClient.rpc('verificar_boas_vindas');
+  if (bv?.novo) {
+    // Guarda pra mostrar o toast especial após render
+    window.__mostrarBoasVindas = bv.pontos;
+    await garantirConsultor(); // Recarrega saldo
+  }
+} catch (e) {
+  console.warn('[Boas-vindas]', e);
+}
 
     return true;
   }
@@ -1200,18 +1212,26 @@
   /* ==========================================================
      BOOT
      ========================================================== */
-  window.addEventListener('DOMContentLoaded', async () => {
-    lucide.createIcons();
+window.addEventListener('DOMContentLoaded', async () => {
+  lucide.createIcons();
 
-    const ok = await verificarAuth();
-    if (!ok) return;
+  const ok = await verificarAuth();
+  if (!ok) return;
 
-    await carregarHub();
-    await carregarMissoes();
-    await carregarStatusRoleta();
+  await carregarHub();
+  await carregarMissoes();
+  await carregarStatusRoleta();
 
-    navegarPremiada('hub');
-  });
+  navegarPremiada('hub');
+
+  // 🎁 Toast especial de boas-vindas (só na primeira vez)
+  if (window.__mostrarBoasVindas) {
+    setTimeout(() => {
+      toast(`🎉 Bem-vindo à Inforteca Premiada! +${window.__mostrarBoasVindas} pts de boas-vindas`, 'ok');
+      window.__mostrarBoasVindas = null;
+    }, 1200);
+  }
+});
 </script>
 </body>
 </html>
