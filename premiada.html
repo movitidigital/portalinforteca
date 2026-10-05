@@ -605,7 +605,7 @@ async function carregarMissoes() {
     .select('*')
     .eq('ativa', true)
     .gte('data_fim', new Date().toISOString().split('T')[0])
-    .order('tipo');
+    .order('tipo', { ascending: true });
 
   const { data: progresso } = await supabaseClient
     .from('premiada_missoes_progresso')
@@ -645,7 +645,15 @@ async function carregarMissoes() {
             ${m.descricao ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHTML(m.descricao)}</p>` : ''}
           </div>
           <span class="${corBg} ${corTexto} border rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap ${concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200'}">
-            ${concluida ? '✓ Concluída' : '+' + m.pontos_bonus + ' pts'}
+            ${concluida ? <span class="${corBg} ${corTexto} border rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap ${concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200'}">
+  ${
+    concluida 
+      ? '✓ Concluída' 
+      : emergencial 
+        ? '🚨 PONTOS EM DOBRO' 
+        : '+' + m.pontos_bonus + ' PTS'
+  }
+</span>}
           </span>
         </div>
         <div class="flex items-center gap-3">
@@ -1079,7 +1087,7 @@ async function carregarAdmin() {
     carregarAdminResgates(), 
     carregarAdminPremios(), 
     carregarAdminOrcamento(),
-    carregarMissoesEmergenciais()   // 👈 NOVO
+    carregarMissoesEmergenciais() 
   ]);
 }
 
@@ -1388,25 +1396,101 @@ async function carregarMissoesEmergenciais() {
     return;
   }
 
-  box.innerHTML = missoes.map(m => `
-    <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4">
-      <div class="flex justify-between items-start gap-3 flex-wrap">
-        <div class="min-w-0 flex-1">
-          <p class="text-[10px] font-black text-red-600 uppercase">🚨 Missão emergencial ativa</p>
-          <h4 class="font-black text-slate-800 mt-1">${escapeHTML(m.titulo)}</h4>
-          <p class="text-xs text-slate-600 mt-1">${escapeHTML(m.descricao || '')}</p>
-          <div class="flex gap-3 mt-2 text-[10px] font-bold text-slate-500">
-            <span>📅 ${new Date(m.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR')} → ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-            <span>🎯 Meta: ${m.meta_quantidade} ${m.metrica}</span>
+  // 🎯 Busca o progresso real de cada missão (vendas na categoria desde o início da missão)
+  const missoesComProgresso = await Promise.all(missoes.map(async (m) => {
+    // Define as categorias que contam pra essa métrica
+    let categorias = [];
+    if (m.metrica === 'PORTABILIDADE') categorias = ['controle_port', 'pos_port'];
+    else if (m.metrica === 'CONTROLE') categorias = ['controle_simples', 'controle_port'];
+    else if (m.metrica === 'PÓS') categorias = ['pos_simples', 'pos_port'];
+
+    const { count } = await supabaseClient
+      .from('premiada_vendas_pontuadas')
+      .select('*', { count: 'exact', head: true })
+      .in('categoria', categorias)
+      .gte('data_venda', m.data_inicio)
+      .lte('data_venda', m.data_fim);
+
+    return { ...m, progresso: count || 0 };
+  }));
+
+  // 🎯 Ordena pelo que está mais atrás (menor %)
+  missoesComProgresso.sort((a, b) => {
+    const pa = a.meta_quantidade > 0 ? (a.progresso / a.meta_quantidade) : 0;
+    const pb = b.meta_quantidade > 0 ? (b.progresso / b.meta_quantidade) : 0;
+    return pa - pb;
+  });
+
+  box.innerHTML = missoesComProgresso.map(m => {
+    const pct = Math.min(100, Math.round((m.progresso / m.meta_quantidade) * 100));
+    const falta = Math.max(0, m.meta_quantidade - m.progresso);
+
+    // Cálculo de dias restantes
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const fim = new Date(m.data_fim + 'T00:00:00');
+    const diasRestantes = Math.max(0, Math.ceil((fim - hoje) / 86400000));
+
+    // Cor conforme urgência
+    let corBarra = 'bg-red-500';
+    let corTexto = 'text-red-700';
+    let corBg = 'bg-red-50';
+    let corBorder = 'border-red-200';
+    let urgencia = '';
+
+    if (pct >= 70) { corBarra = 'bg-emerald-500'; corTexto = 'text-emerald-700'; corBg = 'bg-emerald-50'; corBorder = 'border-emerald-200'; urgencia = '✅'; }
+    else if (pct >= 40) { corBarra = 'bg-amber-500'; corTexto = 'text-amber-700'; corBg = 'bg-amber-50'; corBorder = 'border-amber-200'; urgencia = '⚠️'; }
+    else { urgencia = '🚨'; }
+
+    return `
+      <div class="${corBg} border-2 ${corBorder} rounded-xl p-4">
+        <div class="flex justify-between items-start gap-3 flex-wrap mb-3">
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black ${corTexto} uppercase">${urgencia} Missão emergencial ativa</p>
+            <h4 class="font-black text-slate-800 mt-1">${escapeHTML(m.titulo)}</h4>
+            <p class="text-xs text-slate-600 mt-1">${escapeHTML(m.descricao || '')}</p>
+          </div>
+          <button onclick="desativarMissaoResgate('${m.id}')"
+            class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase shrink-0">
+            Encerrar
+          </button>
+        </div>
+
+        <!-- 📊 Barra de progresso -->
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex-1 bg-white rounded-full h-3 overflow-hidden border border-slate-200">
+            <div class="${corBarra} h-3 rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+          <span class="text-sm font-black ${corTexto} whitespace-nowrap">${pct}%</span>
+        </div>
+
+        <!-- 📈 Detalhes -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] font-bold">
+          <div class="bg-white/70 rounded-lg p-2 text-center">
+            <p class="text-slate-400 uppercase">Realizado</p>
+            <p class="text-sm font-black ${corTexto}">${m.progresso}</p>
+          </div>
+          <div class="bg-white/70 rounded-lg p-2 text-center">
+            <p class="text-slate-400 uppercase">Meta</p>
+            <p class="text-sm font-black text-slate-700">${m.meta_quantidade}</p>
+          </div>
+          <div class="bg-white/70 rounded-lg p-2 text-center">
+            <p class="text-slate-400 uppercase">Falta</p>
+            <p class="text-sm font-black text-slate-700">${falta}</p>
+          </div>
+          <div class="bg-white/70 rounded-lg p-2 text-center">
+            <p class="text-slate-400 uppercase">Dias restantes</p>
+            <p class="text-sm font-black ${diasRestantes <= 5 ? 'text-red-600' : 'text-slate-700'}">${diasRestantes}</p>
           </div>
         </div>
-        <button onclick="desativarMissaoResgate('${m.id}')" 
-          class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">
-          Encerrar
-        </button>
+
+        <p class="text-[10px] text-slate-500 mt-3">
+          📅 ${new Date(m.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR')} → ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}
+          · 🎯 Métrica: <strong>${escapeHTML(m.metrica)}</strong>
+          · ⚡ Bônus: <strong class="text-red-600">PONTOS EM DOBRO</strong>
+        </p>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   lucide.createIcons();
 }
