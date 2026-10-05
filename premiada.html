@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inforteca Premiada — PORTAL INFORTECA</title>
+  <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      background: #0f172a; color: #fff; padding: 12px 18px;
+      border-radius: 8px; display: flex; align-items: center; gap: 10px;
+      font-size: 13px; font-weight: 600; opacity: 0; transform: translateY(20px);
+      transition: all 0.3s ease; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Níveis */
+    .nivel-bronze  { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
+    .nivel-prata   { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
+    .nivel-ouro    { background: linear-gradient(135deg, #F59E0B, #B45309); color: #fff; }
+    .nivel-diamante{ background: linear-gradient(135deg, #0EA5E9, #0369A1); color: #fff; }
+
+    /* Roleta — animação */
+    @keyframes spin-wheel {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(1440deg); }
+    }
+    .wheel-spinning { animation: spin-wheel 4s cubic-bezier(0.15, 0.85, 0.35, 1) forwards; }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0">
+    <div>
+      <div class="h-20 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-9 w-auto object-contain shrink-0" onerror="this.style.display='none'">
+          <div class="min-w-0">
+            <h1 class="text-sm font-black tracking-tight leading-none truncate">PORTAL INFORTECA</h1>
+            <p class="text-[9px] text-[#0e8890] font-bold uppercase tracking-widest mt-1 truncate">Loja TIM Dom José</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="p-4 space-y-1.5 mt-2">
+        <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Menu Principal</p>
+
+        <a href="dashboard.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Dashboard</span>
+        </a>
+        <a href="dashboard.html#clientes" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Clientes TIM</span>
+        </a>
+        <a href="dashboard.html#portabilidades" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="arrow-left-right" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Portabilidades</span>
+        </a>
+        <a href="dashboard.html#faturas" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Faturas</span>
+        </a>
+        <a href="dashboard.html#suspensoes" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="shield-alert" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Gestão de Acessos</span>
+        </a>
+        <a href="dashboard.html#gestao" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="file-check-2" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Gestão de Clientes</span>
+        </a>
+        <a href="dashboard.html#prospeccao" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Prospecção</span>
+        </a>
+
+        <!-- ATIVO: Inforteca Premiada -->
+        <a href="premiada.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 bg-[#0e8890] text-white rounded-lg font-medium shadow-md shadow-[#0e8890]/20">
+          <i data-lucide="trophy" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Inforteca Premiada</span>
+        </a>
+
+        <a href="metas.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="target" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Acompanhamento de Metas</span>
+        </a>
+        <a href="usuarios.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+          <i data-lucide="user-cog" class="w-5 h-5 shrink-0"></i>
+          <span class="text-sm font-medium">Gestão de Usuários</span>
+        </a>
+      </nav>
+    </div>
+
+    <div class="p-4 border-t border-white/10">
+      <button onclick="terminarSessao()" class="flex items-center gap-3 px-3 py-2.5 w-full text-slate-300 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors text-sm font-medium">
+        <i data-lucide="log-out" class="w-5 h-5 shrink-0"></i>
+        <span>Encerrar Sessão</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
+
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 shrink-0">
+      <div class="flex items-center gap-3">
+        <button onclick="toggleSidebar()" class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <div class="flex items-center gap-2">
+          <i data-lucide="trophy" class="w-5 h-5 text-[#0e8890]"></i>
+          <h2 id="headerTitle" class="text-lg font-bold text-[#000033]">Inforteca Premiada</h2>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right hidden sm:block">
+          <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
+          <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-[#0e8890]/10 border border-[#0e8890]/20 flex items-center justify-center text-[#0e8890] font-bold">
+          <i data-lucide="user" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- NAVEGAÇÃO ENTRE VIEWS -->
+    <div class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap gap-2 sticky top-0 z-20 shadow-sm">
+      <button data-tab="hub" onclick="navegarPremiada('hub')" class="tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        🏠 Meu Painel
+      </button>
+      <button data-tab="loja" onclick="navegarPremiada('loja')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        🏪 Loja
+      </button>
+      <button data-tab="carteira" onclick="navegarPremiada('carteira')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        💰 Minha Carteira
+      </button>
+      <button data-tab="ranking" onclick="navegarPremiada('ranking')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        📊 Ranking
+      </button>
+      <button data-tab="admin" id="tabAdmin" onclick="navegarPremiada('admin')" class="tab-premiada hidden px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        ⚙️ Admin
+      </button>
+    </div>
+
+    <!-- ÁREA DE CONTEÚDO -->
+    <div class="flex-1 overflow-y-auto p-6">
+
+      <!-- ===== VIEW: HUB ===== -->
+      <div id="view-premiada-hub" class="view-premiada animate-fade-in">
+        <div class="max-w-6xl mx-auto space-y-6">
+
+          <!-- Greeting -->
+          <div>
+            <h1 id="greetingNome" class="text-2xl md:text-3xl font-black text-[#000033]">Olá!</h1>
+            <p id="greetingData" class="text-sm text-slate-500 mt-1">—</p>
+          </div>
+
+          <!-- Card do Consultor -->
+          <div id="cardConsultor" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <p class="text-sm text-slate-400">Carregando seu progresso…</p>
+          </div>
+
+          <!-- Missões -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4 text-amber-500"></i> Missões Ativas
+              </h3>
+            </div>
+            <div id="missoesLista" class="space-y-3">
+              <p class="text-sm text-slate-400 text-center py-4">Carregando missões…</p>
+            </div>
+          </div>
+
+          <!-- Roleta + Atalhos -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl shadow-lg p-6 text-white flex flex-col">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-2xl">🎰</span>
+                <h3 class="text-base font-black uppercase tracking-wide">Roleta da Sorte</h3>
+              </div>
+              <p class="text-sm text-white/80 mb-4">Gire e ganhe pontos extras! Custa 300 pts por giro.</p>
+              <div id="roletaStatus" class="text-xs font-bold text-white/70 mb-3">Carregando…</div>
+              <button onclick="abrirRoleta()" id="btnAbrirRoleta"
+                class="mt-auto bg-white text-purple-700 hover:bg-white/90 font-black uppercase text-sm py-3 rounded-xl transition-colors">
+                Girar Agora
+              </button>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="text-base font-black text-[#000033] mb-4">🎁 Atalhos</h3>
+              <div class="grid grid-cols-2 gap-3">
+                <button onclick="navegarPremiada('loja')" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white p-4 rounded-xl font-black text-xs uppercase text-left transition-colors">
+                  🏪<br>Loja de Prêmios
+                </button>
+                <button onclick="navegarPremiada('carteira')" class="bg-slate-800 hover:bg-slate-900 text-white p-4 rounded-xl font-black text-xs uppercase text-left transition-colors">
+                  💰<br>Minha Carteira
+                </button>
+                <button onclick="navegarPremiada('ranking')" class="bg-amber-500 hover:bg-amber-600 text-white p-4 rounded-xl font-black text-xs uppercase text-left transition-colors">
+                  📊<br>Ranking
+                </button>
+                <button onclick="navegarPremiada('ranking')" class="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-xl font-black text-xs uppercase text-left transition-colors">
+                  🏅<br>Conquistas
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===== VIEW: LOJA ===== -->
+      <div id="view-premiada-loja" class="view-premiada hidden animate-fade-in">
+        <div class="max-w-6xl mx-auto">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row gap-3 justify-between items-center">
+            <div>
+              <h2 class="text-lg font-black text-[#000033]">🏪 Loja de Prêmios</h2>
+              <p class="text-xs text-slate-500 mt-0.5">Troque seus pontos por prêmios incríveis</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+              <p class="text-[10px] font-black text-emerald-600 uppercase">Seu saldo</p>
+              <p id="saldoLoja" class="text-lg font-black text-emerald-700">— pts</p>
+            </div>
+          </div>
+          <div id="lojaGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-center text-slate-400 col-span-3 py-8">Carregando prêmios…</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== VIEW: CARTEIRA ===== -->
+      <div id="view-premiada-carteira" class="view-premiada hidden animate-fade-in">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="bg-gradient-to-br from-[#0e8890] to-[#0b6c72] rounded-2xl shadow-lg p-6 text-white">
+            <p class="text-[10px] font-black uppercase tracking-widest opacity-80">Saldo Atual</p>
+            <p id="saldoCarteira" class="text-4xl font-black mt-1">— pts</p>
+            <p id="saldoReais" class="text-sm opacity-90 mt-1">≈ R$ —</p>
+            <div class="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-white/20">
+              <div>
+                <p class="text-[10px] font-black uppercase opacity-70">Ganho no mês</p>
+                <p id="ganhoMes" class="text-lg font-black">+ 0 pts</p>
+              </div>
+              <div>
+                <p class="text-[10px] font-black uppercase opacity-70">Resgatado no mês</p>
+                <p id="resgatadoMes" class="text-lg font-black">- 0 pts</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 class="text-sm font-black text-[#000033] uppercase">Extrato</h3>
+              <span id="extratoContador" class="text-[10px] font-bold text-slate-400">—</span>
+            </div>
+            <div id="extratoLista" class="divide-y divide-slate-100">
+              <p class="text-center text-slate-400 py-8 text-sm">Carregando extrato…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== VIEW: RANKING ===== -->
+      <div id="view-premiada-ranking" class="view-premiada hidden animate-fade-in">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
+                <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Ranking da Equipe
+              </h3>
+              <select id="rankingPeriodo" onchange="carregarRanking()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1">
+                <option value="mensal">Mensal</option>
+                <option value="trimestral">Trimestral</option>
+              </select>
+            </div>
+            <div id="rankingLista" class="space-y-2">
+              <p class="text-center text-slate-400 py-6 text-sm">Carregando ranking…</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h3 class="text-base font-black text-[#000033] flex items-center gap-2 mb-4">
+              <i data-lucide="award" class="w-4 h-4 text-purple-500"></i> Minhas Conquistas
+            </h3>
+            <div id="badgesLista" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              <p class="text-center text-slate-400 col-span-4 py-6 text-sm">Carregando conquistas…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== VIEW: ADMIN ===== -->
+      <div id="view-premiada-admin" class="view-premiada hidden animate-fade-in">
+        <div class="max-w-6xl mx-auto space-y-6">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="border-b border-slate-100 flex flex-wrap">
+              <button data-atab="geral" onclick="trocarAbaAdmin('geral')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all">
+                📊 Visão Geral
+              </button>
+              <button data-atab="resgates" onclick="trocarAbaAdmin('resgates')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+                📥 Resgates <span id="badgeResgates" class="hidden ml-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full"></span>
+              </button>
+              <button data-atab="premios" onclick="trocarAbaAdmin('premios')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+                🎁 Estoque
+              </button>
+              <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+                💰 Orçamento
+              </button>
+            </div>
+
+            <!-- Admin: Visão Geral -->
+            <div id="adminContent-geral" class="admin-content p-6">
+              <div id="adminGeral" class="space-y-4">
+                <p class="text-sm text-slate-400">Carregando…</p>
+              </div>
+            </div>
+
+            <!-- Admin: Resgates -->
+            <div id="adminContent-resgates" class="admin-content hidden p-6">
+              <div id="adminResgates" class="space-y-3">
+                <p class="text-sm text-slate-400">Carregando…</p>
+              </div>
+            </div>
+
+            <!-- Admin: Estoque -->
+            <div id="adminContent-premios" class="admin-content hidden p-6">
+              <div id="adminPremios" class="space-y-3">
+                <p class="text-sm text-slate-400">Carregando…</p>
+              </div>
+            </div>
+
+            <!-- Admin: Orçamento -->
+            <div id="adminContent-orcamento" class="admin-content hidden p-6">
+              <div id="adminOrcamento" class="space-y-4">
+                <p class="text-sm text-slate-400">Carregando…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ============ MODAL: RESGATE ============ -->
+  <div id="modalResgate" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div class="bg-[#0e8890] px-6 py-4 flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i>
+        <h3 class="text-white font-bold text-sm">Confirmar Resgate</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="bg-slate-50 rounded-xl p-4">
+          <p class="font-black text-slate-800 text-lg" id="mrNome">—</p>
+          <p class="text-xs text-slate-500 mt-1" id="mrDescricao">—</p>
+          <div class="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center">
+            <span class="text-[10px] font-black text-slate-400 uppercase">Custo</span>
+            <span class="text-base font-black text-emerald-700" id="mrCusto">— pts</span>
+          </div>
+          <div class="flex justify-between items-center mt-1">
+            <span class="text-[10px] font-black text-slate-400 uppercase">Seu saldo após</span>
+            <span class="text-xs font-bold text-slate-600" id="mrSaldoApos">— pts</span>
+          </div>
+        </div>
+        <div id="mrDadosPagamento" class="space-y-3"></div>
+        <p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
+          ⚠️ A solicitação será enviada para aprovação e o prêmio será processado em até 48h.
+        </p>
+        <div id="mrAlert" class="hidden text-xs p-3 rounded-xl border font-medium"></div>
+      </div>
+      <div class="px-6 py-4 bg-slate-50 border-t flex gap-3">
+        <button onclick="fecharModalResgate()" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-2.5 rounded-xl text-xs font-black uppercase">Cancelar</button>
+        <button id="mrBtnConfirmar" onclick="confirmarResgate()" class="flex-1 bg-[#0e8890] hover:bg-[#0b6c72] text-white py-2.5 rounded-xl text-xs font-black uppercase">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ROLETA ============ -->
+  <div id="modalRoleta" class="fixed inset-0 z-[60] hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-gradient-to-br from-purple-700 to-indigo-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-white">
+      <div class="px-6 py-5 flex justify-between items-center border-b border-white/10">
+        <h3 class="font-black text-sm uppercase tracking-wide flex items-center gap-2">
+          🎰 Roleta da Sorte
+        </h3>
+        <button onclick="fecharRoleta()" class="text-white/60 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="p-8 text-center">
+        <div id="roletaWheel" class="w-64 h-64 mx-auto rounded-full mb-6 flex items-center justify-center border-8 border-white/20 bg-white/5 relative">
+          <div class="text-6xl">🎰</div>
+        </div>
+        <p class="text-sm opacity-80 mb-1">Custa <strong>300 pts</strong></p>
+        <p id="roletaSaldoAtual" class="text-xs opacity-60 mb-6">Saldo: — pts</p>
+        <button id="btnGirar" onclick="executarGiro()" class="w-full bg-white text-purple-700 hover:bg-white/90 font-black uppercase py-4 rounded-xl transition-colors">
+          Girar (300 pts)
+        </button>
+        <div id="roletaResultado" class="hidden mt-6 p-4 bg-white/10 rounded-xl border border-white/20">
+          <p class="text-xs uppercase font-black opacity-70 mb-1">Você ganhou</p>
+          <p id="roletaPontos" class="text-3xl font-black">+ 0 pts</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast">
+    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
+    <span id="toastText">Salvo!</span>
+  </div>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script>
+    /* JS virá na Parte 2 */
+  </script>
+</body>
+</html>
