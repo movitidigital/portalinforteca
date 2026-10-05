@@ -558,58 +558,78 @@ try {
     `;
   }
 
-  async function carregarMissoes() {
-    const { data: missoes } = await supabaseClient
-      .from('premiada_missoes')
-      .select('*')
-      .eq('ativa', true)
-      .gte('data_fim', new Date().toISOString().split('T')[0])
-      .order('tipo');
-
-    const { data: progresso } = await supabaseClient
-      .from('premiada_missoes_progresso')
-      .select('*')
-      .eq('user_id', state.user.id);
-
-    const lista = $('missoesLista');
-    if (!missoes || !missoes.length) {
-      lista.innerHTML = `<div class="text-center py-8"><p class="text-sm text-slate-400">🎯 Nenhuma missão ativa no momento.</p><p class="text-[10px] text-slate-400 mt-1">Volte mais tarde!</p></div>`;
-      return;
-    }
-
-    lista.innerHTML = missoes.map(m => {
-      const p = (progresso || []).find(x => x.missao_id === m.id);
-      const atual = p?.progresso_atual || 0;
-      const pct = Math.min(100, Math.round((atual / m.meta_quantidade) * 100));
-      const emergencial = m.tipo === 'emergencial';
-      const cor = emergencial ? 'red' : m.tipo === 'diaria' ? 'amber' : 'teal';
-
-      const icons = { emergencial: '🚨', diaria: '🎯', semanal: '📅', mensal: '🏆' };
-
-      return `
-        <div class="border rounded-xl p-4 ${emergencial ? 'border-red-200 bg-red-50/50' : 'border-slate-200 bg-white'}">
-          <div class="flex justify-between items-start mb-3 flex-wrap gap-2">
-            <div class="min-w-0">
-              <p class="text-[10px] font-black text-${cor}-600 uppercase tracking-wider flex items-center gap-1">
-                ${icons[m.tipo] || '🎯'} ${m.tipo}
-              </p>
-              <h4 class="font-black text-slate-800 mt-1 text-sm">${escapeHTML(m.titulo)}</h4>
-              ${m.descricao ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHTML(m.descricao)}</p>` : ''}
-            </div>
-            <span class="bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap">
-              +${m.pontos_bonus} pts
-            </span>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div class="bg-${cor}-500 h-2 rounded-full transition-all" style="width:${pct}%"></div>
-            </div>
-            <span class="text-xs font-black text-slate-600 whitespace-nowrap">${atual}/${m.meta_quantidade}</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mt-2">Termina em ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-        </div>`;
-    }).join('');
+async function carregarMissoes() {
+  // Antes de carregar, garante que as missões do dia existem
+  try {
+    await supabaseClient.rpc('gerar_missoes_automaticas');
+    await supabaseClient.rpc('calcular_progresso_missoes');
+  } catch (e) {
+    console.warn('[Missões auto]', e);
   }
+
+  const { data: missoes } = await supabaseClient
+    .from('premiada_missoes')
+    .select('*')
+    .eq('ativa', true)
+    .gte('data_fim', new Date().toISOString().split('T')[0])
+    .order('tipo');
+
+  const { data: progresso } = await supabaseClient
+    .from('premiada_missoes_progresso')
+    .select('*')
+    .eq('user_id', state.user.id);
+
+  const lista = $('missoesLista');
+  if (!missoes || !missoes.length) {
+    lista.innerHTML = `<div class="text-center py-8"><p class="text-sm text-slate-400">🎯 Nenhuma missão ativa no momento.</p><p class="text-[10px] text-slate-400 mt-1">Volte mais tarde!</p></div>`;
+    return;
+  }
+
+  lista.innerHTML = missoes.map(m => {
+    const p = (progresso || []).find(x => x.missao_id === m.id);
+    const atual = p?.progresso_atual || 0;
+    const pct = Math.min(100, Math.round((atual / m.meta_quantidade) * 100));
+    const concluida = p?.concluida || false;
+    const emergencial = m.tipo === 'emergencial';
+
+    // Cores
+    let cor, corTexto, corBg;
+    if (concluida) { cor = 'emerald'; corTexto = 'text-emerald-700'; corBg = 'bg-emerald-50'; }
+    else if (emergencial) { cor = 'red'; corTexto = 'text-red-700'; corBg = 'bg-red-50'; }
+    else { cor = 'amber'; corTexto = 'text-amber-700'; corBg = 'bg-amber-50'; }
+
+    const icons = { emergencial: '🚨', diaria: '🎯', semanal: '📅', mensal: '🏆' };
+    const tipoLabel = { emergencial: 'operação resgate', diaria: 'missão diária', semanal: 'missão semanal', mensal: 'missão mensal' };
+
+    return `
+      <div class="border rounded-xl p-4 ${concluida ? 'border-emerald-200 bg-emerald-50/50' : emergencial ? 'border-red-200 bg-red-50/50' : 'border-slate-200 bg-white'}">
+        <div class="flex justify-between items-start mb-3 flex-wrap gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black ${corTexto} uppercase tracking-wider flex items-center gap-1">
+              ${icons[m.tipo] || '🎯'} ${tipoLabel[m.tipo] || m.tipo}
+            </p>
+            <h4 class="font-black text-slate-800 mt-1 text-sm">${escapeHTML(m.titulo)}</h4>
+            ${m.descricao ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHTML(m.descricao)}</p>` : ''}
+          </div>
+          <span class="${corBg} ${corTexto} border rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap ${concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200'}">
+            ${concluida ? '✓ Concluída' : '+' + m.pontos_bonus + ' pts'}
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div class="bg-${cor}-500 h-2 rounded-full transition-all" style="width:${pct}%"></div>
+          </div>
+          <span class="text-xs font-black text-slate-600 whitespace-nowrap">${atual}/${m.meta_quantidade}</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-2">
+          Termina em ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}
+          ${concluida && p?.concluida_em ? ` · ✅ Finalizada em ${new Date(p.concluida_em).toLocaleDateString('pt-BR')}` : ''}
+        </p>
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+}
 
   async function carregarStatusRoleta() {
     const { count } = await supabaseClient
