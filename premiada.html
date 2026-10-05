@@ -250,6 +250,9 @@
               <button data-atab="premios" onclick="trocarAbaAdmin('premios')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
                 🎁 Estoque
               </button>
+              <button data-atab="resgate-op" onclick="trocarAbaAdmin('resgate-op')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+  🚨 Operação Resgate
+</button>
               <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
                 💰 Orçamento
               </button>
@@ -282,6 +285,36 @@
                 <p class="text-sm text-slate-400">Carregando…</p>
               </div>
             </div>
+            <!-- Admin: Operação Resgate -->
+<div id="adminContent-resgate-op" class="admin-content hidden p-6">
+  <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-2xl p-6 text-white mb-6">
+    <div class="flex items-start gap-4">
+      <div class="text-5xl">🚨</div>
+      <div class="flex-1">
+        <h3 class="text-xl font-black uppercase tracking-wide">Operação Resgate</h3>
+        <p class="text-sm opacity-90 mt-1">O sistema analisa as tendências do mês e cria automaticamente missões emergenciais quando a loja está abaixo de 85% da meta.</p>
+        <p class="text-xs opacity-75 mt-2">Quando ativa, todas as vendas da categoria em questão valem <strong>pontos em DOBRO</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-3 mb-6">
+    <button onclick="executarVerificacaoResgate()" id="btnVerificarResgate"
+      class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-sm uppercase flex items-center gap-2 transition-colors">
+      <i data-lucide="zap" class="w-4 h-4"></i>
+      Verificar Tendências
+    </button>
+    <button onclick="carregarAdmin()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2">
+      <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      Atualizar
+    </button>
+  </div>
+
+  <h4 class="text-sm font-black text-slate-800 uppercase mb-3">Missões Emergenciais Ativas</h4>
+  <div id="adminMissoesEmergenciais" class="space-y-3">
+    <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
+  </div>
+</div>
           </div>
         </div>
       </div>
@@ -1039,10 +1072,16 @@ if (data.bonus_primeiro_resgate) {
     });
   }
 
-  async function carregarAdmin() {
-    if (!state.isAdmin) return;
-    await Promise.all([carregarAdminGeral(), carregarAdminResgates(), carregarAdminPremios(), carregarAdminOrcamento()]);
-  }
+async function carregarAdmin() {
+  if (!state.isAdmin) return;
+  await Promise.all([
+    carregarAdminGeral(), 
+    carregarAdminResgates(), 
+    carregarAdminPremios(), 
+    carregarAdminOrcamento(),
+    carregarMissoesEmergenciais()   // 👈 NOVO
+  ]);
+}
 
   async function carregarAdminGeral() {
     const mes = new Date().toISOString().slice(0, 7);
@@ -1289,6 +1328,99 @@ window.addEventListener('DOMContentLoaded', async () => {
     }, 1200);
   }
 });
+  /* ==========================================================
+   OPERAÇÃO RESGATE — Admin
+   ========================================================== */
+async function executarVerificacaoResgate() {
+  const btn = $('btnVerificarResgate');
+  if (!btn) return;
+
+  const htmlOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('opacity-70', 'cursor-not-allowed');
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Analisando…`;
+  lucide.createIcons();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('verificar_necessidade_resgate', {
+      p_threshold: 85
+    });
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    if (data.missoes_criadas > 0) {
+      toast(`🚨 ${data.missoes_criadas} Operação(ões) Resgate ativada(s)!`);
+    } else {
+      toast('✅ Loja está na tendência. Nenhuma operação necessária.');
+    }
+
+    await carregarMissoesEmergenciais();
+  } catch (err) {
+    console.error('[Operação Resgate]', err);
+    toast('❌ ' + err.message, 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('opacity-70', 'cursor-not-allowed');
+    btn.innerHTML = htmlOriginal;
+    lucide.createIcons();
+  }
+}
+
+async function carregarMissoesEmergenciais() {
+  const box = $('adminMissoesEmergenciais');
+  if (!box) return;
+
+  const { data: missoes } = await supabaseClient
+    .from('premiada_missoes')
+    .select('*')
+    .eq('tipo', 'emergencial')
+    .eq('ativa', true)
+    .gte('data_fim', new Date().toISOString().split('T')[0])
+    .order('data_inicio', { ascending: false });
+
+  if (!missoes || !missoes.length) {
+    box.innerHTML = `
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
+        <p class="text-emerald-700 font-black text-sm">✅ Nenhuma operação resgate ativa</p>
+        <p class="text-xs text-emerald-600 mt-1">A loja está dentro da tendência de meta</p>
+      </div>`;
+    return;
+  }
+
+  box.innerHTML = missoes.map(m => `
+    <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+      <div class="flex justify-between items-start gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black text-red-600 uppercase">🚨 Missão emergencial ativa</p>
+          <h4 class="font-black text-slate-800 mt-1">${escapeHTML(m.titulo)}</h4>
+          <p class="text-xs text-slate-600 mt-1">${escapeHTML(m.descricao || '')}</p>
+          <div class="flex gap-3 mt-2 text-[10px] font-bold text-slate-500">
+            <span>📅 ${new Date(m.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR')} → ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+            <span>🎯 Meta: ${m.meta_quantidade} ${m.metrica}</span>
+          </div>
+        </div>
+        <button onclick="desativarMissaoResgate('${m.id}')" 
+          class="bg-slate-700 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">
+          Encerrar
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  lucide.createIcons();
+}
+
+async function desativarMissaoResgate(id) {
+  if (!confirm('Encerrar esta Operação Resgate?\n\nAs vendas feitas a partir de agora não terão mais pontos dobrados.')) return;
+  const { error } = await supabaseClient
+    .from('premiada_missoes')
+    .update({ ativa: false })
+    .eq('id', id);
+  if (error) { toast('❌ ' + error.message, 'erro'); return; }
+  toast('Operação Resgate encerrada.');
+  await carregarMissoesEmergenciais();
+}
 </script>
 </body>
 </html>
