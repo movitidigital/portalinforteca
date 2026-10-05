@@ -3404,12 +3404,10 @@ function filtrarBoasVindas() {
    ========================================================== */
 async function processarPontosVendas() {
   const btn = document.getElementById('btnProcessarPontos');
-  const label = document.getElementById('btnProcessarPontosLabel');
-  if (!btn || !label) return;
+  if (!btn) return;
 
   const DATA_LANCAMENTO = '2026-10-01';
 
-  // Confirmação
   const confirmar = confirm(
     '🏆 Processar Pontos — Inforteca Premiada\n\n' +
     'Isso vai gerar pontos para todas as vendas ainda não pontuadas ' +
@@ -3419,28 +3417,23 @@ async function processarPontosVendas() {
   );
   if (!confirmar) return;
 
+  // Salva o HTML original pra restaurar depois
+  const htmlOriginal = btn.innerHTML;
+
   // Estado de loading
-  const labelOriginal = label.textContent;
   btn.disabled = true;
   btn.classList.add('opacity-70', 'cursor-not-allowed');
-  label.textContent = 'Processando…';
-  btn.querySelector('i').setAttribute('data-lucide', 'loader-2');
-  btn.querySelector('i').classList.add('animate-spin');
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Processando…</span>`;
   lucide.createIcons();
 
   try {
-    // Chama a RPC
     const { data, error } = await supabaseClient.rpc('processar_pontos_vendas', {
       p_data_minima: DATA_LANCAMENTO
     });
 
     if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido ao processar.');
 
-    if (!data?.success) {
-      throw new Error(data?.erro || 'Erro desconhecido ao processar.');
-    }
-
-    // Feedback
     const processados = data.processados || 0;
     const ignoradas = data.ignorados || 0;
     const naoPontuavel = data.nao_pontuavel || 0;
@@ -3462,24 +3455,16 @@ async function processarPontosVendas() {
       toast(`✅ ${processados} venda(s) pontuada(s)!`);
     }
 
-    // Log detalhado
     console.log('[PROCESSAR PONTOS] Resultado:', data);
-
-    // Se o módulo "premiada" tem badge, atualiza (futuro)
-    // if (typeof atualizarBadgePremiada === 'function') atualizarBadgePremiada();
 
   } catch (err) {
     console.error('[PROCESSAR PONTOS] Erro:', err);
     mostrarAlertaGestao('❌ Erro: ' + err.message, 'red');
   } finally {
-    // Restaura o botão
+    // Restaura o botão usando o HTML original (que já tem o SVG renderizado)
     btn.disabled = false;
     btn.classList.remove('opacity-70', 'cursor-not-allowed');
-    label.textContent = labelOriginal;
-
-    const icone = btn.querySelector('i');
-    icone.classList.remove('animate-spin');
-    icone.setAttribute('data-lucide', 'trophy');
+    btn.innerHTML = htmlOriginal;
     lucide.createIcons();
   }
 }
@@ -4537,12 +4522,6 @@ async function importarCsvSuspensos(input) {
     }
   });
 }
-    /* ==========================================================
-   SIDEBAR COLAPSÁVEL
-   ========================================================== */
-window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(autoAjustarSidebar, 50);
-});
 
 /* ==========================================================
    DASHBOARD — Saudação, Meta Pessoal e atalhos
