@@ -3417,10 +3417,8 @@ async function processarPontosVendas() {
   );
   if (!confirmar) return;
 
-  // Salva o HTML original pra restaurar depois
   const htmlOriginal = btn.innerHTML;
 
-  // Estado de loading
   btn.disabled = true;
   btn.classList.add('opacity-70', 'cursor-not-allowed');
   btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Processando…</span>`;
@@ -3444,7 +3442,7 @@ async function processarPontosVendas() {
         `ℹ️ Nenhuma venda nova para pontuar. ${ignoradas + naoPontuavel} já processadas/ignoradas.`,
         'amber'
       );
-      toast('Nenhuma venda nova para pontuar.');
+      mostrarToastCopy('Nenhuma venda nova para pontuar.');
     } else {
       const partes = [`✅ ${processados} venda(s) pontuada(s)`];
       if (naoPontuavel > 0) partes.push(`${naoPontuavel} troca de aparelho ignorada`);
@@ -3452,7 +3450,7 @@ async function processarPontosVendas() {
       if (semConsultor > 0) partes.push(`⚠️ ${semConsultor} sem consultor`);
 
       mostrarAlertaGestao(partes.join(' · '), 'emerald');
-      toast(`✅ ${processados} venda(s) pontuada(s)!`);
+      mostrarToastCopy(`🏆 ${processados} venda(s) pontuada(s)!`);
     }
 
     console.log('[PROCESSAR PONTOS] Resultado:', data);
@@ -3461,7 +3459,6 @@ async function processarPontosVendas() {
     console.error('[PROCESSAR PONTOS] Erro:', err);
     mostrarAlertaGestao('❌ Erro: ' + err.message, 'red');
   } finally {
-    // Restaura o botão usando o HTML original (que já tem o SVG renderizado)
     btn.disabled = false;
     btn.classList.remove('opacity-70', 'cursor-not-allowed');
     btn.innerHTML = htmlOriginal;
