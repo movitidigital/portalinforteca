@@ -776,10 +776,18 @@ try {
         p_dados_pagamento: dados,
       });
       if (error) throw error;
-      if (!data?.success) throw new Error(data?.erro || 'Erro ao solicitar resgate');
+if (!data?.success) throw new Error(data?.erro || 'Erro ao solicitar resgate');
 
-      fecharModalResgate();
-      toast('✅ Resgate solicitado! Aguarde aprovação.');
+fecharModalResgate();
+
+if (data.bonus_primeiro_resgate) {
+  toast(`🎁 Resgate solicitado! E você ganhou +${data.bonus_primeiro_resgate} pts de bônus pelo primeiro resgate!`, 'ok');
+  setTimeout(() => {
+    toast('✅ Aguarde aprovação em até 48h.', 'ok');
+  }, 2500);
+} else {
+  toast('✅ Resgate solicitado! Aguarde aprovação.');
+}
       await garantirConsultor();
       await carregarLoja();
       await carregarHub();
