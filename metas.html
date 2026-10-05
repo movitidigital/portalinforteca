@@ -184,73 +184,7 @@
 <body class="flex h-screen overflow-hidden">
 
   <!-- BARRA LATERAL (SIDEBAR) -->
-  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0">
-    <div>
-      <div class="h-20 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
-        <div class="flex items-center gap-2 min-w-0">
-          <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-9 w-auto object-contain shrink-0" onerror="this.style.display='none'">
-          <div class="min-w-0">
-            <h1 class="text-sm font-black tracking-tight leading-none truncate">PORTAL INFORTECA</h1>
-            <p class="text-[9px] text-[#0e8890] font-bold uppercase tracking-widest mt-1 truncate">Loja TIM Dom José</p>
-          </div>
-        </div>
-      </div>
-     <nav class="p-4 space-y-1.5 mt-2">
-  <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Menu Principal</p>
-
-  <a href="dashboard.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Dashboard</span>
-  </a>
-
-  <a href="dashboard.html#clientes" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Clientes TIM</span>
-  </a>
-
-  <a href="dashboard.html#portabilidades" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="arrow-left-right" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Portabilidades</span>
-  </a>
-
-  <a href="dashboard.html#faturas" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Faturas</span>
-  </a>
-
-  <a href="dashboard.html#suspensoes" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="shield-alert" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Gestão de Acessos</span>
-  </a>
-
-  <a href="dashboard.html#gestao" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="file-check-2" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Gestão de Clientes</span>
-  </a>
-
-  <a href="dashboard.html#prospeccao" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Prospecção</span>
-  </a>
-
-<a href="metas.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 bg-[#0e8890] text-white rounded-lg font-medium shadow-md shadow-[#0e8890]/20 cursor-pointer">
-  <i data-lucide="target" class="w-5 h-5 shrink-0"></i>
-<span class="nav-label text-[11px] font-medium whitespace-nowrap">Acompanhamento de Metas</span>
-</a>
-
-  <a href="usuarios.html" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer">
-    <i data-lucide="user-cog" class="w-5 h-5 shrink-0"></i>
-    <span class="text-sm font-medium">Gestão de Usuários</span>
-  </a>
-</nav>
-    </div>
-    <div class="p-4 border-t border-white/10">
-      <button onclick="terminarSessao()" class="flex items-center gap-3 px-3 py-2.5 w-full text-slate-300 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors text-sm font-medium cursor-pointer">
-        <i data-lucide="log-out" class="w-5 h-5 shrink-0"></i>
-        <span>Encerrar Sessão</span>
-      </button>
-    </div>
-  </aside>
+<aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
 
   <!-- CONTENTOR PRINCIPAL -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
@@ -1072,13 +1006,6 @@ async function verificarAuth() {
       window.location.href = 'index.html';
     }
 
-    function toggleSidebar() {
-      const s = document.getElementById('sidebar');
-      s.classList.toggle('hidden');
-      s.classList.toggle('absolute');
-      s.classList.toggle('inset-y-0');
-      s.classList.toggle('z-40');
-    }
 
     window.onload = async () => {
   lucide.createIcons();
