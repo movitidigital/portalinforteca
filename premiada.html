@@ -1079,6 +1079,18 @@ if (data.bonus_primeiro_resgate) {
       return;
     }
 
+    // 🚨 Verifica se há espaço no orçamento
+const mes = new Date().toISOString().slice(0, 7);
+const { data: orc } = await supabaseClient
+  .from('premiada_orcamento')
+  .select('*')
+  .eq('mes', mes)
+  .maybeSingle();
+
+const teto = orc?.teto_reais || 500;
+const gasto = orc?.gasto_reais || 0;
+const disponivel = teto - gasto;
+const orcamentoEstourando = disponivel <= 0;
     const statusCor = {
       pendente: 'bg-amber-50 border-amber-200 text-amber-700',
       aprovado: 'bg-emerald-50 border-emerald-200 text-emerald-700',
@@ -1086,8 +1098,23 @@ if (data.bonus_primeiro_resgate) {
       entregue: 'bg-slate-50 border-slate-200 text-slate-700',
     };
 
-    box.innerHTML = resgates.map(r => {
-      const nome = (perfis || []).find(p => p.id === r.user_id)?.nome_completo || '—';
+box.innerHTML = (orcamentoEstourando ? `
+  <div class="bg-red-50 border-2 border-red-300 rounded-xl p-4 mb-3">
+    <p class="font-black text-red-700 flex items-center gap-2">
+      <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+      🚨 ORÇAMENTO ESGOTADO
+    </p>
+    <p class="text-xs text-red-600 mt-1">
+      Você já usou <strong>${fmtMoeda(gasto)}</strong> de <strong>${fmtMoeda(teto)}</strong> este mês.
+      Não será possível aprovar novos resgates até aumentar o teto ou virar o mês.
+    </p>
+    <button onclick="navegarPremiada('admin'); trocarAbaAdmin('orcamento')" 
+      class="mt-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-black uppercase">
+      Aumentar Teto
+    </button>
+  </div>
+` : '') + resgates.map(r => {
+  const nome = (perfis || []).find(p => p.id === r.user_id)?.nome_completo || '—';
       const snap = r.premio_snapshot || {};
       const data = new Date(r.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -1113,44 +1140,46 @@ if (data.bonus_primeiro_resgate) {
     lucide.createIcons();
   }
 
-  async function aprovarResgate(id) {
-    if (!confirm('Confirmar aprovação deste resgate?')) return;
-    const { error } = await supabaseClient
-      .from('premiada_resgates')
-      .update({
-        status: 'aprovado',
-        aprovado_por: state.user.id,
-        aprovado_em: new Date().toISOString(),
-      })
-      .eq('id', id);
-    if (error) { toast('❌ ' + error.message, 'erro'); return; }
-    toast('✅ Resgate aprovado!');
-    carregarAdmin();
+async function aprovarResgate(id) {
+  if (!confirm('Confirmar aprovação deste resgate?\n\nO estoque será debitado e o valor entrará no orçamento do mês.')) return;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('aprovar_resgate', {
+      p_resgate_id: id,
+      p_observacao: null
+    });
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast('✅ Resgate aprovado! Estoque e orçamento atualizados.');
+    await carregarAdmin();
+  } catch (err) {
+    console.error('[Aprovar]', err);
+    toast('❌ ' + err.message, 'erro');
   }
+}
 
-  async function rejeitarResgate(id) {
-    const motivo = prompt('Motivo da rejeição (opcional):');
-    if (motivo === null) return;
+async function rejeitarResgate(id) {
+  const motivo = prompt('Motivo da rejeição (opcional):');
+  if (motivo === null) return; // cancelou
 
-    // Devolve os pontos ao consultor
-    const { data: r } = await supabaseClient.from('premiada_resgates').select('*').eq('id', id).single();
-    if (r) {
-      await supabaseClient.rpc('ajustar_saldo', { p_user_id: r.user_id, p_pontos: r.custo_pontos, p_descricao: 'Estorno de resgate rejeitado' }).catch(() => {});
-    }
+  try {
+    const { data, error } = await supabaseClient.rpc('rejeitar_resgate', {
+      p_resgate_id: id,
+      p_motivo: motivo || 'Rejeitado pelo administrador'
+    });
 
-    const { error } = await supabaseClient
-      .from('premiada_resgates')
-      .update({
-        status: 'rejeitado',
-        observacao_admin: motivo || 'Rejeitado',
-        aprovado_por: state.user.id,
-        aprovado_em: new Date().toISOString(),
-      })
-      .eq('id', id);
-    if (error) { toast('❌ ' + error.message, 'erro'); return; }
-    toast('Resgate rejeitado.');
-    carregarAdmin();
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast(`↩️ Resgate rejeitado. ${data.pontos_devolvidos} pts devolvidos ao consultor.`);
+    await carregarAdmin();
+  } catch (err) {
+    console.error('[Rejeitar]', err);
+    toast('❌ ' + err.message, 'erro');
   }
+}
 
   async function carregarAdminPremios() {
     const { data: premios } = await supabaseClient
