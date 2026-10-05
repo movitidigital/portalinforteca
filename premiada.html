@@ -600,12 +600,19 @@ async function carregarMissoes() {
     console.warn('[Missões auto]', e);
   }
 
-  const { data: missoes } = await supabaseClient
+  const { data: missoesRaw } = await supabaseClient
     .from('premiada_missoes')
     .select('*')
     .eq('ativa', true)
-    .gte('data_fim', new Date().toISOString().split('T')[0])
-    .order('tipo', { ascending: true });
+    .gte('data_fim', new Date().toISOString().split('T')[0]);
+
+  // 🎯 Ordem customizada: Emergencial → Diária → Semanal → Mensal
+  const ordemPrioridade = { emergencial: 0, diaria: 1, semanal: 2, mensal: 3 };
+  const missoes = (missoesRaw || []).sort((a, b) => {
+    const pa = ordemPrioridade[a.tipo] ?? 99;
+    const pb = ordemPrioridade[b.tipo] ?? 99;
+    return pa - pb;
+  });
 
   const { data: progresso } = await supabaseClient
     .from('premiada_missoes_progresso')
@@ -613,7 +620,7 @@ async function carregarMissoes() {
     .eq('user_id', state.user.id);
 
   const lista = $('missoesLista');
-  if (!missoes || !missoes.length) {
+  if (!missoes.length) {
     lista.innerHTML = `<div class="text-center py-8"><p class="text-sm text-slate-400">🎯 Nenhuma missão ativa no momento.</p><p class="text-[10px] text-slate-400 mt-1">Volte mais tarde!</p></div>`;
     return;
   }
@@ -634,6 +641,18 @@ async function carregarMissoes() {
     const icons = { emergencial: '🚨', diaria: '🎯', semanal: '📅', mensal: '🏆' };
     const tipoLabel = { emergencial: 'operação resgate', diaria: 'missão diária', semanal: 'missão semanal', mensal: 'missão mensal' };
 
+    // 🎯 Texto do badge — variável separada pra não quebrar o template
+    let badgeTexto = '';
+    if (concluida) {
+      badgeTexto = '✓ Concluída';
+    } else if (emergencial) {
+      badgeTexto = '🚨 PONTOS EM DOBRO';
+    } else {
+      badgeTexto = '+' + m.pontos_bonus + ' PTS';
+    }
+
+    const badgeBorder = concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200';
+
     return `
       <div class="border rounded-xl p-4 ${concluida ? 'border-emerald-200 bg-emerald-50/50' : emergencial ? 'border-red-200 bg-red-50/50' : 'border-slate-200 bg-white'}">
         <div class="flex justify-between items-start mb-3 flex-wrap gap-2">
@@ -644,16 +663,8 @@ async function carregarMissoes() {
             <h4 class="font-black text-slate-800 mt-1 text-sm">${escapeHTML(m.titulo)}</h4>
             ${m.descricao ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHTML(m.descricao)}</p>` : ''}
           </div>
-          <span class="${corBg} ${corTexto} border rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap ${concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200'}">
-            ${concluida ? <span class="${corBg} ${corTexto} border rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap ${concluida ? 'border-emerald-200' : emergencial ? 'border-red-200' : 'border-amber-200'}">
-  ${
-    concluida 
-      ? '✓ Concluída' 
-      : emergencial 
-        ? '🚨 PONTOS EM DOBRO' 
-        : '+' + m.pontos_bonus + ' PTS'
-  }
-</span>}
+          <span class="${corBg} ${corTexto} border ${badgeBorder} rounded-lg px-2.5 py-1 text-[10px] font-black uppercase whitespace-nowrap">
+            ${badgeTexto}
           </span>
         </div>
         <div class="flex items-center gap-3">
