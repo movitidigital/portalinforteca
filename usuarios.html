@@ -29,117 +29,12 @@
     }
     .toast.show { opacity: 1; transform: translateY(0); }
 
-    #sidebar { transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1); overflow-x: hidden; }
-    #sidebar.collapsed { width: 72px !important; }
-    #sidebar.collapsed .nav-label,
-    #sidebar.collapsed #sidebarBrand > div > h1,
-    #sidebar.collapsed #sidebarBrand > div > p,
-    #sidebar.collapsed .menu-section-title { display: none; }
-    #sidebar.collapsed .nav-item { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
-    #sidebar.collapsed #sidebarBrand { justify-content: center; }
-    #sidebar.collapsed #sidebarBrand > div { display: none; }
-    #sidebar.collapsed #sidebarBrand img { height: 36px; }
-    #sidebar.collapsed #sidebarToggleIcon { transform: rotate(180deg); }
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
   <!-- ============ SIDEBAR ============ -->
-  <aside id="sidebar"
-    class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0">
-    <div>
-      <div class="h-20 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
-        <div id="sidebarBrand" class="flex items-center gap-2 overflow-hidden transition-all duration-300 min-w-0">
-          <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca"
-            class="h-9 w-auto object-contain shrink-0"
-            onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-logo').style.display='flex';">
-          <div class="min-w-0">
-            <h1 class="text-sm font-black tracking-tight leading-none truncate">PORTAL INFORTECA</h1>
-            <p class="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-1 truncate">Loja TIM Dom José</p>
-          </div>
-          <div class="fallback-logo hidden items-center gap-2">
-            <span class="text-[#E60000] text-2xl leading-none font-black">==</span>
-            <div>
-              <h1 class="text-sm font-black tracking-tight leading-none">INFORTECA</h1>
-              <p class="text-[9px] text-slate-400 font-medium uppercase tracking-widest mt-1">Loja TIM Dom José</p>
-            </div>
-          </div>
-        </div>
-        <button id="sidebarToggle" onclick="toggleSidebarCollapse()"
-          class="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-          title="Recolher / expandir menu">
-          <i data-lucide="panel-left-close" id="sidebarToggleIcon" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <nav class="p-4 space-y-1.5 mt-2">
-        <p class="menu-section-title px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Menu Principal</p>
-
-        <a href="dashboard.html" data-nav="dashboard"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Dashboard</span>
-        </a>
-
-        <a href="dashboard.html#clientes" data-nav="clientes"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="search" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Clientes TIM</span>
-        </a>
-
-        <a href="dashboard.html#portabilidades" data-nav="portabilidades"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="arrow-left-right" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Portabilidades</span>
-        </a>
-
-        <a href="dashboard.html#faturas" data-nav="faturas"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="file-text" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Faturas</span>
-        </a>
-
-        <a href="dashboard.html#suspensoes" data-nav="suspensoes"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="shield-alert" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Gestão de Acessos</span>
-        </a>
-
-        <a href="dashboard.html#gestao" data-nav="gestao"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="file-check-2" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Gestão de Clientes</span>
-        </a>
-
-        <a href="dashboard.html#prospeccao" data-nav="prospeccao"
-          class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="users" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Prospecção</span>
-        </a>
-
-<a id="btnMenuMetas" href="metas.html" data-nav="metas"
-  class="hidden nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors group cursor-pointer">
-  <i data-lucide="target" class="w-5 h-5 shrink-0"></i>
-<span class="nav-label text-[11px] font-medium whitespace-nowrap">Acompanhamento de Metas</span>
-</a>
-
-        <!-- 👇 ATIVO NESTA PÁGINA -->
-        <a id="btnMenuUsuarios" href="usuarios.html" data-nav="usuarios"
-  class="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-          <i data-lucide="user-cog" class="w-5 h-5 shrink-0"></i>
-          <span class="nav-label text-sm font-medium">Gestão de Usuários</span>
-        </a>
-      </nav>
-    </div>
-
-    <div class="p-4 border-t border-white/10">
-      <button onclick="terminarSessao()"
-        class="flex items-center gap-3 px-3 py-2.5 w-full text-slate-300 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors text-sm font-medium">
-        <i data-lucide="log-out" class="w-5 h-5 shrink-0"></i>
-        <span class="logout-label">Encerrar Sessão</span>
-      </button>
-    </div>
-  </aside>
+<aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
 
   <!-- ============ MAIN ============ -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
@@ -1086,38 +981,9 @@ async function excluirCadastroUsuario() {
     /* ==========================================================
        SIDEBAR COLAPSÁVEL
        ========================================================== */
-    const SIDEBAR_KEY = 'inforteca_sidebar_collapsed';
-    function aplicarEstadoSidebar(c) {
-      const s = $('sidebar'); if (!s) return;
-      if (c) s.classList.add('collapsed'); else s.classList.remove('collapsed');
-      document.documentElement.style.setProperty('--sidebar-width', c ? '72px' : '256px');
-    }
-    function toggleSidebarCollapse() {
-      const s = $('sidebar'); if (!s) return;
-      const vai = !s.classList.contains('collapsed');
-      aplicarEstadoSidebar(vai);
-      localStorage.setItem(SIDEBAR_KEY, vai ? '1' : '0');
-      lucide.createIcons();
-    }
-    function autoAjustarSidebar() {
-      const saved = localStorage.getItem(SIDEBAR_KEY);
-      const w = window.innerWidth;
-      if (saved === null) { aplicarEstadoSidebar(w < 1280); return; }
-      if (w < 900) aplicarEstadoSidebar(true);
-      else aplicarEstadoSidebar(saved === '1');
-    }
-    let _sbTimer = null;
-    window.addEventListener('resize', () => {
-      clearTimeout(_sbTimer); _sbTimer = setTimeout(autoAjustarSidebar, 150);
-    });
 
-    function toggleSidebar() {
-      const s = $('sidebar');
-      s.classList.toggle('hidden');
-      s.classList.toggle('absolute');
-      s.classList.toggle('inset-y-0');
-      s.classList.toggle('z-40');
-    }
+    let _sbTimer = null;
+
 
     /* ==========================================================
        BOOT
