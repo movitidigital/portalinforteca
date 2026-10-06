@@ -218,6 +218,24 @@
               </p>
             </div>
           </div>
+
+          <!-- 📢 FEED DE ATIVIDADES -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+              <div>
+                <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
+                  <i data-lucide="megaphone" class="w-4 h-4 text-[#0e8890]"></i> Atividade da Equipe
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">O que está acontecendo agora na loja</p>
+              </div>
+              <button onclick="carregarFeed()" class="text-[#0e8890] hover:text-[#0b6c72] text-xs font-bold flex items-center gap-1">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar
+              </button>
+            </div>
+            <div id="feedLista" class="space-y-2 max-h-[400px] overflow-y-auto">
+              <p class="text-sm text-slate-400 text-center py-6">Carregando atividade…</p>
+            </div>
+          </div>
           
           <!-- Missões -->
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
@@ -1278,6 +1296,91 @@ async function carregarMissoes() {
   lucide.createIcons();
 }
 
+/* ==========================================================
+   FEED DE ATIVIDADES
+   ========================================================== */
+let _feedRefreshTimer = null;
+
+async function carregarFeed() {
+  const box = $('feedLista');
+  if (!box) return;
+
+  const { data: feed } = await supabaseClient
+    .from('premiada_feed')
+    .select('*, perfil:perfis!premiada_feed_user_id_fkey(nome_completo)')
+    .order('criado_em', { ascending: false })
+    .limit(20);
+
+  const lista = feed || [];
+
+  if (!lista.length) {
+    box.innerHTML = `
+      <div class="text-center py-8">
+        <i data-lucide="megaphone" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+        <p class="text-sm text-slate-500">Nenhuma atividade ainda</p>
+        <p class="text-[10px] text-slate-400 mt-1">Seja o primeiro a fazer história!</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  // Cores por tipo
+  const tipoCor = {
+    badge:      { bg: 'bg-purple-50 border-purple-200', texto: 'text-purple-800' },
+    missao:     { bg: 'bg-amber-50 border-amber-200',   texto: 'text-amber-800' },
+    resgate:    { bg: 'bg-emerald-50 border-emerald-200', texto: 'text-emerald-800' },
+    streak:     { bg: 'bg-orange-50 border-orange-200', texto: 'text-orange-800' },
+    operacao:   { bg: 'bg-red-50 border-red-200',       texto: 'text-red-800' },
+    venda:      { bg: 'bg-blue-50 border-blue-200',     texto: 'text-blue-800' },
+  };
+
+  box.innerHTML = lista.map(f => {
+    const conf = tipoCor[f.tipo] || { bg: 'bg-slate-50 border-slate-200', texto: 'text-slate-700' };
+    const tempo = tempoRelativo(f.criado_em);
+
+    return `
+      <div class="flex items-start gap-3 p-3 rounded-xl border-2 ${conf.bg} transition-all hover:shadow-sm">
+        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shrink-0 border border-slate-200">
+          ${f.icone || '📢'}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold ${conf.texto} leading-tight">${escapeHTML(f.mensagem)}</p>
+          <p class="text-[10px] text-slate-400 mt-1 font-bold">${tempo}</p>
+        </div>
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+
+  // Auto-refresh a cada 60s
+  clearTimeout(_feedRefreshTimer);
+  _feedRefreshTimer = setTimeout(() => {
+    // Só atualiza se o Hub ainda estiver visível
+    if (!$('view-premiada-hub')?.classList.contains('hidden')) {
+      carregarFeed();
+    }
+  }, 60000);
+}
+
+function tempoRelativo(dataISO) {
+  if (!dataISO) return '—';
+
+  const agora = new Date();
+  const data = new Date(dataISO);
+  const diffMs = agora - data;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffH = Math.floor(diffMin / 60);
+  const diffD = Math.floor(diffH / 24);
+
+  if (diffMin < 1) return 'agora mesmo';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  if (diffH < 24) return `há ${diffH}h`;
+  if (diffD === 1) return 'ontem';
+  if (diffD < 7) return `há ${diffD} dias`;
+
+  return data.toLocaleDateString('pt-BR');
+}
+  
   async function carregarStatusRoleta() {
     const { count } = await supabaseClient
       .from('premiada_roleta_giros')
@@ -2262,6 +2365,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await carregarHub();
   await carregarMissoes();
   await carregarStatusRoleta();
+  await carregarFeed();
 
   navegarPremiada('hub');
 
