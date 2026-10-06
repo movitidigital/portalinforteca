@@ -366,7 +366,8 @@
 </button>
  <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 💰 Orçamento </button>
 <button data-atab="missoes" onclick="trocarAbaAdmin('missoes')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 🎯 Missões </button>
-              <button data-atab="config" onclick="trocarAbaAdmin('config')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> ⚙️ Configurações </button>
+<button data-atab="badges" onclick="trocarAbaAdmin('badges')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 🏅 Badges </button>              
+              ]<button data-atab="config" onclick="trocarAbaAdmin('config')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> ⚙️ Configurações </button>
             </div>
 
             <!-- Admin: Visão Geral -->
@@ -435,6 +436,28 @@
     <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
   </div>
 </div>   
+
+<!-- Admin: Badges -->
+<div id="adminContent-badges" class="admin-content hidden p-6">
+  <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+    <div>
+      <h3 class="text-base font-black text-[#000033]">🏅 Gestão de Conquistas</h3>
+      <p class="text-xs text-slate-500 mt-0.5">Crie e edite badges que os consultores conquistam automaticamente</p>
+    </div>
+    <button onclick="abrirModalBadge(null)"
+      class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+      <i data-lucide="plus" class="w-4 h-4"></i> Novo Badge
+    </button>
+  </div>
+
+  <!-- KPIs -->
+  <div id="adminBadgesKPIs" class="grid grid-cols-4 gap-3 mb-5"></div>
+
+  <!-- Lista -->
+  <div id="adminBadgesLista" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+    <p class="text-sm text-slate-400 py-6 text-center col-span-3">Carregando…</p>
+  </div>
+</div>            
 <!-- Admin: Configurações -->
 <div id="adminContent-config" class="admin-content hidden p-6">
 
@@ -564,6 +587,128 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: BADGE (CRUD) ============ -->
+  <div id="modalBadge" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-purple-600 px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="award" class="w-5 h-5 text-white"></i>
+          <h3 id="mbTitulo" class="text-white font-black text-sm uppercase">Novo Badge</h3>
+        </div>
+        <button onclick="fecharModalBadge()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="mbId">
+
+        <!-- Preview do badge -->
+        <div class="flex justify-center py-3">
+          <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-50 border-2 border-purple-200 flex items-center justify-center text-5xl" id="mbPreview">
+            🏅
+          </div>
+        </div>
+
+        <!-- Ícone + Código -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Ícone (emoji)</label>
+            <input type="text" id="mbIcone" maxlength="4" placeholder="🏅" oninput="atualizarPreviewBadge()"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-2xl text-center focus:outline-none focus:border-purple-500">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Código *</label>
+            <input type="text" id="mbCodigo" placeholder="ex: portador_master"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:border-purple-500">
+            <p class="text-[9px] text-slate-400 mt-1">Sem espaços, use _ (ex: super_portador)</p>
+          </div>
+        </div>
+
+        <!-- Nome -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome do Badge *</label>
+          <input type="text" id="mbNome" placeholder="Ex: Portador Master"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-purple-500">
+        </div>
+
+        <!-- Descrição -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Descrição</label>
+          <input type="text" id="mbDescricao" placeholder="Ex: Conquiste 10+ portabilidades em um mês"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-purple-500">
+        </div>
+
+        <!-- Raridade -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Raridade *</label>
+          <select id="mbRaridade"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-purple-500">
+            <option value="comum">⚪ Comum</option>
+            <option value="raro">🟡 Raro</option>
+            <option value="epico">🟣 Épico</option>
+            <option value="lendario">🔴 Lendário</option>
+          </select>
+        </div>
+
+        <!-- Critério automático -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <p class="text-[10px] font-black text-slate-500 uppercase">🏅 Critério Automático</p>
+          <p class="text-[10px] text-slate-500 -mt-2">O sistema concede este badge automaticamente ao atingir a condição.</p>
+
+          <div>
+            <label class="block text-[10px] font-bold text-slate-600 mb-1">Quando conceder?</label>
+            <select id="mbMetrica" onchange="atualizarFormCriterio()"
+              class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:border-purple-500">
+              <option value="portabilidade_total">⚡ N portabilidades no mês</option>
+              <option value="streak">🔥 N dias consecutivos</option>
+              <option value="roleta_giros">🎰 N giros na roleta</option>
+              <option value="ranking">🏆 Estar no Top N do ranking</option>
+              <option value="primeiro_resgate">💰 Fazer o primeiro resgate</option>
+              <option value="missao_emergencial">🚀 Participar de Operação Resgate</option>
+              <option value="manual">✋ Manual (sem critério automático)</option>
+            </select>
+          </div>
+
+          <div id="mbCampoMeta" class="hidden">
+            <label class="block text-[10px] font-bold text-slate-600 mb-1">Quantidade necessária</label>
+            <input type="number" id="mbMeta" min="1" value="10"
+              class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-purple-500">
+          </div>
+
+          <div id="mbCampoPosicao" class="hidden">
+            <label class="block text-[10px] font-bold text-slate-600 mb-1">Posição no ranking (ex: 3 = Top 3)</label>
+            <input type="number" id="mbPosicao" min="1" value="3"
+              class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-purple-500">
+          </div>
+        </div>
+
+        <!-- Ativo -->
+        <label class="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+          <input type="checkbox" id="mbAtivo" checked class="w-4 h-4 accent-purple-600">
+          <span class="text-xs font-bold text-slate-700">Badge ativo (aparece no perfil dos consultores)</span>
+        </label>
+
+        <div id="mbAlert" class="hidden text-xs p-3 rounded-xl border font-medium"></div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t flex justify-between gap-3 shrink-0">
+        <button id="mbBtnExcluir" onclick="excluirBadge()"
+          class="hidden bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir
+        </button>
+        <div class="flex gap-3 ml-auto">
+          <button onclick="fecharModalBadge()" class="px-4 py-2 text-sm font-medium text-slate-600">Cancelar</button>
+          <button id="mbBtnSalvar" onclick="salvarBadge()"
+            class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+            <i data-lucide="save" class="w-4 h-4"></i> Gravar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
   <!-- ============ MODAL: MISSÃO (CRUD) ============ -->
   <div id="modalMissao" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
@@ -1563,6 +1708,7 @@ async function carregarAdmin() {
     carregarAdminOrcamento(),
     carregarMissoesEmergenciais(),
     carregarAdminMissoes(),
+    carregarAdminBadges(),
     carregarConfig()
   ]);
 }
@@ -2487,6 +2633,271 @@ async function executarVerificacaoResgate() {
   }
 }
 
+/* ==========================================================
+   ADMIN — BADGES (CRUD)
+   ========================================================== */
+
+async function carregarAdminBadges() {
+  const { data: badges } = await supabaseClient
+    .from('premiada_badges')
+    .select('*')
+    .order('raridade', { ascending: true });
+
+  const { data: ganhos } = await supabaseClient
+    .from('premiada_badges_consultor')
+    .select('badge_id');
+
+  const lista = badges || [];
+  const ganhosMap = {};
+  (ganhos || []).forEach(g => { ganhosMap[g.badge_id] = (ganhosMap[g.badge_id] || 0) + 1; });
+
+  // KPIs
+  const total = lista.length;
+  const ativos = lista.filter(b => b.ativo).length;
+  const comuns = lista.filter(b => b.raridade === 'comum').length;
+  const raros = lista.filter(b => b.raridade !== 'comum').length;
+
+  $('adminBadgesKPIs').innerHTML = `
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-purple-600 uppercase">Total</p>
+      <p class="text-xl font-black text-purple-700 mt-1">${total}</p>
+    </div>
+    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-emerald-600 uppercase">Ativos</p>
+      <p class="text-xl font-black text-emerald-700 mt-1">${ativos}</p>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-slate-600 uppercase">Comuns</p>
+      <p class="text-xl font-black text-slate-700 mt-1">${comuns}</p>
+    </div>
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-amber-600 uppercase">Raros+</p>
+      <p class="text-xl font-black text-amber-700 mt-1">${raros}</p>
+    </div>
+  `;
+
+  // Lista
+  const box = $('adminBadgesLista');
+  if (!lista.length) {
+    box.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm col-span-3">Nenhum badge cadastrado.</p>`;
+    return;
+  }
+
+  const raridadeConf = {
+    comum: { label: 'Comum', cor: 'border-slate-200 bg-slate-50', badge: 'bg-slate-200 text-slate-700' },
+    raro: { label: 'Raro', cor: 'border-amber-200 bg-amber-50', badge: 'bg-amber-200 text-amber-800' },
+    epico: { label: 'Épico', cor: 'border-purple-200 bg-purple-50', badge: 'bg-purple-200 text-purple-800' },
+    lendario: { label: 'Lendário', cor: 'border-rose-200 bg-rose-50', badge: 'bg-rose-200 text-rose-800' },
+  };
+
+  box.innerHTML = lista.map(b => {
+    const conf = raridadeConf[b.raridade] || raridadeConf.comum;
+    const qtdGanhos = ganhosMap[b.id] || 0;
+
+    return `
+      <div class="border-2 ${conf.cor} rounded-xl p-4 ${!b.ativo ? 'opacity-60' : ''}">
+        <div class="flex items-start justify-between gap-2 mb-3">
+          <div class="text-4xl">${b.icone || '🏅'}</div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${conf.badge}">${conf.label}</span>
+            ${!b.ativo ? '<span class="text-[8px] font-black bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full uppercase">Inativo</span>' : ''}
+          </div>
+        </div>
+
+        <p class="font-black text-slate-800 text-sm leading-tight">${escapeHTML(b.nome)}</p>
+        <p class="text-[10px] text-slate-500 mt-1 leading-tight">${escapeHTML(b.descricao || 'Sem descrição')}</p>
+
+        <div class="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+          <div>
+            <p class="text-[9px] font-black text-slate-400 uppercase">Conquistado por</p>
+            <p class="text-sm font-black ${qtdGanhos > 0 ? 'text-emerald-600' : 'text-slate-400'}">${qtdGanhos} ${qtdGanhos === 1 ? 'consultor' : 'consultores'}</p>
+          </div>
+          <button onclick="abrirModalBadge('${b.id}')"
+            class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">
+            Editar
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+/* ==========================================================
+   MODAL BADGE — Abrir / Fechar
+   ========================================================== */
+let _badgeEditando = null;
+
+async function abrirModalBadge(id) {
+  if (id) {
+    const { data } = await supabaseClient
+      .from('premiada_badges').select('*').eq('id', id).single();
+    _badgeEditando = data;
+  } else {
+    _badgeEditando = null;
+  }
+
+  const b = _badgeEditando;
+  const criterio = b?.criterio || {};
+
+  $('mbId').value = b?.id || '';
+  $('mbTitulo').textContent = b ? 'Editar Badge' : 'Novo Badge';
+  $('mbCodigo').value = b?.codigo || '';
+  $('mbNome').value = b?.nome || '';
+  $('mbDescricao').value = b?.descricao || '';
+  $('mbIcone').value = b?.icone || '🏅';
+  $('mbRaridade').value = b?.raridade || 'comum';
+  $('mbAtivo').checked = b?.ativo ?? true;
+
+  // Critério
+  const metrica = criterio.metrica || 'manual';
+  $('mbMetrica').value = metrica;
+  $('mbMeta').value = criterio.meta || 10;
+  $('mbPosicao').value = criterio.posicao || 3;
+
+  // Bloqueia código se for edição (evita quebrar referências)
+  $('mbCodigo').disabled = !!b;
+
+  // Mostra botão excluir
+  $('mbBtnExcluir').classList.toggle('hidden', !b);
+
+  $('mbAlert').classList.add('hidden');
+  atualizarPreviewBadge();
+  atualizarFormCriterio();
+
+  $('modalBadge').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function fecharModalBadge() {
+  $('modalBadge').classList.add('hidden');
+  _badgeEditando = null;
+}
+
+function atualizarPreviewBadge() {
+  const icone = $('mbIcone').value.trim() || '🏅';
+  $('mbPreview').textContent = icone;
+}
+
+function atualizarFormCriterio() {
+  const metrica = $('mbMetrica').value;
+
+  // Esconde todos
+  $('mbCampoMeta').classList.add('hidden');
+  $('mbCampoPosicao').classList.add('hidden');
+
+  if (metrica === 'portabilidade_total' || metrica === 'streak' || metrica === 'roleta_giros') {
+    $('mbCampoMeta').classList.remove('hidden');
+  } else if (metrica === 'ranking') {
+    $('mbCampoPosicao').classList.remove('hidden');
+  }
+  // 'primeiro_resgate' e 'missao_emergencial' não precisam de campo (são booleanos)
+  // 'manual' não mostra campo
+}
+
+/* ==========================================================
+   SALVAR / EXCLUIR BADGE
+   ========================================================== */
+async function salvarBadge() {
+  const btn = $('mbBtnSalvar');
+  const alertBox = $('mbAlert');
+  const id = $('mbId').value || null;
+
+  const metrica = $('mbMetrica').value;
+
+  // Monta critério
+  const criterio = {};
+  if (metrica === 'portabilidade_total' || metrica === 'streak' || metrica === 'roleta_giros') {
+    criterio.metrica = metrica;
+    criterio.meta = parseInt($('mbMeta').value) || 1;
+  } else if (metrica === 'ranking') {
+    criterio.metrica = metrica;
+    criterio.posicao = parseInt($('mbPosicao').value) || 1;
+  } else if (metrica === 'primeiro_resgate' || metrica === 'missao_emergencial') {
+    criterio.metrica = metrica;
+    criterio.meta = 1;
+  }
+
+  const dados = {
+    codigo: $('mbCodigo').value.trim().toLowerCase(),
+    nome: $('mbNome').value.trim(),
+    descricao: $('mbDescricao').value.trim(),
+    icone: $('mbIcone').value.trim() || '🏅',
+    raridade: $('mbRaridade').value,
+    criterio,
+    ativo: $('mbAtivo').checked,
+  };
+
+  // Validações
+  if (!dados.nome) {
+    alertBox.textContent = 'Informe o nome do badge.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+  if (!dados.codigo) {
+    alertBox.textContent = 'Informe o código do badge.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+  if (!/^[a-z0-9_]+$/.test(dados.codigo)) {
+    alertBox.textContent = 'Código deve conter apenas letras minúsculas, números e _ (underline).';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gravando…`;
+  lucide.createIcons();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('salvar_badge', {
+      p_id: id,
+      p_dados: dados,
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast(data.criado ? '✅ Badge criado!' : '✅ Badge atualizado!');
+    fecharModalBadge();
+    await carregarAdminBadges();
+  } catch (err) {
+    console.error('[Salvar badge]', err);
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Gravar';
+    lucide.createIcons();
+  }
+}
+
+async function excluirBadge() {
+  const b = _badgeEditando;
+  if (!b) return;
+
+  if (!confirm(`⚠️ Excluir o badge "${b.nome}"?\n\nEsta ação NÃO pode ser desfeita.`)) return;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('deletar_badge', { p_id: b.id });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast('🗑️ Badge excluído!');
+    fecharModalBadge();
+    await carregarAdminBadges();
+  } catch (err) {
+    const alertBox = $('mbAlert');
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+  }
+}
+  
 /* ==========================================================
    ADMIN — MISSÕES (CRUD + FILTRO)
    ========================================================== */
