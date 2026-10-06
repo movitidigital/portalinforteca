@@ -665,21 +665,21 @@ function navegarPremiada(view) {
   }
 
   document.querySelectorAll('.view-premiada').forEach(v => v.classList.add('hidden'));
-    $('view-premiada-' + view)?.classList.remove('hidden');
+  $('view-premiada-' + view)?.classList.remove('hidden');
 
-    document.querySelectorAll('.tab-premiada').forEach(t => {
-      const ativo = t.dataset.tab === view;
-      t.className = ativo
-        ? 'tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all bg-[#0e8890] text-white border-[#0e8890]'
-        : 'tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
-    });
+  document.querySelectorAll('.tab-premiada').forEach(t => {
+    const ativo = t.dataset.tab === view;
+    t.className = ativo
+      ? 'tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all bg-[#0e8890] text-white border-[#0e8890]'
+      : 'tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+  });
 
-    // Lazy-loads
-    if (view === 'loja') carregarLoja();
-    if (view === 'carteira') carregarCarteira();
-    if (view === 'ranking') carregarRanking();
-    if (view === 'admin') carregarAdmin();
-  }
+  // Lazy-loads
+  if (view === 'loja') carregarLoja();
+  if (view === 'carteira') carregarCarteira();
+  if (view === 'ranking') carregarRanking();
+  if (view === 'admin') carregarAdmin();
+}
 
   /* ==========================================================
      HUB — Painel principal
