@@ -2553,12 +2553,11 @@ async function carregarRanking() {
   const lista = $('rankingLista');
 
   let consultores = [];
-  let campoPontos = 'saldo_pontos';    // campo que vamos exibir
-  let subtitulo = '';                  // badge embaixo do valor
+  let campoPontos = 'saldo_pontos';
+  let subtitulo = '';
   let semanaRange = null;
 
   if (periodo === 'semanal') {
-    // Chama RPC de ranking semanal
     const { data, error } = await supabaseClient.rpc('ranking_semanal');
 
     if (error) {
@@ -2569,15 +2568,11 @@ async function carregarRanking() {
 
     consultores = data?.ranking || [];
     campoPontos = 'pontos_semana';
-    subtitulo = 'esta semana';
-    semanaRange = {
-      inicio: data?.semana_inicio,
-      fim: data?.semana_fim,
-    };
+    subtitulo = 'pts semana';
+    semanaRange = { inicio: data?.semana_inicio, fim: data?.semana_fim };
   } else {
-    // Mensal / Trimestral — comportamento antigo
     campoPontos = periodo === 'trimestral' ? 'pontos_trimestre' : 'saldo_pontos';
-    subtitulo = periodo === 'trimestral' ? 'no trimestre' : 'saldo atual';
+    subtitulo = periodo === 'trimestral' ? 'pts trimestre' : 'pts saldo';
 
     const { data } = await supabaseClient
       .from('premiada_consultores')
@@ -2598,7 +2593,7 @@ async function carregarRanking() {
     return;
   }
 
-  // 📅 Cabeçalho com range da semana (só pra semanal)
+  // 📅 Cabeçalho com range da semana
   const headerHTML = semanaRange ? `
     <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
       <i data-lucide="calendar" class="w-3.5 h-3.5 text-[#0e8890]"></i>
@@ -2611,6 +2606,7 @@ async function carregarRanking() {
 
   const niveis = state.config.niveis || {};
   const primeiroNomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim().split(' ')[0];
+  const maxPontos = Math.max(...consultores.map(x => Number(x[campoPontos]) || 0), 1);
 
   lista.innerHTML = headerHTML + consultores.map((c, i) => {
     const nome = c.nome_completo || '—';
@@ -2618,44 +2614,46 @@ async function carregarRanking() {
     const ehEu = (c.user_id === state.user.id) || (primeiroNomeC && primeiroNomeC === primeiroNomeUser);
     const confNivel = niveis[c.nivel] || {};
     const pontos = Number(c[campoPontos]) || 0;
+    const pct = pontos > 0 ? Math.round((pontos / maxPontos) * 100) : 0;
 
-    // Medalha só considera os que pontuaram > 0
-    let medalha = '';
+    // Medalha
+    let medalha = '—';
+    let corMedalha = 'text-slate-300';
     if (pontos > 0) {
-      medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
-    } else {
-      medalha = '—';
+      if (i === 0) { medalha = '🥇'; }
+      else if (i === 1) { medalha = '🥈'; }
+      else if (i === 2) { medalha = '🥉'; }
+      else { medalha = `${i + 1}º`; corMedalha = 'text-slate-400'; }
     }
 
-    // Barra de progresso proporcional
-    const maxPontos = Math.max(...consultores.map(x => Number(x[campoPontos]) || 0), 1);
-    const pct = Math.round((pontos / maxPontos) * 100);
-
     return `
-      <div class="flex items-center gap-3 p-3 rounded-xl border-2 ${ehEu ? 'border-[#0e8890] bg-[#0e8890]/5 ring-1 ring-[#0e8890]' : 'border-slate-200 bg-white'} hover:shadow-sm transition-shadow">
-        <div class="shrink-0 w-10 flex items-center justify-center text-lg font-black">${medalha}</div>
+      <div class="relative flex items-center gap-3 px-3 py-2.5 rounded-lg border ${ehEu ? 'border-[#0e8890] bg-[#0e8890]/5' : 'border-slate-200 bg-white'} hover:shadow-sm transition-all overflow-hidden">
         
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <p class="font-black text-slate-800 text-sm truncate">${escapeHTML(capitalizar(nome))}</p>
-            <span class="text-[9px] font-black px-2 py-0.5 rounded-full nivel-${c.nivel}">${confNivel.icone || ''} ${confNivel.label || c.nivel}</span>
-            ${ehEu ? '<span class="text-[9px] font-black bg-[#0e8890] text-white px-2 py-0.5 rounded-full">VOCÊ</span>' : ''}
-          </div>
-          ${pontos > 0 ? `
-            <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-              <div class="bg-[#0e8890] h-1.5 rounded-full transition-all" style="width:${pct}%"></div>
-            </div>
-          ` : `<p class="text-[10px] text-slate-400 mt-1 italic">Sem pontos no período</p>`}
+        <!-- Barra de progresso (fundo sutil) -->
+        ${pontos > 0 ? `
+          <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-[#0e8890]/8 to-transparent pointer-events-none" style="width: ${pct}%;"></div>
+        ` : ''}
+
+        <!-- Medalha -->
+        <div class="relative shrink-0 w-8 flex items-center justify-center text-lg font-black ${corMedalha}">
+          ${medalha}
         </div>
-        
-        <div class="text-right shrink-0">
-          <p class="text-lg font-black ${pontos > 0 ? 'text-slate-800' : 'text-slate-300'}">${pontos.toLocaleString('pt-BR')}</p>
-          <p class="text-[9px] text-slate-400 font-bold uppercase">${subtitulo}</p>
+
+        <!-- Nome + Nível -->
+        <div class="relative flex-1 min-w-0 flex items-center gap-2">
+          <p class="font-black text-slate-800 text-[13px] truncate">${escapeHTML(capitalizar(nome))}</p>
+          <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full nivel-${c.nivel} shrink-0">${confNivel.icone || ''}</span>
+          ${ehEu ? '<span class="text-[9px] font-black bg-[#0e8890] text-white px-1.5 py-0.5 rounded-full shrink-0">VOCÊ</span>' : ''}
+        </div>
+
+        <!-- Pontos -->
+        <div class="relative text-right shrink-0">
+          <p class="text-base font-black ${pontos > 0 ? 'text-[#0e8890]' : 'text-slate-300'} leading-none">${pontos.toLocaleString('pt-BR')}</p>
+          <p class="text-[8px] font-black text-slate-400 uppercase mt-0.5">${subtitulo}</p>
         </div>
       </div>`;
   }).join('');
 
-  // Carrega badges
   await carregarBadges();
   lucide.createIcons();
 }
