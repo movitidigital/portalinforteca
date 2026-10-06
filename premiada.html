@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="sidebar.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
@@ -466,11 +467,22 @@
       <div id="view-premiada-ranking" class="view-premiada hidden animate-fade-in">
         <div class="max-w-4xl mx-auto space-y-6">
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
               <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
                 <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Ranking da Equipe
               </h3>
-<select id="rankingPeriodo" onchange="carregarRanking()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1">
+              <div class="flex gap-2 items-center">
+                <select id="rankingPeriodo" onchange="carregarRanking()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1">
+                  <option value="semanal">📅 Semanal</option>
+                  <option value="mensal">📊 Mensal</option>
+                  <option value="trimestral">🏆 Trimestral</option>
+                </select>
+                <button onclick="exportarRankingImagem()" id="btnExportarRanking"
+                  class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 transition-colors">
+                  <i data-lucide="camera" class="w-3.5 h-3.5"></i> Exportar
+                </button>
+              </div>
+            </div>
   <option value="semanal">📅 Semanal</option>
   <option value="mensal">📊 Mensal</option>
   <option value="trimestral">🏆 Trimestral</option>
@@ -1118,6 +1130,11 @@
     </div>
   </div>
 
+    <!-- ============ CARD DE EXPORTAÇÃO DO RANKING (INVISÍVEL) ============ -->
+  <!-- Este card é renderizado off-screen e capturado pelo html2canvas -->
+  <div id="rankingShareCard" style="position: fixed; left: -9999px; top: 0; width: 720px; font-family: 'Inter', sans-serif;">
+    <!-- Conteúdo gerado via JS -->
+  </div>
   
   <!-- TOAST -->
   <div id="toast" class="toast">
@@ -2319,6 +2336,215 @@ function aplicarFiltroResgates(filtro) {
     lucide.createIcons();
   }
 
+/* ==========================================================
+   EXPORTAR RANKING COMO IMAGEM
+   ========================================================== */
+async function exportarRankingImagem() {
+  const btn = $('btnExportarRanking');
+  const htmlOrig = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Gerando…`;
+  lucide.createIcons();
+
+  try {
+    // Pega o período atual
+    const periodo = $('rankingPeriodo')?.value || 'semanal';
+
+    // Busca os dados
+    let consultores = [];
+    let periodoLabel = '';
+    let campoPontos = 'saldo_pontos';
+
+    if (periodo === 'semanal') {
+      const { data, error } = await supabaseClient.rpc('ranking_semanal');
+      if (error) throw error;
+      consultores = data?.ranking || [];
+      campoPontos = 'pontos_semana';
+      const ini = new Date(data?.semana_inicio + 'T00:00:00');
+      const fim = new Date(data?.semana_fim + 'T00:00:00');
+      periodoLabel = `Semana ${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+    } else {
+      campoPontos = periodo === 'trimestral' ? 'pontos_trimestre' : 'saldo_pontos';
+      periodoLabel = periodo === 'trimestral' ? 'Trimestre' : 'Mês atual';
+
+      const { data } = await supabaseClient
+        .from('premiada_consultores')
+        .select('user_id, saldo_pontos, pontos_trimestre, nivel')
+        .order(campoPontos, { ascending: false });
+
+      const { data: perfis } = await supabaseClient
+        .from('perfis').select('id, nome_completo');
+
+      consultores = (data || []).map(c => ({
+        ...c,
+        nome_completo: (perfis || []).find(p => p.id === c.user_id)?.nome_completo || '—'
+      }));
+    }
+
+    // Filtra só quem pontuou
+    const comPontos = consultores.filter(c => Number(c[campoPontos]) > 0);
+
+    if (!comPontos.length) {
+      toast('❌ Ninguém pontuou no período ainda.', 'erro');
+      btn.disabled = false;
+      btn.innerHTML = htmlOrig;
+      lucide.createIcons();
+      return;
+    }
+
+    // Gera o card
+    const niveis = state.config.niveis || {};
+    const agora = new Date();
+    const dataFormatada = agora.toLocaleString('pt-BR', { 
+      day: '2-digit', month: '2-digit', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit' 
+    });
+
+    const medalhaConf = (pos) => {
+      if (pos === 0) return { icone: '🥇', bg: 'linear-gradient(135deg, #FFD700, #FFA500)', cor: '#7C2D12' };
+      if (pos === 1) return { icone: '🥈', bg: 'linear-gradient(135deg, #E5E7EB, #9CA3AF)', cor: '#374151' };
+      if (pos === 2) return { icone: '🥉', bg: 'linear-gradient(135deg, #FDBA74, #C2410C)', cor: '#7C2D12' };
+      return { icone: `${pos + 1}º`, bg: '#F1F5F9', cor: '#475569' };
+    };
+
+    const maxPts = Math.max(...comPontos.map(c => Number(c[campoPontos])));
+    const hoje = agora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const linhasHTML = comPontos.slice(0, 10).map((c, i) => {
+      const conf = medalhaConf(i);
+      const pontos = Number(c[campoPontos]);
+      const pct = Math.round((pontos / maxPts) * 100);
+      const nivelConf = niveis[c.nivel] || {};
+      const nome = capitalizar(c.nome_completo).replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+      const primeiroNome = nome.split(' ')[0];
+      const restoNome = nome.split(' ').slice(1).join(' ');
+
+      return `
+        <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F1F5F9; background: ${i < 3 ? 'linear-gradient(90deg, #FEFCE8 0%, #FFFFFF 100%)' : '#FFFFFF'};">
+          <!-- Medalha -->
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: ${conf.bg}; display: flex; align-items: center; justify-content: center; font-size: ${i < 3 ? '24px' : '16px'}; font-weight: 900; color: ${conf.cor}; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+            ${conf.icone}
+          </div>
+
+          <!-- Nome -->
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <p style="font-size: 15px; font-weight: 900; color: #0F172A; margin: 0; letter-spacing: -0.01em;">
+                ${escapeHTML(primeiroNome)}${restoNome ? ` <span style="font-weight: 500; color: #64748B;">${escapeHTML(restoNome)}</span>` : ''}
+              </p>
+              ${nivelConf.icone ? `<span style="font-size: 14px;">${nivelConf.icone}</span>` : ''}
+            </div>
+            <!-- Barra -->
+            <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; margin-top: 6px; overflow: hidden;">
+              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
+            </div>
+          </div>
+
+          <!-- Pontos -->
+          <div style="text-align: right; flex-shrink: 0;">
+            <p style="font-size: 22px; font-weight: 900; color: #0e8890; margin: 0; letter-spacing: -0.02em; line-height: 1;">
+              ${pontos.toLocaleString('pt-BR')}
+            </p>
+            <p style="font-size: 9px; font-weight: 900; color: #94A3B8; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
+              pts
+            </p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const labelPeriodo = periodo === 'semanal' ? 'RANKING SEMANAL' : periodo === 'mensal' ? 'RANKING MENSAL' : 'RANKING TRIMESTRAL';
+
+    $('rankingShareCard').innerHTML = `
+      <!-- CARD -->
+      <div style="background: #FFFFFF; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); font-family: 'Inter', sans-serif;">
+        
+        <!-- HEADER -->
+        <div style="background: linear-gradient(135deg, #000033 0%, #0e8890 100%); padding: 28px 32px; color: #fff; position: relative; overflow: hidden;">
+          <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+          <div style="position: absolute; bottom: -80px; right: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="width: 56px; height: 56px; background: #fff; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px;">
+                🏆
+              </div>
+              <div>
+                <p style="font-size: 10px; font-weight: 900; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.15em; margin: 0 0 4px;">
+                  ${labelPeriodo}
+                </p>
+                <h1 style="font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.02em; line-height: 1.1;">
+                  Inforteca TIM
+                </h1>
+                <p style="font-size: 11px; color: rgba(255,255,255,0.75); margin: 4px 0 0; font-weight: 600;">
+                  Loja TIM Dom José · ${escapeHTML(periodoLabel)}
+                </p>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <p style="font-size: 9px; font-weight: 900; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 4px;">
+                Gerado em
+              </p>
+              <p style="font-size: 12px; font-weight: 800; margin: 0; color: #fff;">
+                ${dataFormatada}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RANKING -->
+        <div>
+          ${linhasHTML}
+        </div>
+
+        <!-- FOOTER -->
+        <div style="background: #F8FAFC; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #E2E8F0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 24px; height: 24px; background: linear-gradient(135deg, #0e8890, #14b8a6); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+              ⭐
+            </div>
+            <p style="font-size: 10px; font-weight: 900; color: #475569; text-transform: uppercase; letter-spacing: 0.1em; margin: 0;">
+              Inforteca Premiada
+            </p>
+          </div>
+          <p style="font-size: 10px; font-weight: 700; color: #94A3B8; margin: 0;">
+            ${comPontos.length} ${comPontos.length === 1 ? 'consultor ranqueado' : 'consultores ranqueados'}
+          </p>
+        </div>
+
+      </div>
+    `;
+
+    // Aguarda um frame para garantir que tudo renderizou
+    await new Promise(r => setTimeout(r, 100));
+
+    // Captura
+    const canvas = await html2canvas($('rankingShareCard'), {
+      scale: 2,              // Alta resolução
+      backgroundColor: null, // Transparente (pra pegar os cantos arredondados)
+      useCORS: true,
+      logging: false,
+    });
+
+    // Download
+    const link = document.createElement('a');
+    const nomeArquivo = `Ranking_Inforteca_${periodo}_${hoje.replace(/\//g, '-')}.png`;
+    link.download = nomeArquivo;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    toast('✅ Imagem gerada! Confira seus downloads.');
+  } catch (err) {
+    console.error('[Export Ranking]', err);
+    toast('❌ Erro: ' + err.message, 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    lucide.createIcons();
+  }
+}
+  
   /* ==========================================================
      RANKING + BADGES
      ========================================================== */
