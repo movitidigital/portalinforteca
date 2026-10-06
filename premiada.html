@@ -361,10 +361,11 @@
               <button data-atab="premios" onclick="trocarAbaAdmin('premios')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
                 🎁 Estoque
               </button>
-              <button data-atab="resgate-op" onclick="trocarAbaAdmin('resgate-op')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+ <button data-atab="resgate-op" onclick="trocarAbaAdmin('resgate-op')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
   🚨 Operação Resgate
 </button>
-              <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
+ <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 💰 Orçamento </button>
+ <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all">
                 💰 Orçamento
               </button>
             </div>
@@ -390,6 +391,33 @@
               </div>
             </div>
 
+<!-- Admin: Configurações -->
+<div id="adminContent-config" class="admin-content hidden p-6">
+
+  <!-- Sub-abas -->
+  <div class="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-4">
+    <button data-ctab="pontos" onclick="trocarSubAbaConfig('pontos')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
+      💰 Régua de Pontos
+    </button>
+    <button data-ctab="niveis" onclick="trocarSubAbaConfig('niveis')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
+      🏅 Níveis
+    </button>
+    <button data-ctab="bonus" onclick="trocarSubAbaConfig('bonus')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
+      🎁 Bônus
+    </button>
+    <button data-ctab="roleta" onclick="trocarSubAbaConfig('roleta')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
+      🎰 Roleta
+    </button>
+  </div>
+
+  <!-- Conteúdo dinâmico das sub-abas -->
+  <div id="configContent-pontos" class="config-content"></div>
+  <div id="configContent-niveis" class="config-content hidden"></div>
+  <div id="configContent-bonus" class="config-content hidden"></div>
+  <div id="configContent-roleta" class="config-content hidden"></div>
+
+</div>
+            
             <!-- Admin: Orçamento -->
             <div id="adminContent-orcamento" class="admin-content hidden p-6">
               <div id="adminOrcamento" class="space-y-4">
@@ -1221,7 +1249,8 @@ async function carregarAdmin() {
     carregarAdminResgates(), 
     carregarAdminPremios(), 
     carregarAdminOrcamento(),
-    carregarMissoesEmergenciais() 
+    carregarMissoesEmergenciais(),
+    carregarConfig()
   ]);
 }
 
@@ -1481,6 +1510,316 @@ window.addEventListener('DOMContentLoaded', async () => {
     setTimeout(() => { window.__badgesGanhos = null; }, 2500 + (window.__badgesGanhos.length * 2500) + 1000);
   }
 });
+
+/* ==========================================================
+   ADMIN — CONFIGURAÇÕES
+   ========================================================== */
+
+let _configAtual = {};
+
+async function carregarConfig() {
+  const { data } = await supabaseClient.from('premiada_config').select('*');
+  _configAtual = {};
+  (data || []).forEach(c => { _configAtual[c.chave] = c.valor; });
+
+  trocarSubAbaConfig('pontos');
+}
+
+function trocarSubAbaConfig(aba) {
+  document.querySelectorAll('.config-content').forEach(x => x.classList.add('hidden'));
+  $('configContent-' + aba)?.classList.remove('hidden');
+
+  document.querySelectorAll('.config-tab').forEach(t => {
+    const ativo = t.dataset.ctab === aba;
+    t.className = ativo
+      ? 'config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all bg-[#0e8890] text-white border-[#0e8890]'
+      : 'config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all bg-white text-slate-500 border-slate-200 hover:border-slate-400';
+  });
+
+  if (aba === 'pontos') renderConfigPontos();
+  if (aba === 'niveis') renderConfigNiveis();
+  if (aba === 'bonus') renderConfigBonus();
+  if (aba === 'roleta') renderConfigRoleta();
+}
+
+function renderConfigPontos() {
+  const r = _configAtual.pontos_regras || {};
+  const campos = [
+    { key: 'controle_simples',       label: 'CONTROLE simples',        icon: '📱' },
+    { key: 'controle_portabilidade', label: 'CONTROLE + Portabilidade', icon: '⚡' },
+    { key: 'pos_simples',            label: 'PÓS simples (BLACK)',     icon: '💎' },
+    { key: 'pos_portabilidade',      label: 'PÓS + Portabilidade',     icon: '👑' },
+    { key: 'bonus_meta_mensal',      label: 'Bônus Meta Mensal',       icon: '🎯' },
+    { key: 'bonus_top1',             label: 'Bônus Top 1 do Mês',      icon: '🏆' },
+    { key: 'bonus_streak_10',        label: 'Bônus Streak 10 dias',    icon: '🔥' },
+  ];
+  $('configContent-pontos').innerHTML = `
+    <div class="space-y-4">
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0 mt-0.5"></i>
+        <div class="text-xs text-blue-800 leading-relaxed">
+          <strong>Como funciona:</strong> ao salvar, as novas regras passam a valer para
+          <strong>próximas vendas processadas</strong>. Vendas já pontuadas <strong>não são recalculadas</strong>.
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${campos.map(c => `
+          <div class="border border-slate-200 rounded-xl p-4 bg-white">
+            <label class="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
+              <span class="text-lg">${c.icon}</span> ${c.label}
+            </label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="cfg_${c.key}" value="${r[c.key] || 0}" min="0"
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-[#0e8890]">
+              <span class="text-[10px] font-black text-slate-400 uppercase">pts</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="flex justify-end pt-4 border-t border-slate-100">
+        <button onclick="salvarConfigPontos()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-3 rounded-xl text-sm font-black uppercase flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> Salvar Régua
+        </button>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+async function salvarConfigPontos() {
+  const campos = ['controle_simples','controle_portabilidade','pos_simples','pos_portabilidade','bonus_meta_mensal','bonus_top1','bonus_streak_10'];
+  const novo = {};
+  for (const c of campos) {
+    const v = parseInt($('cfg_' + c)?.value) || 0;
+    if (v < 0) { toast('❌ Valores não podem ser negativos.', 'erro'); return; }
+    novo[c] = v;
+  }
+  await salvarConfig('pontos_regras', novo);
+}
+
+function renderConfigNiveis() {
+  const n = _configAtual.niveis || {};
+  const ordem = ['bronze', 'prata', 'ouro', 'diamante'];
+  $('configContent-niveis').innerHTML = `
+    <div class="space-y-4">
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+        <div class="text-xs text-amber-800 leading-relaxed">
+          <strong>Atenção:</strong> ao salvar, <strong>todos os consultores</strong> são recalculados automaticamente.
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${ordem.map((key) => {
+          const info = n[key] || {};
+          return `
+            <div class="border-2 rounded-xl p-4 bg-white" style="border-color: ${info.cor || '#94A3B8'}40;">
+              <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                <span class="text-2xl">${info.icone || ''}</span>
+                <h4 class="font-black text-slate-800">${info.label || key}</h4>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-[9px] font-black text-slate-400 uppercase">Pontos mínimos</label>
+                  <input type="number" id="lvl_${key}_min" value="${info.min || 0}" min="0"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold mt-1 focus:outline-none focus:border-[#0e8890]">
+                </div>
+                <div>
+                  <label class="text-[9px] font-black text-slate-400 uppercase">Desconto (%)</label>
+                  <input type="number" id="lvl_${key}_desc" value="${info.desconto || 0}" min="0" max="100"
+                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold mt-1 focus:outline-none focus:border-[#0e8890]">
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="flex justify-end pt-4 border-t border-slate-100">
+        <button onclick="salvarConfigNiveis()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-3 rounded-xl text-sm font-black uppercase flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> Salvar Níveis
+        </button>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+async function salvarConfigNiveis() {
+  const n = JSON.parse(JSON.stringify(_configAtual.niveis || {}));
+  const ordem = ['bronze', 'prata', 'ouro', 'diamante'];
+  for (const key of ordem) {
+    if (!n[key]) continue;
+    n[key].min = parseInt($(`lvl_${key}_min`)?.value) || 0;
+    n[key].desconto = parseInt($(`lvl_${key}_desc`)?.value) || 0;
+  }
+  await salvarConfig('niveis', n);
+}
+
+function renderConfigBonus() {
+  const b = _configAtual.boas_vindas || {};
+  const campos = [
+    { key: 'primeiro_login',    label: 'Primeiro login',   icon: '🎉' },
+    { key: 'primeira_venda',    label: 'Primeira venda',    icon: '🎁' },
+    { key: 'primeiro_resgate',  label: 'Primeiro resgate',  icon: '💰' },
+    { key: 'avatar_cadastrado', label: 'Avatar cadastrado', icon: '👤' },
+  ];
+  $('configContent-bonus').innerHTML = `
+    <div class="space-y-4">
+      <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0 mt-0.5"></i>
+        <div class="text-xs text-blue-800 leading-relaxed">
+          Bônus de <strong>primeira vez</strong> — concedidos apenas uma vez por consultor.
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        ${campos.map(c => `
+          <div class="border border-slate-200 rounded-xl p-4 bg-white">
+            <label class="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
+              <span class="text-lg">${c.icon}</span> ${c.label}
+            </label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="bv_${c.key}" value="${b[c.key] || 0}" min="0"
+                class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-[#0e8890]">
+              <span class="text-[10px] font-black text-slate-400 uppercase">pts</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="flex justify-end pt-4 border-t border-slate-100">
+        <button onclick="salvarConfigBonus()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-3 rounded-xl text-sm font-black uppercase flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> Salvar Bônus
+        </button>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+async function salvarConfigBonus() {
+  const novo = {
+    primeiro_login: parseInt($('bv_primeiro_login')?.value) || 0,
+    primeira_venda: parseInt($('bv_primeira_venda')?.value) || 0,
+    primeiro_resgate: parseInt($('bv_primeiro_resgate')?.value) || 0,
+    avatar_cadastrado: parseInt($('bv_avatar_cadastrado')?.value) || 0,
+  };
+  await salvarConfig('boas_vindas', novo);
+}
+
+function renderConfigRoleta() {
+  const r = _configAtual.roleta || {};
+  const premios = r.premios || [];
+  $('configContent-roleta').innerHTML = `
+    <div class="space-y-5">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="border border-slate-200 rounded-xl p-4 bg-white">
+          <label class="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
+            <span class="text-lg">💵</span> Custo do giro
+          </label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="rl_custo" value="${r.custo_pontos || 300}" min="0"
+              class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-[#0e8890]">
+            <span class="text-[10px] font-black text-slate-400 uppercase">pts</span>
+          </div>
+        </div>
+        <div class="border border-slate-200 rounded-xl p-4 bg-white">
+          <label class="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2 mb-2">
+            <span class="text-lg">🔁</span> Limite diário
+          </label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="rl_limite" value="${r.limite_diario || 1}" min="1"
+              class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg font-black text-right focus:outline-none focus:border-[#0e8890]">
+            <span class="text-[10px] font-black text-slate-400 uppercase">giro/dia</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h4 class="text-[10px] font-black text-slate-400 uppercase mb-3">Prêmios e Probabilidades</h4>
+        <p class="text-xs text-slate-500 mb-4">A soma das probabilidades deve ser 100%.</p>
+        <div class="space-y-2">
+          ${premios.map((p, i) => `
+            <div class="flex items-center gap-3 border border-slate-200 rounded-lg p-3 bg-white">
+              <span class="w-6 text-xs font-black text-slate-400">${i + 1}</span>
+              <div class="flex-1 flex items-center gap-2">
+                <input type="number" id="rl_p${i}_pts" value="${p.pontos}" min="0" placeholder="pts"
+                  class="w-24 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+                <span class="text-[10px] font-black text-slate-400 uppercase">pts</span>
+                <span class="text-slate-300 mx-2">·</span>
+                <input type="number" id="rl_p${i}_prob" value="${p.prob}" min="0" max="100" placeholder="%"
+                  class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+                <span class="text-[10px] font-black text-slate-400 uppercase">%</span>
+              </div>
+              <button onclick="removerPremioRoleta(${i})" class="text-red-500 hover:text-red-700 p-1">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+        <button onclick="adicionarPremioRoleta()" class="mt-3 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar prêmio
+        </button>
+      </div>
+      <div class="flex justify-end pt-4 border-t border-slate-100">
+        <button onclick="salvarConfigRoleta()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-3 rounded-xl text-sm font-black uppercase flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> Salvar Roleta
+        </button>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+function adicionarPremioRoleta() {
+  const r = _configAtual.roleta || {};
+  const premios = r.premios || [];
+  premios.push({ pontos: 100, prob: 0 });
+  _configAtual.roleta = { ...r, premios };
+  renderConfigRoleta();
+}
+
+function removerPremioRoleta(idx) {
+  const r = _configAtual.roleta || {};
+  const premios = r.premios || [];
+  premios.splice(idx, 1);
+  _configAtual.roleta = { ...r, premios };
+  renderConfigRoleta();
+}
+
+async function salvarConfigRoleta() {
+  const custo = parseInt($('rl_custo')?.value) || 300;
+  const limite = parseInt($('rl_limite')?.value) || 1;
+  const atual = _configAtual.roleta || {};
+  const premios = atual.premios || [];
+  const novosPremios = premios.map((p, i) => ({
+    pontos: parseInt($(`rl_p${i}_pts`)?.value) || 0,
+    prob: parseInt($(`rl_p${i}_prob`)?.value) || 0,
+  }));
+  const soma = novosPremios.reduce((s, p) => s + p.prob, 0);
+  if (soma !== 100) {
+    toast(`❌ A soma das probabilidades deve ser 100%. Atual: ${soma}%`, 'erro');
+    return;
+  }
+  await salvarConfig('roleta', {
+    custo_pontos: custo,
+    limite_diario: limite,
+    premios: novosPremios,
+  });
+}
+
+async function salvarConfig(chave, valor) {
+  try {
+    const { data, error } = await supabaseClient.rpc('atualizar_config', {
+      p_chave: chave,
+      p_valor: valor,
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+    toast('✅ Configuração salva!');
+    await carregarConfig();
+  } catch (err) {
+    console.error('[Config]', err);
+    toast('❌ ' + err.message, 'erro');
+  }
+}
+  
   /* ==========================================================
    OPERAÇÃO RESGATE — Admin
    ========================================================== */
