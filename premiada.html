@@ -60,6 +60,35 @@
           <h2 id="headerTitle" class="text-lg font-bold text-[#000033]">Inforteca Premiada</h2>
         </div>
       </div>
+              <!-- 🔔 SINO DE NOTIFICAÇÕES -->
+        <div class="relative" id="sinoWrapper">
+          <button onclick="togglePainelNotificacoes()" 
+            class="relative p-2 text-slate-500 hover:text-[#0e8890] transition-colors rounded-full hover:bg-slate-50">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span id="sinoBadge" class="hidden absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">0</span>
+          </button>
+
+          <!-- Painel dropdown -->
+          <div id="painelNotificacoes" class="hidden absolute right-0 top-full mt-2 w-96 max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+            <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div class="flex items-center gap-2">
+                <i data-lucide="bell" class="w-4 h-4 text-[#0e8890]"></i>
+                <h3 class="font-black text-sm text-[#000033]">Notificações</h3>
+              </div>
+              <button onclick="marcarTodasLidas()" class="text-[10px] text-[#0e8890] hover:text-[#0b6c72] font-black uppercase">
+                Marcar todas
+              </button>
+            </div>
+            <div id="listaNotificacoes" class="max-h-[500px] overflow-y-auto divide-y divide-slate-100">
+              <p class="text-center text-slate-400 py-8 text-sm">Carregando…</p>
+            </div>
+            <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 text-center">
+              <button onclick="verTodasNotificacoes()" class="text-[10px] text-slate-500 hover:text-[#0e8890] font-black uppercase">
+                Ver todas as notificações
+              </button>
+            </div>
+          </div>
+        </div>
       <div class="flex items-center gap-4">
         <div class="text-right hidden sm:block">
           <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
@@ -604,7 +633,23 @@
       </div>
     </div>
   </div>
-
+  <!-- ============ MODAL: TODAS AS NOTIFICAÇÕES ============ -->
+  <div id="modalNotificacoes" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-[#0e8890] px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="bell" class="w-5 h-5 text-white"></i>
+          <h3 class="text-white font-black text-sm uppercase">Todas as Notificações</h3>
+        </div>
+        <button onclick="fecharModalNotificacoes()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="listaTodasNotificacoes" class="p-4 overflow-y-auto flex-1 divide-y divide-slate-100">
+        <p class="text-center text-slate-400 py-8 text-sm">Carregando…</p>
+      </div>
+    </div>
+  </div>
   <!-- ============ MODAL: BADGE (CRUD) ============ -->
   <div id="modalBadge" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
@@ -1296,6 +1341,163 @@ async function carregarMissoes() {
   lucide.createIcons();
 }
 
+/* ==========================================================
+   SINO DE NOTIFICAÇÕES
+   ========================================================== */
+let _notifRefreshTimer = null;
+let _painelAberto = false;
+
+async function carregarNotificacoes() {
+  if (!state.user) return;
+
+  const { data: notifs } = await supabaseClient
+    .from('premiada_notificacoes')
+    .select('*')
+    .eq('user_id', state.user.id)
+    .order('criado_em', { ascending: false })
+    .limit(10);
+
+  const lista = notifs || [];
+  const naoLidas = lista.filter(n => !n.lida).length;
+
+  // Atualiza badge do sino
+  const badge = $('sinoBadge');
+  if (naoLidas > 0) {
+    badge.textContent = naoLidas > 99 ? '99+' : naoLidas;
+    badge.classList.remove('hidden');
+    badge.classList.add('flex');
+  } else {
+    badge.classList.add('hidden');
+    badge.classList.remove('flex');
+  }
+
+  // Atualiza lista do painel
+  renderListaNotificacoes(lista, 'listaNotificacoes');
+
+  // Auto-refresh a cada 30s
+  clearTimeout(_notifRefreshTimer);
+  _notifRefreshTimer = setTimeout(() => {
+    if (!document.hidden) carregarNotificacoes();
+  }, 30000);
+}
+
+function renderListaNotificacoes(lista, targetId) {
+  const box = $(targetId);
+  if (!box) return;
+
+  if (!lista.length) {
+    box.innerHTML = `
+      <div class="text-center py-8">
+        <i data-lucide="bell-off" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+        <p class="text-sm text-slate-500">Sem notificações</p>
+        <p class="text-[10px] text-slate-400 mt-1">Você está em dia!</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  const tipoCor = {
+    badge:    { bg: 'bg-purple-50', texto: 'text-purple-800' },
+    missao:   { bg: 'bg-amber-50',  texto: 'text-amber-800' },
+    resgate:  { bg: 'bg-emerald-50',texto: 'text-emerald-800' },
+    streak:   { bg: 'bg-orange-50', texto: 'text-orange-800' },
+    operacao: { bg: 'bg-red-50',    texto: 'text-red-800' },
+  };
+
+  box.innerHTML = lista.map(n => {
+    const conf = tipoCor[n.tipo] || { bg: 'bg-slate-50', texto: 'text-slate-700' };
+    const tempo = tempoRelativo(n.criado_em);
+
+    return `
+      <div class="flex items-start gap-3 p-4 ${!n.lida ? conf.bg : ''} hover:bg-slate-50 transition-colors cursor-pointer relative"
+        onclick="marcarComoLida('${n.id}', this)">
+        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shrink-0 border border-slate-200">
+          ${n.icone || '🔔'}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <p class="text-xs font-black ${conf.texto} leading-tight">${escapeHTML(n.titulo)}</p>
+            ${!n.lida ? '<span class="w-2 h-2 rounded-full bg-[#0e8890] shrink-0"></span>' : ''}
+          </div>
+          ${n.mensagem ? `<p class="text-[11px] text-slate-600 mt-1 leading-relaxed">${escapeHTML(n.mensagem)}</p>` : ''}
+          <p class="text-[10px] text-slate-400 mt-1 font-bold">${tempo}</p>
+        </div>
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+async function marcarComoLida(id, el) {
+  try {
+    await supabaseClient.rpc('marcar_notificacao_lida', { p_id: id });
+    // Remove destaque visual imediato
+    if (el) {
+      el.classList.remove('bg-purple-50', 'bg-amber-50', 'bg-emerald-50', 'bg-orange-50', 'bg-red-50', 'bg-slate-50');
+      const dot = el.querySelector('.rounded-full.bg-\\[\\#0e8890\\]');
+      if (dot) dot.remove();
+    }
+    // Recarrega o contador
+    setTimeout(() => carregarNotificacoes(), 300);
+  } catch (e) {
+    console.warn('[Notif]', e);
+  }
+}
+
+async function marcarTodasLidas() {
+  try {
+    await supabaseClient.rpc('marcar_todas_notificacoes_lidas');
+    toast('✅ Todas marcadas como lidas');
+    await carregarNotificacoes();
+  } catch (e) {
+    toast('❌ ' + e.message, 'erro');
+  }
+}
+
+function togglePainelNotificacoes() {
+  const painel = $('painelNotificacoes');
+  _painelAberto = !_painelAberto;
+  painel.classList.toggle('hidden', !_painelAberto);
+  
+  if (_painelAberto) {
+    lucide.createIcons();
+    // Recarrega sempre que abre
+    carregarNotificacoes();
+  }
+}
+
+async function verTodasNotificacoes() {
+  const painel = $('painelNotificacoes');
+  painel.classList.add('hidden');
+  _painelAberto = false;
+
+  const { data: notifs } = await supabaseClient
+    .from('premiada_notificacoes')
+    .select('*')
+    .eq('user_id', state.user.id)
+    .order('criado_em', { ascending: false })
+    .limit(100);
+
+  renderListaNotificacoes(notifs || [], 'listaTodasNotificacoes');
+  $('modalNotificacoes').classList.remove('hidden');
+}
+
+function fecharModalNotificacoes() {
+  $('modalNotificacoes').classList.add('hidden');
+  // Marca todas como lidas ao fechar
+  marcarTodasLidas();
+}
+
+/* Fecha painel ao clicar fora */
+document.addEventListener('click', (e) => {
+  const wrapper = $('sinoWrapper');
+  if (!wrapper || !_painelAberto) return;
+  if (!wrapper.contains(e.target)) {
+    $('painelNotificacoes').classList.add('hidden');
+    _painelAberto = false;
+  }
+});
+  
 /* ==========================================================
    FEED DE ATIVIDADES
    ========================================================== */
@@ -2366,6 +2568,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   await carregarMissoes();
   await carregarStatusRoleta();
   await carregarFeed();
+  await carregarNotificacoes();
 
   navegarPremiada('hub');
 
