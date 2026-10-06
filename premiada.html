@@ -386,10 +386,11 @@
               <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
                 <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i> Ranking da Equipe
               </h3>
-              <select id="rankingPeriodo" onchange="carregarRanking()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1">
-                <option value="mensal">Mensal</option>
-                <option value="trimestral">Trimestral</option>
-              </select>
+<select id="rankingPeriodo" onchange="carregarRanking()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg px-2 py-1">
+  <option value="semanal">📅 Semanal</option>
+  <option value="mensal">📊 Mensal</option>
+  <option value="trimestral">🏆 Trimestral</option>
+</select>
             </div>
             <div id="rankingLista" class="space-y-2">
               <p class="text-center text-slate-400 py-6 text-sm">Carregando ranking…</p>
@@ -1881,56 +1882,117 @@ if (data.bonus_primeiro_resgate) {
   /* ==========================================================
      RANKING + BADGES
      ========================================================== */
-  async function carregarRanking() {
-    const periodo = $('rankingPeriodo')?.value || 'mensal';
-    const coluna = periodo === 'trimestral' ? 'pontos_trimestre' : 'saldo_pontos';
+async function carregarRanking() {
+  const periodo = $('rankingPeriodo')?.value || 'semanal';
+  const lista = $('rankingLista');
 
-    const { data: consultores } = await supabaseClient
+  let consultores = [];
+  let campoPontos = 'saldo_pontos';    // campo que vamos exibir
+  let subtitulo = '';                  // badge embaixo do valor
+  let semanaRange = null;
+
+  if (periodo === 'semanal') {
+    // Chama RPC de ranking semanal
+    const { data, error } = await supabaseClient.rpc('ranking_semanal');
+
+    if (error) {
+      console.error('[Ranking Semanal]', error);
+      lista.innerHTML = `<p class="text-center text-red-500 py-6 text-sm">Erro: ${escapeHTML(error.message)}</p>`;
+      return;
+    }
+
+    consultores = data?.ranking || [];
+    campoPontos = 'pontos_semana';
+    subtitulo = 'esta semana';
+    semanaRange = {
+      inicio: data?.semana_inicio,
+      fim: data?.semana_fim,
+    };
+  } else {
+    // Mensal / Trimestral — comportamento antigo
+    campoPontos = periodo === 'trimestral' ? 'pontos_trimestre' : 'saldo_pontos';
+    subtitulo = periodo === 'trimestral' ? 'no trimestre' : 'saldo atual';
+
+    const { data } = await supabaseClient
       .from('premiada_consultores')
       .select('user_id, saldo_pontos, pontos_trimestre, nivel, streak_atual')
-      .order(coluna, { ascending: false });
+      .order(campoPontos, { ascending: false });
 
     const { data: perfis } = await supabaseClient
       .from('perfis').select('id, nome_completo');
 
-    const niveis = state.config.niveis || {};
+    consultores = (data || []).map(c => ({
+      ...c,
+      nome_completo: (perfis || []).find(p => p.id === c.user_id)?.nome_completo || '—'
+    }));
+  }
 
-    const lista = $('rankingLista');
-    if (!consultores || !consultores.length) {
-      lista.innerHTML = `<p class="text-center text-slate-400 py-6 text-sm">Sem dados ainda.</p>`;
-      return;
+  if (!consultores.length) {
+    lista.innerHTML = `<p class="text-center text-slate-400 py-6 text-sm">Sem dados ainda.</p>`;
+    return;
+  }
+
+  // 📅 Cabeçalho com range da semana (só pra semanal)
+  const headerHTML = semanaRange ? `
+    <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+      <i data-lucide="calendar" class="w-3.5 h-3.5 text-[#0e8890]"></i>
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+        Semana de ${new Date(semanaRange.inicio + 'T00:00:00').toLocaleDateString('pt-BR')} 
+        a ${new Date(semanaRange.fim + 'T00:00:00').toLocaleDateString('pt-BR')}
+      </p>
+    </div>
+  ` : '';
+
+  const niveis = state.config.niveis || {};
+  const primeiroNomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim().split(' ')[0];
+
+  lista.innerHTML = headerHTML + consultores.map((c, i) => {
+    const nome = c.nome_completo || '—';
+    const primeiroNomeC = String(nome).toLowerCase().trim().split(' ')[0];
+    const ehEu = (c.user_id === state.user.id) || (primeiroNomeC && primeiroNomeC === primeiroNomeUser);
+    const confNivel = niveis[c.nivel] || {};
+    const pontos = Number(c[campoPontos]) || 0;
+
+    // Medalha só considera os que pontuaram > 0
+    let medalha = '';
+    if (pontos > 0) {
+      medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
+    } else {
+      medalha = '—';
     }
 
-    lista.innerHTML = consultores.map((c, i) => {
-      const perfil = (perfis || []).find(p => p.id === c.user_id);
-      const nome = perfil?.nome_completo || '—';
-      const pontos = periodo === 'trimestral' ? c.pontos_trimestre : c.saldo_pontos;
-      const confNivel = niveis[c.nivel] || {};
+    // Barra de progresso proporcional
+    const maxPontos = Math.max(...consultores.map(x => Number(x[campoPontos]) || 0), 1);
+    const pct = Math.round((pontos / maxPontos) * 100);
 
-      const medalha = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`;
-      const ehEu = c.user_id === state.user.id;
-
-      return `
-        <div class="flex items-center gap-3 p-3 rounded-xl border ${ehEu ? 'border-[#0e8890] bg-[#0e8890]/5 ring-1 ring-[#0e8890]' : 'border-slate-200 bg-white'}">
-          <div class="shrink-0 w-9 flex items-center justify-center text-lg font-black">${medalha}</div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap">
-              <p class="font-black text-slate-800 text-sm truncate">${escapeHTML(capitalizar(nome))}</p>
-              <span class="text-[9px] font-black px-2 py-0.5 rounded-full nivel-${c.nivel}">${confNivel.icone || ''} ${confNivel.label || c.nivel}</span>
-              ${ehEu ? '<span class="text-[9px] font-black bg-[#0e8890] text-white px-2 py-0.5 rounded-full">VOCÊ</span>' : ''}
+    return `
+      <div class="flex items-center gap-3 p-3 rounded-xl border-2 ${ehEu ? 'border-[#0e8890] bg-[#0e8890]/5 ring-1 ring-[#0e8890]' : 'border-slate-200 bg-white'} hover:shadow-sm transition-shadow">
+        <div class="shrink-0 w-10 flex items-center justify-center text-lg font-black">${medalha}</div>
+        
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-black text-slate-800 text-sm truncate">${escapeHTML(capitalizar(nome))}</p>
+            <span class="text-[9px] font-black px-2 py-0.5 rounded-full nivel-${c.nivel}">${confNivel.icone || ''} ${confNivel.label || c.nivel}</span>
+            ${ehEu ? '<span class="text-[9px] font-black bg-[#0e8890] text-white px-2 py-0.5 rounded-full">VOCÊ</span>' : ''}
+          </div>
+          ${pontos > 0 ? `
+            <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+              <div class="bg-[#0e8890] h-1.5 rounded-full transition-all" style="width:${pct}%"></div>
             </div>
-          </div>
-          <div class="text-right shrink-0">
-            <p class="text-base font-black text-slate-800">${pontos.toLocaleString('pt-BR')}</p>
-            <p class="text-[9px] text-slate-400 font-bold uppercase">pts</p>
-          </div>
-        </div>`;
-    }).join('');
+          ` : `<p class="text-[10px] text-slate-400 mt-1 italic">Sem pontos no período</p>`}
+        </div>
+        
+        <div class="text-right shrink-0">
+          <p class="text-lg font-black ${pontos > 0 ? 'text-slate-800' : 'text-slate-300'}">${pontos.toLocaleString('pt-BR')}</p>
+          <p class="text-[9px] text-slate-400 font-bold uppercase">${subtitulo}</p>
+        </div>
+      </div>`;
+  }).join('');
 
-    // Carrega badges
-    await carregarBadges();
-    lucide.createIcons();
-  }
+  // Carrega badges
+  await carregarBadges();
+  lucide.createIcons();
+}
 
   async function carregarBadges() {
     const { data: todos } = await supabaseClient
