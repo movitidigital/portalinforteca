@@ -590,7 +590,7 @@
     state.isAdmin = meuCargo?.is_admin === true;
 
     // Mostra aba admin se for admin
-    if (state.isAdmin) $('tabAdmin').classList.remove('hidden');
+if (state.isAdmin) $('tabAdmin').classList.remove('hidden');
 
     // Carrega configs
     const { data: configs } = await supabaseClient.from('premiada_config').select('*');
@@ -657,8 +657,14 @@ return true;
   /* ==========================================================
      NAVEGAÇÃO
      ========================================================== */
-  function navegarPremiada(view) {
-    document.querySelectorAll('.view-premiada').forEach(v => v.classList.add('hidden'));
+function navegarPremiada(view) {
+  // 🔒 Bloqueio: view "admin" só pra admins
+  if (view === 'admin' && !state.isAdmin) {
+    toast('❌ Acesso restrito a administradores.', 'erro');
+    view = 'hub';
+  }
+
+  document.querySelectorAll('.view-premiada').forEach(v => v.classList.add('hidden'));
     $('view-premiada-' + view)?.classList.remove('hidden');
 
     document.querySelectorAll('.tab-premiada').forEach(t => {
@@ -1228,17 +1234,23 @@ if (data.bonus_primeiro_resgate) {
   /* ==========================================================
      ADMIN
      ========================================================== */
-  function trocarAbaAdmin(aba) {
-    document.querySelectorAll('.admin-content').forEach(x => x.classList.add('hidden'));
-    $('adminContent-' + aba)?.classList.remove('hidden');
-
-    document.querySelectorAll('.admin-tab').forEach(t => {
-      const ativo = t.dataset.atab === aba;
-      t.className = ativo
-        ? 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all'
-        : 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all';
-    });
+function trocarAbaAdmin(aba) {
+  // 🔒 Bloqueio: só admin
+  if (!state.isAdmin) {
+    toast('❌ Acesso restrito a administradores.', 'erro');
+    return;
   }
+
+  document.querySelectorAll('.admin-content').forEach(x => x.classList.add('hidden'));
+  $('adminContent-' + aba)?.classList.remove('hidden');
+
+  document.querySelectorAll('.admin-tab').forEach(t => {
+    const ativo = t.dataset.atab === aba;
+    t.className = ativo
+      ? 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all'
+      : 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all';
+  });
+}
 
 async function carregarAdmin() {
   if (!state.isAdmin) return;
