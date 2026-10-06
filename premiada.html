@@ -33,7 +33,12 @@
     .nivel-prata   { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
     .nivel-ouro    { background: linear-gradient(135deg, #F59E0B, #B45309); color: #fff; }
     .nivel-diamante{ background: linear-gradient(135deg, #0EA5E9, #0369A1); color: #fff; }
-
+    /* Notificações — animação de entrada */
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.95) translateY(-8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    
     /* Roleta — animação */
     @keyframes spin-wheel {
       from { transform: rotate(0deg); }
@@ -69,21 +74,29 @@
           </button>
 
           <!-- Painel dropdown -->
-          <div id="painelNotificacoes" class="hidden absolute right-0 top-full mt-2 w-96 max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50">
-            <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div id="painelNotificacoes" class="hidden absolute right-0 top-full mt-3 w-[400px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border-2 border-slate-200 overflow-hidden z-50" style="transform-origin: top right; animation: fadeInScale 0.15s ease-out;">
+            <!-- Header com seta/notch -->
+            <div class="relative bg-[#0e8890] px-5 py-4 flex justify-between items-center">
               <div class="flex items-center gap-2">
-                <i data-lucide="bell" class="w-4 h-4 text-[#0e8890]"></i>
-                <h3 class="font-black text-sm text-[#000033]">Notificações</h3>
+                <i data-lucide="bell" class="w-4 h-4 text-white"></i>
+                <h3 class="font-black text-sm text-white uppercase tracking-wide">Notificações</h3>
+                <span id="painelContador" class="hidden bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-full">0 novas</span>
               </div>
-              <button onclick="marcarTodasLidas()" class="text-[10px] text-[#0e8890] hover:text-[#0b6c72] font-black uppercase">
+              <button onclick="marcarTodasLidas()" class="text-[10px] text-white/80 hover:text-white font-black uppercase">
                 Marcar todas
               </button>
+              <!-- Notch (setinha apontando pro sino) -->
+              <div class="absolute -top-1.5 right-7 w-3 h-3 bg-[#0e8890] transform rotate-45"></div>
             </div>
-            <div id="listaNotificacoes" class="max-h-[500px] overflow-y-auto divide-y divide-slate-100">
+
+            <div id="listaNotificacoes" class="max-h-[480px] overflow-y-auto divide-y divide-slate-100">
               <p class="text-center text-slate-400 py-8 text-sm">Carregando…</p>
             </div>
-            <div class="px-4 py-2 bg-slate-50 border-t border-slate-100 text-center">
-              <button onclick="verTodasNotificacoes()" class="text-[10px] text-slate-500 hover:text-[#0e8890] font-black uppercase">
+
+            <div class="px-4 py-3 bg-slate-50 border-t border-slate-100">
+              <button onclick="verTodasNotificacoes()" 
+                class="w-full bg-white hover:bg-[#0e8890] hover:text-white text-[#0e8890] border-2 border-[#0e8890]/20 hover:border-[#0e8890] py-2 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2">
+                <i data-lucide="list" class="w-3.5 h-3.5"></i>
                 Ver todas as notificações
               </button>
             </div>
@@ -1385,43 +1398,71 @@ function renderListaNotificacoes(lista, targetId) {
   const box = $(targetId);
   if (!box) return;
 
+  // Atualiza contador no painel (se existir)
+  const contadorEl = $('painelContador');
+  if (contadorEl) {
+    const naoLidas = lista.filter(n => !n.lida).length;
+    if (naoLidas > 0) {
+      contadorEl.textContent = `${naoLidas} nova${naoLidas > 1 ? 's' : ''}`;
+      contadorEl.classList.remove('hidden');
+    } else {
+      contadorEl.classList.add('hidden');
+    }
+  }
+
   if (!lista.length) {
     box.innerHTML = `
-      <div class="text-center py-8">
-        <i data-lucide="bell-off" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
-        <p class="text-sm text-slate-500">Sem notificações</p>
-        <p class="text-[10px] text-slate-400 mt-1">Você está em dia!</p>
+      <div class="text-center py-10 px-4">
+        <div class="w-16 h-16 mx-auto rounded-full bg-slate-50 flex items-center justify-center mb-3">
+          <i data-lucide="bell-off" class="w-7 h-7 text-slate-300"></i>
+        </div>
+        <p class="text-sm font-bold text-slate-500">Nada por aqui ainda</p>
+        <p class="text-[11px] text-slate-400 mt-1">Você está em dia com as novidades!</p>
       </div>`;
     lucide.createIcons();
     return;
   }
 
   const tipoCor = {
-    badge:    { bg: 'bg-purple-50', texto: 'text-purple-800' },
-    missao:   { bg: 'bg-amber-50',  texto: 'text-amber-800' },
-    resgate:  { bg: 'bg-emerald-50',texto: 'text-emerald-800' },
-    streak:   { bg: 'bg-orange-50', texto: 'text-orange-800' },
-    operacao: { bg: 'bg-red-50',    texto: 'text-red-800' },
+    badge:    { bg: 'bg-purple-50/60 hover:bg-purple-50',  texto: 'text-purple-800',  iconBg: 'bg-purple-100 text-purple-700' },
+    missao:   { bg: 'bg-amber-50/60 hover:bg-amber-50',    texto: 'text-amber-800',   iconBg: 'bg-amber-100 text-amber-700' },
+    resgate:  { bg: 'bg-emerald-50/60 hover:bg-emerald-50',texto: 'text-emerald-800', iconBg: 'bg-emerald-100 text-emerald-700' },
+    streak:   { bg: 'bg-orange-50/60 hover:bg-orange-50',  texto: 'text-orange-800',  iconBg: 'bg-orange-100 text-orange-700' },
+    operacao: { bg: 'bg-red-50/60 hover:bg-red-50',        texto: 'text-red-800',     iconBg: 'bg-red-100 text-red-700' },
   };
 
   box.innerHTML = lista.map(n => {
-    const conf = tipoCor[n.tipo] || { bg: 'bg-slate-50', texto: 'text-slate-700' };
+    const conf = tipoCor[n.tipo] || { bg: 'bg-slate-50/60 hover:bg-slate-50', texto: 'text-slate-700', iconBg: 'bg-slate-100 text-slate-600' };
     const tempo = tempoRelativo(n.criado_em);
+    const naoLida = !n.lida;
 
     return `
-      <div class="flex items-start gap-3 p-4 ${!n.lida ? conf.bg : ''} hover:bg-slate-50 transition-colors cursor-pointer relative"
+      <div class="flex items-start gap-3 px-5 py-4 ${naoLida ? conf.bg : 'bg-white hover:bg-slate-50'} transition-colors cursor-pointer relative group"
         onclick="marcarComoLida('${n.id}', this)">
-        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shrink-0 border border-slate-200">
+        
+        <!-- Ícone -->
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${naoLida ? conf.iconBg : 'bg-slate-100'}">
           ${n.icone || '🔔'}
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
+
+        <!-- Conteúdo -->
+        <div class="flex-1 min-w-0 pr-2">
+          <div class="flex items-center gap-2 mb-0.5">
             <p class="text-xs font-black ${conf.texto} leading-tight">${escapeHTML(n.titulo)}</p>
-            ${!n.lida ? '<span class="w-2 h-2 rounded-full bg-[#0e8890] shrink-0"></span>' : ''}
+            ${naoLida ? '<span class="w-2 h-2 rounded-full bg-[#0e8890] shrink-0 animate-pulse"></span>' : ''}
           </div>
-          ${n.mensagem ? `<p class="text-[11px] text-slate-600 mt-1 leading-relaxed">${escapeHTML(n.mensagem)}</p>` : ''}
-          <p class="text-[10px] text-slate-400 mt-1 font-bold">${tempo}</p>
+          ${n.mensagem ? `<p class="text-[11px] text-slate-600 mt-0.5 leading-relaxed">${escapeHTML(n.mensagem)}</p>` : ''}
+          <p class="text-[10px] text-slate-400 mt-1.5 font-bold flex items-center gap-1">
+            <i data-lucide="clock" class="w-3 h-3"></i>
+            ${tempo}
+          </p>
         </div>
+
+        <!-- Indicador hover -->
+        ${naoLida ? `
+          <div class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity self-center">
+            <i data-lucide="check" class="w-4 h-4 text-[#0e8890]"></i>
+          </div>` : ''}
       </div>`;
   }).join('');
 
