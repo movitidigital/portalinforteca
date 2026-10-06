@@ -534,6 +534,35 @@
       <div class="p-6 space-y-4 overflow-y-auto flex-1">
         <input type="hidden" id="mpId">
 
+        <!-- 📸 IMAGEM DO PRÊMIO -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Imagem do Prêmio</label>
+
+          <!-- Preview -->
+          <div id="mpImagemPreview" class="w-full h-40 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center mb-2 overflow-hidden relative">
+            <div id="mpImagemVazio" class="text-center">
+              <i data-lucide="image-plus" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+              <p class="text-[10px] text-slate-400 font-bold uppercase">Sem imagem</p>
+            </div>
+            <img id="mpImagemImg" src="" alt="" class="hidden absolute inset-0 w-full h-full object-cover">
+          </div>
+
+          <!-- Botões -->
+          <div class="flex gap-2">
+            <input type="file" id="mpImagemInput" accept="image/*" class="hidden" onchange="onImagemSelecionada(this)">
+            <button type="button" onclick="$('mpImagemInput').click()"
+              class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-black uppercase flex items-center justify-center gap-2">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i> Escolher Imagem
+            </button>
+            <button type="button" onclick="removerImagemPremio()" id="mpBtnRemoverImg"
+              class="hidden bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-black uppercase">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <p class="text-[10px] text-slate-400 mt-1">JPG, PNG ou WebP até 2MB. Recomendado: 400x400px</p>
+        </div>
+        
         <!-- Nome -->
         <div>
           <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome do Prêmio *</label>
@@ -970,64 +999,68 @@ async function carregarMissoes() {
   /* ==========================================================
      LOJA
      ========================================================== */
-  async function carregarLoja() {
-    // Atualiza saldo
-    await garantirConsultor();
-    $('saldoLoja').textContent = state.consultor.saldo_pontos.toLocaleString('pt-BR') + ' pts';
+async function carregarLoja() {
+  // Atualiza saldo
+  await garantirConsultor();
+  $('saldoLoja').textContent = state.consultor.saldo_pontos.toLocaleString('pt-BR') + ' pts';
 
-    const { data: premios } = await supabaseClient
-      .from('premiada_premios')
-      .select('*')
-      .eq('ativo', true)
-      .order('ordem');
+  const { data: premios } = await supabaseClient
+    .from('premiada_premios')
+    .select('*')
+    .eq('ativo', true)
+    .order('ordem');
 
-    state.premios = premios || [];
+  state.premios = premios || [];
 
-    const grid = $('lojaGrid');
-    if (!premios || !premios.length) {
-      grid.innerHTML = `<p class="text-center text-slate-400 col-span-3 py-8">Nenhum prêmio disponível.</p>`;
-      return;
-    }
-
-    const icons = { PIX: '💵', voucher: '🎟️', produto: '🎁' };
-
-    grid.innerHTML = premios.map(p => {
-      const saldoOk = state.consultor.saldo_pontos >= p.custo_pontos;
-      const estoqueOk = p.estoque_atual > 0;
-      const podeResgatar = saldoOk && estoqueOk;
-
-      const falta = p.custo_pontos - state.consultor.saldo_pontos;
-
-      return `
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-          <div class="h-32 bg-gradient-to-br from-[#0e8890]/10 to-[#0e8890]/5 flex items-center justify-center text-5xl">
-            ${icons[p.categoria] || '🎁'}
-          </div>
-          <div class="p-4">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${escapeHTML(p.categoria)}</p>
-            <h4 class="font-black text-slate-800 text-sm mt-1 leading-tight">${escapeHTML(p.nome)}</h4>
-            ${p.descricao ? `<p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${escapeHTML(p.descricao)}</p>` : ''}
-            <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
-              <span class="text-xs font-black text-emerald-700">${p.custo_pontos.toLocaleString('pt-BR')} pts</span>
-              <span class="text-[10px] font-bold ${p.estoque_atual > 0 ? 'text-slate-400' : 'text-red-500'}">
-                ${p.estoque_atual > 0 ? 'Estoque: ' + p.estoque_atual : 'Esgotado'}
-              </span>
-            </div>
-            <button
-              onclick="${podeResgatar ? `abrirModalResgate('${p.id}')` : ''}"
-              ${!podeResgatar ? 'disabled' : ''}
-              class="w-full mt-3 py-2.5 rounded-lg text-xs font-black uppercase transition-colors
-                ${podeResgatar
-                  ? 'bg-[#0e8890] hover:bg-[#0b6c72] text-white'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'}">
-              ${!estoqueOk ? '🔒 Esgotado' : !saldoOk ? `🔒 Faltam ${falta} pts` : 'Resgatar'}
-            </button>
-          </div>
-        </div>`;
-    }).join('');
-
-    lucide.createIcons();
+  const grid = $('lojaGrid');
+  if (!premios || !premios.length) {
+    grid.innerHTML = `<p class="text-center text-slate-400 col-span-3 py-8">Nenhum prêmio disponível.</p>`;
+    return;
   }
+
+  const icons = { PIX: '💵', voucher: '🎟️', produto: '🎁' };
+
+  grid.innerHTML = premios.map(p => {
+    const saldoOk = state.consultor.saldo_pontos >= p.custo_pontos;
+    const estoqueOk = p.estoque_atual > 0;
+    const podeResgatar = saldoOk && estoqueOk;
+
+    const falta = p.custo_pontos - state.consultor.saldo_pontos;
+
+    return `
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+        <!-- 📸 Imagem ou ícone -->
+        <div class="h-40 bg-gradient-to-br from-[#0e8890]/10 to-[#0e8890]/5 flex items-center justify-center text-5xl overflow-hidden relative">
+          ${p.imagem_url 
+            ? `<img src="${escapeHTML(p.imagem_url)}" alt="${escapeHTML(p.nome)}" class="w-full h-full object-cover">`
+            : (icons[p.categoria] || '🎁')
+          }
+        </div>
+        <div class="p-4">
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">${escapeHTML(p.categoria)}</p>
+          <h4 class="font-black text-slate-800 text-sm mt-1 leading-tight">${escapeHTML(p.nome)}</h4>
+          ${p.descricao ? `<p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${escapeHTML(p.descricao)}</p>` : ''}
+          <div class="flex justify-between items-center mt-3 pt-3 border-t border-slate-100">
+            <span class="text-xs font-black text-emerald-700">${p.custo_pontos.toLocaleString('pt-BR')} pts</span>
+            <span class="text-[10px] font-bold ${p.estoque_atual > 0 ? 'text-slate-400' : 'text-red-500'}">
+              ${p.estoque_atual > 0 ? 'Estoque: ' + p.estoque_atual : 'Esgotado'}
+            </span>
+          </div>
+          <button
+            onclick="${podeResgatar ? `abrirModalResgate('${p.id}')` : ''}"
+            ${!podeResgatar ? 'disabled' : ''}
+            class="w-full mt-3 py-2.5 rounded-lg text-xs font-black uppercase transition-colors
+              ${podeResgatar
+                ? 'bg-[#0e8890] hover:bg-[#0b6c72] text-white'
+                : 'bg-slate-100 text-slate-400 cursor-not-allowed'}">
+            ${!estoqueOk ? '🔒 Esgotado' : !saldoOk ? `🔒 Faltam ${falta} pts` : 'Resgatar'}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+}
 
   /* ==========================================================
      MODAL RESGATE
@@ -1578,7 +1611,13 @@ async function carregarAdminPremios() {
 
         return `
           <div class="flex items-center gap-3 border-2 ${corBorda} rounded-xl p-3">
-            <div class="w-12 h-12 rounded-lg bg-white flex items-center justify-center text-2xl shrink-0 border border-slate-200">${icone}</div>
+            <!-- 📸 Imagem ou ícone -->
+            <div class="w-14 h-14 rounded-lg bg-white flex items-center justify-center text-2xl shrink-0 border border-slate-200 overflow-hidden">
+              ${p.imagem_url 
+                ? `<img src="${escapeHTML(p.imagem_url)}" alt="${escapeHTML(p.nome)}" class="w-full h-full object-cover">`
+                : icone
+              }
+            </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <p class="font-black text-slate-800 text-sm">${escapeHTML(p.nome)}</p>
@@ -1634,6 +1673,9 @@ async function abrirModalPremio(id) {
   $('mpEstoqueMax').value = p?.estoque_max ?? 1;
   $('mpOrdem').value = p?.ordem ?? 999;
   $('mpAtivo').checked = p?.ativo ?? true;
+  _arquivoImagem = null;
+  $('mpImagemInput').value = '';
+  setPreviewImagem(p?.imagem_url || null);
 
   // Mostra botão excluir só se for edição
   $('mpBtnExcluir').classList.toggle('hidden', !p);
@@ -1661,6 +1703,88 @@ function fecharModalPremio() {
 /* ==========================================================
    SALVAR / EXCLUIR PRÊMIO
    ========================================================== */
+/* ==========================================================
+   UPLOAD DE IMAGEM DO PRÊMIO
+   ========================================================== */
+let _arquivoImagem = null;
+let _urlImagemAtual = null;
+
+function onImagemSelecionada(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  // Valida tamanho (2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    toast('❌ Imagem muito grande. Máximo 2MB.', 'erro');
+    input.value = '';
+    return;
+  }
+
+  // Valida tipo
+  if (!file.type.startsWith('image/')) {
+    toast('❌ Arquivo precisa ser uma imagem.', 'erro');
+    input.value = '';
+    return;
+  }
+
+  _arquivoImagem = file;
+
+  // Preview local
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    $('mpImagemImg').src = e.target.result;
+    $('mpImagemImg').classList.remove('hidden');
+    $('mpImagemVazio').classList.add('hidden');
+    $('mpBtnRemoverImg').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removerImagemPremio() {
+  _arquivoImagem = null;
+  _urlImagemAtual = null;
+  $('mpImagemInput').value = '';
+  $('mpImagemImg').classList.add('hidden');
+  $('mpImagemImg').src = '';
+  $('mpImagemVazio').classList.remove('hidden');
+  $('mpBtnRemoverImg').classList.add('hidden');
+}
+
+function setPreviewImagem(url) {
+  _urlImagemAtual = url || null;
+  if (url) {
+    $('mpImagemImg').src = url;
+    $('mpImagemImg').classList.remove('hidden');
+    $('mpImagemVazio').classList.add('hidden');
+    $('mpBtnRemoverImg').classList.remove('hidden');
+  } else {
+    $('mpImagemImg').classList.add('hidden');
+    $('mpImagemImg').src = '';
+    $('mpImagemVazio').classList.remove('hidden');
+    $('mpBtnRemoverImg').classList.add('hidden');
+  }
+}
+
+async function uploadImagemPremio(file) {
+  // Nome único: timestamp + nome sanitizado
+  const ext = file.name.split('.').pop().toLowerCase();
+  const nomeSeguro = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `premios/${Date.now()}-${nomeSeguro}`;
+
+  const { error } = await supabaseClient.storage
+    .from('premiada-premios')
+    .upload(path, file, { cacheControl: '3600', upsert: false });
+
+  if (error) throw new Error('Erro no upload: ' + error.message);
+
+  const { data: { publicUrl } } = supabaseClient.storage
+    .from('premiada-premios')
+    .getPublicUrl(path);
+
+  return publicUrl;
+}
+
+  
 async function salvarPremio() {
   const btn = $('mpBtnSalvar');
   const alertBox = $('mpAlert');
@@ -1676,6 +1800,7 @@ async function salvarPremio() {
     estoque_max: parseInt($('mpEstoqueMax').value) || 0,
     ordem: parseInt($('mpOrdem').value) || 999,
     ativo: $('mpAtivo').checked,
+    imagem_url: _urlImagemAtual || '',
   };
 
   // Validações
@@ -1692,6 +1817,22 @@ async function salvarPremio() {
     return;
   }
 
+  // 📸 Upload da imagem (se houver arquivo novo)
+  if (_arquivoImagem) {
+    try {
+      alertBox.textContent = 'Fazendo upload da imagem…';
+      alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-blue-50 border-blue-200 text-blue-600';
+      alertBox.classList.remove('hidden');
+
+      dados.imagem_url = await uploadImagemPremio(_arquivoImagem);
+    } catch (err) {
+      alertBox.textContent = 'Erro no upload: ' + err.message;
+      alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+  }
+  
   btn.disabled = true;
   btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gravando…`;
   lucide.createIcons();
