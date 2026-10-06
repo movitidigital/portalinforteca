@@ -365,7 +365,8 @@
   🚨 Operação Resgate
 </button>
  <button data-atab="orcamento" onclick="trocarAbaAdmin('orcamento')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 💰 Orçamento </button>
-<button data-atab="config" onclick="trocarAbaAdmin('config')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> ⚙️ Configurações </button>
+<button data-atab="missoes" onclick="trocarAbaAdmin('missoes')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> 🎯 Missões </button>
+              <button data-atab="config" onclick="trocarAbaAdmin('config')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all"> ⚙️ Configurações </button>
             </div>
 
             <!-- Admin: Visão Geral -->
@@ -389,6 +390,28 @@
               </div>
             </div>
 
+<!-- Admin: Missões -->
+<div id="adminContent-missoes" class="admin-content hidden p-6">
+  <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+    <div>
+      <h3 class="text-base font-black text-[#000033]">🎯 Gestão de Missões</h3>
+      <p class="text-xs text-slate-500 mt-0.5">Crie e gerencie missões diárias, semanais e mensais</p>
+    </div>
+    <button onclick="abrirModalMissao(null)"
+      class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+      <i data-lucide="plus" class="w-4 h-4"></i> Nova Missão
+    </button>
+  </div>
+
+  <!-- KPIs -->
+  <div id="adminMissoesKPIs" class="grid grid-cols-3 gap-3 mb-5"></div>
+
+  <!-- Lista -->
+  <div id="adminMissoesLista" class="space-y-3">
+    <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
+  </div>
+</div>
+            
 <!-- Admin: Configurações -->
 <div id="adminContent-config" class="admin-content hidden p-6">
 
@@ -518,6 +541,119 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: MISSÃO (CRUD) ============ -->
+  <div id="modalMissao" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-amber-600 px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="target" class="w-5 h-5 text-white"></i>
+          <h3 id="mmTitulo" class="text-white font-black text-sm uppercase">Nova Missão</h3>
+        </div>
+        <button onclick="fecharModalMissao()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="mmId">
+
+        <!-- Título -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Título da Missão *</label>
+          <input type="text" id="mmTituloInput" placeholder="Ex: Venda 2 controles hoje"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-amber-500">
+        </div>
+
+        <!-- Descrição -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Descrição</label>
+          <input type="text" id="mmDescricao" placeholder="Ex: Feche 2 vendas de CONTROLE"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500">
+        </div>
+
+        <!-- Tipo + Métrica -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Tipo *</label>
+            <select id="mmTipo" onchange="autoPreencherDatas()"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-amber-500">
+              <option value="diaria">📅 Diária</option>
+              <option value="semanal">📆 Semanal</option>
+              <option value="mensal">🗓️ Mensal</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Métrica *</label>
+            <select id="mmMetrica"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-amber-500">
+              <option value="controle_total">Controle (qualquer)</option>
+              <option value="controle_simples">Controle simples</option>
+              <option value="controle_port">Controle + Portabilidade</option>
+              <option value="pos_total">PÓS (qualquer)</option>
+              <option value="pos_simples">PÓS simples</option>
+              <option value="pos_port">PÓS + Portabilidade</option>
+              <option value="portabilidade_total">Portabilidade (qualquer)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Meta + Pontos -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Meta (quantidade) *</label>
+            <input type="number" id="mmMeta" min="1" value="2"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-black text-right focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Pontos bônus *</label>
+            <input type="number" id="mmPontos" min="1" value="200"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-black text-right focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+
+        <!-- Datas -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Data início *</label>
+            <input type="date" id="mmDataInicio"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-amber-500">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Data fim *</label>
+            <input type="date" id="mmDataFim"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-amber-500">
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-400 -mt-2">
+          💡 Ao mudar o tipo, as datas são preenchidas automaticamente.
+        </p>
+
+        <!-- Ativo -->
+        <label class="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+          <input type="checkbox" id="mmAtivo" checked class="w-4 h-4 accent-amber-600">
+          <span class="text-xs font-bold text-slate-700">Missão ativa (visível pros consultores)</span>
+        </label>
+
+        <div id="mmAlert" class="hidden text-xs p-3 rounded-xl border font-medium"></div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t flex justify-between gap-3 shrink-0">
+        <button id="mmBtnExcluir" onclick="excluirMissao()"
+          class="hidden bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir
+        </button>
+        <div class="flex gap-3 ml-auto">
+          <button onclick="fecharModalMissao()" class="px-4 py-2 text-sm font-medium text-slate-600">Cancelar</button>
+          <button id="mmBtnSalvar" onclick="salvarMissao()"
+            class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+            <i data-lucide="save" class="w-4 h-4"></i> Gravar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
   <!-- ============ MODAL: PRÊMIO (CRUD) ============ -->
   <div id="modalPremio" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] flex flex-col">
@@ -1403,6 +1539,7 @@ async function carregarAdmin() {
     carregarAdminPremios(), 
     carregarAdminOrcamento(),
     carregarMissoesEmergenciais(),
+    carregarAdminMissoes(),
     carregarConfig()
   ]);
 }
@@ -2327,6 +2464,293 @@ async function executarVerificacaoResgate() {
   }
 }
 
+/* ==========================================================
+   ADMIN — MISSÕES (CRUD)
+   ========================================================== */
+
+async function carregarAdminMissoes() {
+  const { data: missoes } = await supabaseClient
+    .from('premiada_missoes')
+    .select('*')
+    .order('data_inicio', { ascending: false });
+
+  const lista = missoes || [];
+
+  // KPIs
+  const hoje = new Date().toISOString().split('T')[0];
+  const ativas = lista.filter(m => m.ativa && m.data_fim >= hoje).length;
+  const encerradas = lista.filter(m => !m.ativa || m.data_fim < hoje).length;
+  const automáticas = lista.filter(m => m.auto_gerada).length;
+
+  $('adminMissoesKPIs').innerHTML = `
+    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-emerald-600 uppercase">Ativas</p>
+      <p class="text-xl font-black text-emerald-700 mt-1">${ativas}</p>
+    </div>
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-slate-600 uppercase">Encerradas</p>
+      <p class="text-xl font-black text-slate-700 mt-1">${encerradas}</p>
+    </div>
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
+      <p class="text-[9px] font-black text-purple-600 uppercase">Auto (Operação)</p>
+      <p class="text-xl font-black text-purple-700 mt-1">${automáticas}</p>
+    </div>
+  `;
+
+  // Lista
+  const box = $('adminMissoesLista');
+  if (!lista.length) {
+    box.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">Nenhuma missão cadastrada.</p>`;
+    return;
+  }
+
+  const icons = { diaria: '📅', semanal: '📆', mensal: '🗓️', emergencial: '🚨' };
+  const tipoLabel = { diaria: 'Diária', semanal: 'Semanal', mensal: 'Mensal', emergencial: 'Emergencial' };
+  const metricaLabel = {
+    controle_total: 'Controle (qualquer)',
+    controle_simples: 'Controle simples',
+    controle_port: 'Controle + Port',
+    pos_total: 'PÓS (qualquer)',
+    pos_simples: 'PÓS simples',
+    pos_port: 'PÓS + Port',
+    portabilidade_total: 'Portabilidade',
+  };
+
+  box.innerHTML = lista.map(m => {
+    const expirou = m.data_fim < hoje;
+    const naoComecou = m.data_inicio > hoje;
+    const emAndamento = !expirou && !naoComecou && m.ativa;
+
+    let statusCor = 'bg-slate-100 text-slate-600 border-slate-200';
+    let statusLabel = 'Inativa';
+    if (m.ativa && emAndamento) { statusCor = 'bg-emerald-100 text-emerald-700 border-emerald-200'; statusLabel = 'Em andamento'; }
+    else if (m.ativa && naoComecou) { statusCor = 'bg-blue-100 text-blue-700 border-blue-200'; statusLabel = 'Agendada'; }
+    else if (m.ativa && expirou) { statusCor = 'bg-amber-100 text-amber-700 border-amber-200'; statusLabel = 'Expirada'; }
+
+    const isAuto = m.auto_gerada;
+
+    return `
+      <div class="flex items-start gap-3 border-2 ${emAndamento ? 'border-amber-200 bg-amber-50/30' : 'border-slate-200 bg-white'} rounded-xl p-4">
+        <div class="w-12 h-12 rounded-lg bg-white flex items-center justify-center text-2xl shrink-0 border border-slate-200">
+          ${icons[m.tipo] || '🎯'}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-black text-slate-800 text-sm">${escapeHTML(m.titulo)}</p>
+            <span class="text-[9px] font-black px-2 py-0.5 rounded-full border ${statusCor} uppercase">${statusLabel}</span>
+            <span class="text-[9px] font-black bg-slate-800 text-white px-2 py-0.5 rounded-full uppercase">${tipoLabel[m.tipo] || m.tipo}</span>
+            ${isAuto ? '<span class="text-[9px] font-black bg-purple-600 text-white px-2 py-0.5 rounded-full uppercase">🤖 Auto</span>' : ''}
+          </div>
+          ${m.descricao ? `<p class="text-[11px] text-slate-500 mt-1">${escapeHTML(m.descricao)}</p>` : ''}
+          <div class="flex flex-wrap gap-3 mt-2 text-[10px] font-bold">
+            <span class="text-slate-600">🎯 ${metricaLabel[m.metrica] || m.metrica}: <strong>${m.meta_quantidade}</strong></span>
+            <span class="text-slate-400">·</span>
+            <span class="text-emerald-700">+${m.pontos_bonus} pts</span>
+            <span class="text-slate-400">·</span>
+            <span class="text-slate-500">📅 ${new Date(m.data_inicio + 'T00:00:00').toLocaleDateString('pt-BR')} → ${new Date(m.data_fim + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1 shrink-0">
+          <button onclick="abrirModalMissao('${m.id}')"
+            class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">
+            Editar
+          </button>
+          ${m.ativa ? `
+            <button onclick="encerrarMissao('${m.id}')"
+              class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">
+              Encerrar
+            </button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+/* ==========================================================
+   MODAL MISSÃO — Abrir / Fechar
+   ========================================================== */
+let _missaoEditando = null;
+
+async function abrirModalMissao(id) {
+  // Se está editando, busca do banco
+  if (id) {
+    const { data } = await supabaseClient
+      .from('premiada_missoes').select('*').eq('id', id).single();
+    _missaoEditando = data;
+  } else {
+    _missaoEditando = null;
+  }
+
+  const m = _missaoEditando;
+  $('mmId').value = m?.id || '';
+  $('mmTitulo').textContent = m ? 'Editar Missão' : 'Nova Missão';
+  $('mmTituloInput').value = m?.titulo || '';
+  $('mmDescricao').value = m?.descricao || '';
+  $('mmTipo').value = m?.tipo || 'diaria';
+  $('mmMetrica').value = m?.metrica || 'controle_total';
+  $('mmMeta').value = m?.meta_quantidade || 2;
+  $('mmPontos').value = m?.pontos_bonus || 200;
+  $('mmDataInicio').value = m?.data_inicio || new Date().toISOString().split('T')[0];
+  $('mmDataFim').value = m?.data_fim || new Date().toISOString().split('T')[0];
+  $('mmAtivo').checked = m?.ativo ?? true;
+
+  // Bloqueia tipo/métrica se for emergencial (auto-gerada)
+  const isAuto = m?.auto_gerada === true;
+  $('mmTipo').disabled = isAuto;
+  $('mmMetrica').disabled = isAuto;
+  if (isAuto) {
+    // Se for auto, bloqueia também título e meta
+    $('mmTituloInput').disabled = true;
+    $('mmMeta').disabled = true;
+  } else {
+    $('mmTituloInput').disabled = false;
+    $('mmMeta').disabled = false;
+  }
+
+  // Mostra botão excluir se for edição E não for auto
+  $('mmBtnExcluir').classList.toggle('hidden', !m || isAuto);
+
+  $('mmAlert').classList.add('hidden');
+
+  $('modalMissao').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function fecharModalMissao() {
+  $('modalMissao').classList.add('hidden');
+  _missaoEditando = null;
+}
+
+/* Auto-preenche datas conforme tipo */
+function autoPreencherDatas() {
+  const tipo = $('mmTipo').value;
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth();
+  const dia = hoje.getDate();
+
+  let inicio, fim;
+
+  if (tipo === 'diaria') {
+    inicio = new Date(ano, mes, dia);
+    fim = new Date(ano, mes, dia);
+  } else if (tipo === 'semanal') {
+    // Segunda a domingo desta semana
+    const dow = hoje.getDay(); // 0=dom
+    const diff = dow === 0 ? -6 : 1 - dow;
+    inicio = new Date(ano, mes, dia + diff);
+    fim = new Date(inicio.getTime() + 6 * 86400000);
+  } else { // mensal
+    inicio = new Date(ano, mes, 1);
+    fim = new Date(ano, mes + 1, 0);
+  }
+
+  const fmt = (d) => d.toISOString().split('T')[0];
+  $('mmDataInicio').value = fmt(inicio);
+  $('mmDataFim').value = fmt(fim);
+}
+
+/* ==========================================================
+   SALVAR / EXCLUIR / ENCERRAR MISSÃO
+   ========================================================== */
+async function salvarMissao() {
+  const btn = $('mmBtnSalvar');
+  const alertBox = $('mmAlert');
+  const id = $('mmId').value || null;
+
+  const dados = {
+    titulo: $('mmTituloInput').value.trim(),
+    descricao: $('mmDescricao').value.trim(),
+    tipo: $('mmTipo').value,
+    metrica: $('mmMetrica').value,
+    meta_quantidade: parseInt($('mmMeta').value) || 0,
+    pontos_bonus: parseInt($('mmPontos').value) || 0,
+    data_inicio: $('mmDataInicio').value,
+    data_fim: $('mmDataFim').value,
+    ativa: $('mmAtivo').checked,
+  };
+
+  // Validações
+  if (!dados.titulo) {
+    alertBox.textContent = 'Informe o título da missão.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+  if (!dados.data_inicio || !dados.data_fim) {
+    alertBox.textContent = 'Preencha as datas.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gravando…`;
+  lucide.createIcons();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('salvar_missao', {
+      p_id: id,
+      p_dados: dados,
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast(data.criado ? '✅ Missão criada!' : '✅ Missão atualizada!');
+    fecharModalMissao();
+    await carregarAdminMissoes();
+  } catch (err) {
+    console.error('[Salvar missão]', err);
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Gravar';
+    lucide.createIcons();
+  }
+}
+
+async function excluirMissao() {
+  const m = _missaoEditando;
+  if (!m) return;
+
+  if (!confirm(`⚠️ Excluir a missão "${m.titulo}"?\n\nEsta ação NÃO pode ser desfeita.`)) return;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('deletar_missao', { p_id: m.id });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast('🗑️ Missão excluída!');
+    fecharModalMissao();
+    await carregarAdminMissoes();
+  } catch (err) {
+    const alertBox = $('mmAlert');
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+  }
+}
+
+async function encerrarMissao(id) {
+  if (!confirm('Encerrar esta missão?\n\nEla deixa de aparecer pra consultores imediatamente.')) return;
+
+  const { error } = await supabaseClient
+    .from('premiada_missoes')
+    .update({ ativa: false })
+    .eq('id', id);
+
+  if (error) {
+    toast('❌ ' + error.message, 'erro');
+    return;
+  }
+  toast('Missão encerrada.');
+  await carregarAdminMissoes();
+}
+  
 async function carregarMissoesEmergenciais() {
   const box = $('adminMissoesEmergenciais');
   if (!box) return;
