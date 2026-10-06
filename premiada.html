@@ -518,6 +518,113 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: PRÊMIO (CRUD) ============ -->
+  <div id="modalPremio" class="fixed inset-0 z-[60] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-[#0e8890] px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="gift" class="w-5 h-5 text-white"></i>
+          <h3 id="mpTitulo" class="text-white font-black text-sm uppercase">Novo Prêmio</h3>
+        </div>
+        <button onclick="fecharModalPremio()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="mpId">
+
+        <!-- Nome -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome do Prêmio *</label>
+          <input type="text" id="mpNome" placeholder="Ex: PIX R$ 50"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-[#0e8890]">
+        </div>
+
+        <!-- Descrição -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Descrição</label>
+          <input type="text" id="mpDescricao" placeholder="Ex: Transferência em até 48h"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+        </div>
+
+        <!-- Categoria + Valor -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Categoria *</label>
+            <select id="mpCategoria"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+              <option value="PIX">💵 PIX</option>
+              <option value="voucher">🎟️ Voucher</option>
+              <option value="produto">🎁 Produto</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Valor (R$)</label>
+            <input type="number" id="mpValorReais" step="0.01" min="0" placeholder="0.00"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+          </div>
+        </div>
+
+        <!-- Custo em pontos -->
+        <div>
+          <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Custo em Pontos *</label>
+          <input type="number" id="mpCustoPontos" min="1" placeholder="1000"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-black text-right focus:outline-none focus:border-[#0e8890]">
+          <p id="mpCustoReais" class="text-[10px] text-slate-400 mt-1">≈ R$ 0,00</p>
+        </div>
+
+        <!-- Estoque -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Estoque atual</label>
+            <input type="number" id="mpEstoqueAtual" min="0" value="1"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Estoque máx.</label>
+            <input type="number" id="mpEstoqueMax" min="0" value="1"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+          </div>
+        </div>
+
+        <!-- Ordem + Ativo -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Ordem de exibição</label>
+            <input type="number" id="mpOrdem" min="0" value="999"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+            <p class="text-[10px] text-slate-400 mt-1">Menor = primeiro</p>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Status</label>
+            <label class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer">
+              <input type="checkbox" id="mpAtivo" checked class="w-4 h-4 accent-[#0e8890]">
+              <span class="text-xs font-bold text-slate-700">Ativo na loja</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="mpAlert" class="hidden text-xs p-3 rounded-xl border font-medium"></div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t flex justify-between gap-3 shrink-0">
+        <button id="mpBtnExcluir" onclick="excluirPremio()"
+          class="hidden bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir
+        </button>
+        <div class="flex gap-3 ml-auto">
+          <button onclick="fecharModalPremio()" class="px-4 py-2 text-sm font-medium text-slate-600">Cancelar</button>
+          <button id="mpBtnSalvar" onclick="salvarPremio()"
+            class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+            <i data-lucide="save" class="w-4 h-4"></i> Gravar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
   <!-- TOAST -->
   <div id="toast" class="toast">
     <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
@@ -1421,23 +1528,230 @@ async function rejeitarResgate(id) {
   }
 }
 
-  async function carregarAdminPremios() {
-    const { data: premios } = await supabaseClient
-      .from('premiada_premios').select('*').order('ordem');
+async function carregarAdminPremios() {
+  const { data: premios } = await supabaseClient
+    .from('premiada_premios').select('*').order('ordem');
 
-    const box = $('adminPremios');
-    box.innerHTML = (premios || []).map(p => `
-      <div class="flex items-center gap-3 border border-slate-200 rounded-xl p-3">
-        <div class="flex-1 min-w-0">
-          <p class="font-bold text-slate-800 text-sm">${escapeHTML(p.nome)}</p>
-          <p class="text-[10px] text-slate-400">${p.categoria} · ${fmtMoeda(p.valor_reais)} · ${p.custo_pontos} pts</p>
-        </div>
-        <div class="text-right">
-          <p class="text-xs font-black text-slate-600">${p.estoque_atual} / ${p.estoque_max}</p>
-        </div>
-        <button onclick="editarEstoque('${p.id}', ${p.estoque_atual})" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase">Editar</button>
-      </div>`).join('');
+  const box = $('adminPremios');
+  const lista = premios || [];
+
+  // Header com botão + KPIs
+  const totalAtivos = lista.filter(p => p.ativo).length;
+  const totalEsgotados = lista.filter(p => p.ativo && p.estoque_atual <= 0).length;
+  const valorTotalEstoque = lista.reduce((s, p) => s + (Number(p.valor_reais) * p.estoque_atual), 0);
+
+  box.innerHTML = `
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+        <p class="text-[9px] font-black text-emerald-600 uppercase">Prêmios ativos</p>
+        <p class="text-xl font-black text-emerald-700 mt-1">${totalAtivos}</p>
+      </div>
+      <div class="bg-red-50 border border-red-200 rounded-xl p-3">
+        <p class="text-[9px] font-black text-red-600 uppercase">Esgotados</p>
+        <p class="text-xl font-black text-red-700 mt-1">${totalEsgotados}</p>
+      </div>
+      <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
+        <p class="text-[9px] font-black text-purple-600 uppercase">Valor em estoque</p>
+        <p class="text-xl font-black text-purple-700 mt-1">${fmtMoeda(valorTotalEstoque)}</p>
+      </div>
+    </div>
+
+    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+      <h3 class="text-sm font-black text-slate-800 uppercase">Catálogo de Prêmios</h3>
+      <button onclick="abrirModalPremio(null)"
+        class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2 rounded-lg text-xs font-black uppercase flex items-center gap-2">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo Prêmio
+      </button>
+    </div>
+
+    <div class="space-y-2">
+      ${lista.length === 0 ? '<p class="text-center text-slate-400 py-8 text-sm">Nenhum prêmio cadastrado.</p>' : lista.map(p => {
+        const icone = { PIX: '💵', voucher: '🎟️', produto: '🎁' }[p.categoria] || '🎁';
+        const estoqueBaixo = p.estoque_atual > 0 && p.estoque_atual <= 2;
+        const esgotado = p.estoque_atual <= 0;
+        const inativo = !p.ativo;
+
+        let corBorda = 'border-slate-200 bg-white';
+        if (inativo) corBorda = 'border-slate-100 bg-slate-50 opacity-60';
+        else if (esgotado) corBorda = 'border-red-200 bg-red-50/50';
+        else if (estoqueBaixo) corBorda = 'border-amber-200 bg-amber-50/50';
+
+        return `
+          <div class="flex items-center gap-3 border-2 ${corBorda} rounded-xl p-3">
+            <div class="w-12 h-12 rounded-lg bg-white flex items-center justify-center text-2xl shrink-0 border border-slate-200">${icone}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-black text-slate-800 text-sm">${escapeHTML(p.nome)}</p>
+                ${inativo ? '<span class="text-[9px] font-black bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full uppercase">Inativo</span>' : ''}
+                ${esgotado && p.ativo ? '<span class="text-[9px] font-black bg-red-500 text-white px-2 py-0.5 rounded-full uppercase">Esgotado</span>' : ''}
+                ${estoqueBaixo ? '<span class="text-[9px] font-black bg-amber-500 text-white px-2 py-0.5 rounded-full uppercase">Últimas unidades</span>' : ''}
+              </div>
+              <p class="text-[10px] text-slate-500 mt-0.5">${escapeHTML(p.descricao || p.categoria)}</p>
+              <div class="flex gap-3 mt-1 text-[10px] font-bold">
+                <span class="text-emerald-700">${p.custo_pontos.toLocaleString('pt-BR')} pts</span>
+                <span class="text-slate-400">·</span>
+                <span class="text-purple-700">${fmtMoeda(p.valor_reais)}</span>
+                <span class="text-slate-400">·</span>
+                <span class="${esgotado ? 'text-red-600' : 'text-slate-600'}">Estoque: ${p.estoque_atual}/${p.estoque_max}</span>
+                <span class="text-slate-400">·</span>
+                <span class="text-slate-400">ordem ${p.ordem}</span>
+              </div>
+            </div>
+            <button onclick="abrirModalPremio('${p.id}')"
+              class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase shrink-0">
+              Editar
+            </button>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  lucide.createIcons();
+}
+
+/* ==========================================================
+   MODAL PRÊMIO — Abrir / Fechar
+   ========================================================== */
+let _premioEditando = null;
+let _listaPremios = [];
+
+async function abrirModalPremio(id) {
+  const { data } = await supabaseClient.from('premiada_premios').select('*').order('ordem');
+  _listaPremios = data || [];
+
+  _premioEditando = id ? _listaPremios.find(p => p.id === id) : null;
+
+  const p = _premioEditando;
+  $('mpId').value = p?.id || '';
+  $('mpTitulo').textContent = p ? 'Editar Prêmio' : 'Novo Prêmio';
+  $('mpNome').value = p?.nome || '';
+  $('mpDescricao').value = p?.descricao || '';
+  $('mpCategoria').value = p?.categoria || 'PIX';
+  $('mpValorReais').value = p?.valor_reais || '';
+  $('mpCustoPontos').value = p?.custo_pontos || '';
+  $('mpEstoqueAtual').value = p?.estoque_atual ?? 1;
+  $('mpEstoqueMax').value = p?.estoque_max ?? 1;
+  $('mpOrdem').value = p?.ordem ?? 999;
+  $('mpAtivo').checked = p?.ativo ?? true;
+
+  // Mostra botão excluir só se for edição
+  $('mpBtnExcluir').classList.toggle('hidden', !p);
+
+  $('mpAlert').classList.add('hidden');
+  atualizarCustoReais();
+
+  // Listener pra atualizar preview do custo
+  $('mpCustoPontos').oninput = atualizarCustoReais;
+
+  $('modalPremio').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function atualizarCustoReais() {
+  const pts = parseInt($('mpCustoPontos').value) || 0;
+  $('mpCustoReais').textContent = `≈ ${fmtMoeda(pts / 100)}`;
+}
+
+function fecharModalPremio() {
+  $('modalPremio').classList.add('hidden');
+  _premioEditando = null;
+}
+
+/* ==========================================================
+   SALVAR / EXCLUIR PRÊMIO
+   ========================================================== */
+async function salvarPremio() {
+  const btn = $('mpBtnSalvar');
+  const alertBox = $('mpAlert');
+  const id = $('mpId').value || null;
+
+  const dados = {
+    nome: $('mpNome').value.trim(),
+    descricao: $('mpDescricao').value.trim(),
+    categoria: $('mpCategoria').value,
+    valor_reais: parseFloat($('mpValorReais').value) || 0,
+    custo_pontos: parseInt($('mpCustoPontos').value) || 0,
+    estoque_atual: parseInt($('mpEstoqueAtual').value) || 0,
+    estoque_max: parseInt($('mpEstoqueMax').value) || 0,
+    ordem: parseInt($('mpOrdem').value) || 999,
+    ativo: $('mpAtivo').checked,
+  };
+
+  // Validações
+  if (!dados.nome) {
+    alertBox.textContent = 'Informe o nome do prêmio.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
   }
+  if (dados.custo_pontos <= 0) {
+    alertBox.textContent = 'Custo em pontos deve ser maior que 0.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gravando…`;
+  lucide.createIcons();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('salvar_premio', {
+      p_id: id,
+      p_dados: dados,
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast(data.criado ? '✅ Prêmio criado!' : '✅ Prêmio atualizado!');
+    fecharModalPremio();
+    await carregarAdminPremios();
+  } catch (err) {
+    console.error('[Salvar prêmio]', err);
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Gravar';
+    lucide.createIcons();
+  }
+}
+
+async function excluirPremio() {
+  const p = _premioEditando;
+  if (!p) return;
+
+  const confirmar = confirm(
+    `⚠️ Excluir o prêmio "${p.nome}"?\n\n` +
+    `Esta ação NÃO pode ser desfeita.`
+  );
+  if (!confirmar) return;
+
+  const btn = $('mpBtnExcluir');
+  const htmlOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>';
+
+  try {
+    const { data, error } = await supabaseClient.rpc('deletar_premio', { p_id: p.id });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido');
+
+    toast('🗑️ Prêmio excluído!');
+    fecharModalPremio();
+    await carregarAdminPremios();
+  } catch (err) {
+    const alertBox = $('mpAlert');
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    lucide.createIcons();
+  }
+}
 
   async function editarEstoque(id, atual) {
     const novo = prompt('Novo estoque:', atual);
