@@ -406,12 +406,35 @@
   <!-- KPIs -->
   <div id="adminMissoesKPIs" class="grid grid-cols-3 gap-3 mb-5"></div>
 
+  <!-- 🎯 Filtros -->
+  <div class="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-100">
+    <button data-mfiltro="todas" onclick="filtrarAdminMissoes('todas')" 
+      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
+      📋 Todas
+    </button>
+    <button data-mfiltro="ativas" onclick="filtrarAdminMissoes('ativas')" 
+      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
+      ✅ Ativas
+    </button>
+    <button data-mfiltro="encerradas" onclick="filtrarAdminMissoes('encerradas')" 
+      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
+      ⏹️ Encerradas
+    </button>
+    <button data-mfiltro="7dias" onclick="filtrarAdminMissoes('7dias')" 
+      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
+      📅 Últimos 7 dias
+    </button>
+    <button data-mfiltro="automaticas" onclick="filtrarAdminMissoes('automaticas')" 
+      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
+      🤖 Automáticas
+    </button>
+  </div>
+
   <!-- Lista -->
   <div id="adminMissoesLista" class="space-y-3">
     <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
   </div>
-</div>
-            
+</div>   
 <!-- Admin: Configurações -->
 <div id="adminContent-config" class="admin-content hidden p-6">
 
@@ -2465,8 +2488,10 @@ async function executarVerificacaoResgate() {
 }
 
 /* ==========================================================
-   ADMIN — MISSÕES (CRUD)
+   ADMIN — MISSÕES (CRUD + FILTRO)
    ========================================================== */
+let _missoesAdminCache = [];
+let _filtroMissaoAtual = 'ativas';   // Filtro padrão
 
 async function carregarAdminMissoes() {
   const { data: missoes } = await supabaseClient
@@ -2474,13 +2499,13 @@ async function carregarAdminMissoes() {
     .select('*')
     .order('data_inicio', { ascending: false });
 
-  const lista = missoes || [];
+  _missoesAdminCache = missoes || [];
 
   // KPIs
   const hoje = new Date().toISOString().split('T')[0];
-  const ativas = lista.filter(m => m.ativa && m.data_fim >= hoje).length;
-  const encerradas = lista.filter(m => !m.ativa || m.data_fim < hoje).length;
-  const automáticas = lista.filter(m => m.auto_gerada).length;
+  const ativas = _missoesAdminCache.filter(m => m.ativa && m.data_fim >= hoje).length;
+  const encerradas = _missoesAdminCache.filter(m => !m.ativa || m.data_fim < hoje).length;
+  const automaticas = _missoesAdminCache.filter(m => m.auto_gerada).length;
 
   $('adminMissoesKPIs').innerHTML = `
     <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
@@ -2493,14 +2518,57 @@ async function carregarAdminMissoes() {
     </div>
     <div class="bg-purple-50 border border-purple-200 rounded-xl p-3">
       <p class="text-[9px] font-black text-purple-600 uppercase">Auto (Operação)</p>
-      <p class="text-xl font-black text-purple-700 mt-1">${automáticas}</p>
+      <p class="text-xl font-black text-purple-700 mt-1">${automaticas}</p>
     </div>
   `;
 
-  // Lista
+  // Aplica o filtro (padrão: ativas)
+  aplicarFiltroMissoes(_filtroMissaoAtual);
+}
+
+function filtrarAdminMissoes(filtro) {
+  _filtroMissaoAtual = filtro;
+  aplicarFiltroMissoes(filtro);
+}
+
+function aplicarFiltroMissoes(filtro) {
+  const hoje = new Date().toISOString().split('T')[0];
+  const seteDiasAtras = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+  // Filtra a lista
+  let filtrados = _missoesAdminCache;
+
+  if (filtro === 'ativas') {
+    filtrados = filtrados.filter(m => m.ativa && m.data_fim >= hoje);
+  } else if (filtro === 'encerradas') {
+    filtrados = filtrados.filter(m => !m.ativa || m.data_fim < hoje);
+  } else if (filtro === '7dias') {
+    filtrados = filtrados.filter(m => m.data_fim >= seteDiasAtras);
+  } else if (filtro === 'automaticas') {
+    filtrados = filtrados.filter(m => m.auto_gerada);
+  }
+  // 'todas' não filtra
+
+  // Atualiza estilo dos botões
+  document.querySelectorAll('.missao-filtro').forEach(btn => {
+    const ativo = btn.dataset.mfiltro === filtro;
+    btn.className = ativo
+      ? 'missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all bg-amber-600 text-white border-amber-600'
+      : 'missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all bg-white text-slate-500 border-slate-200 hover:border-slate-400';
+  });
+
+  // Renderiza
   const box = $('adminMissoesLista');
-  if (!lista.length) {
-    box.innerHTML = `<p class="text-center text-slate-400 py-8 text-sm">Nenhuma missão cadastrada.</p>`;
+
+  if (!filtrados.length) {
+    const msgVazia = {
+      todas: 'Nenhuma missão cadastrada ainda.',
+      ativas: 'Nenhuma missão ativa no momento.',
+      encerradas: 'Nenhuma missão encerrada.',
+      '7dias': 'Nenhuma missão nos últimos 7 dias.',
+      automaticas: 'Nenhuma missão automática registrada.',
+    };
+    box.innerHTML = `<div class="text-center py-8"><p class="text-sm text-slate-400">${msgVazia[filtro] || 'Nenhuma missão.'}</p></div>`;
     return;
   }
 
@@ -2516,7 +2584,11 @@ async function carregarAdminMissoes() {
     portabilidade_total: 'Portabilidade',
   };
 
-  box.innerHTML = lista.map(m => {
+  box.innerHTML = `
+    <p class="text-[10px] font-black text-slate-400 uppercase mb-2">
+      ${filtrados.length} ${filtrados.length === 1 ? 'missão' : 'missões'}
+    </p>
+  ` + filtrados.map(m => {
     const expirou = m.data_fim < hoje;
     const naoComecou = m.data_inicio > hoje;
     const emAndamento = !expirou && !naoComecou && m.ativa;
