@@ -115,52 +115,52 @@
       </div>
     </header>
     <!-- NAVEGAÇÃO ENTRE VIEWS + AÇÕES -->
-    <div class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
+    <div class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
 
-      <!-- ABAS (esquerda) -->
-      <div class="flex flex-wrap gap-2">
-        <button data-tab="hub" onclick="navegarPremiada('hub')" class="tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+      <!-- ABAS (podem quebrar linha) -->
+      <div class="flex flex-wrap gap-2 min-w-0 flex-1">
+        <button data-tab="hub" onclick="navegarPremiada('hub')" class="tab-premiada active px-3 py-2 rounded-md text-[11px] font-bold uppercase border transition-all whitespace-nowrap">
           🏠 Meu Painel
         </button>
-        <button data-tab="loja" onclick="navegarPremiada('loja')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        <button data-tab="loja" onclick="navegarPremiada('loja')" class="tab-premiada px-3 py-2 rounded-md text-[11px] font-bold uppercase border transition-all whitespace-nowrap">
           🏪 Loja
         </button>
-        <button data-tab="carteira" onclick="navegarPremiada('carteira')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-          💰 Minha Carteira
+        <button data-tab="carteira" onclick="navegarPremiada('carteira')" class="tab-premiada px-3 py-2 rounded-md text-[11px] font-bold uppercase border transition-all whitespace-nowrap">
+          💰 Carteira
         </button>
-        <button data-tab="ranking" onclick="navegarPremiada('ranking')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        <button data-tab="ranking" onclick="navegarPremiada('ranking')" class="tab-premiada px-3 py-2 rounded-md text-[11px] font-bold uppercase border transition-all whitespace-nowrap">
           📊 Ranking
         </button>
-        <button data-tab="admin" id="tabAdmin" onclick="navegarPremiada('admin')" class="tab-premiada hidden px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+        <button data-tab="admin" id="tabAdmin" onclick="navegarPremiada('admin')" class="tab-premiada hidden px-3 py-2 rounded-md text-[11px] font-bold uppercase border transition-all whitespace-nowrap">
           ⚙️ Admin
         </button>
       </div>
 
-      <!-- AÇÕES (direita) -->
-      <div class="flex items-center gap-2">
+      <!-- AÇÕES (não encolhem) -->
+      <div class="flex items-center gap-2 shrink-0">
 
         <!-- 📖 MANUAL -->
         <a href="manual-premiada.html"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition-colors"
+          class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition-colors shrink-0"
           title="Manual do Sistema">
           <i data-lucide="book-open" class="w-4 h-4"></i>
-          <span class="text-[10px] font-black uppercase hidden sm:inline">Manual</span>
+          <span class="text-[10px] font-black uppercase hidden lg:inline">Manual</span>
         </a>
 
         <!-- 🎬 APRESENTAR (só admin) -->
         <a href="apresentacao-premiada.html" id="btnApresentacao"
-          class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border-2 border-purple-200 hover:border-purple-300 transition-all"
+          class="hidden items-center gap-1.5 px-2.5 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border-2 border-purple-200 hover:border-purple-300 transition-all shrink-0"
           title="Apresentação para a equipe">
           <i data-lucide="presentation" class="w-4 h-4"></i>
-          <span class="text-[10px] font-black uppercase hidden sm:inline">Apresentar</span>
+          <span class="text-[10px] font-black uppercase hidden lg:inline">Apresentar</span>
         </a>
 
         <!-- 🔔 SINO DE NOTIFICAÇÕES -->
-        <div class="relative" id="sinoWrapper">
+        <div class="relative shrink-0" id="sinoWrapper">
           <button onclick="togglePainelNotificacoes()"
             class="relative p-2 rounded-lg text-slate-500 hover:text-[#0e8890] hover:bg-slate-100 transition-colors">
             <i data-lucide="bell" class="w-5 h-5"></i>
-            <span id="sinoBadge" class="hidden absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">0</span>
+            <span id="sinoBadge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">0</span>
           </button>
 
           <!-- Painel dropdown -->
@@ -193,10 +193,10 @@
 
         <!-- 🔕 ATIVAR PUSH -->
         <button id="btnAtivarPush" onclick="ativarNotificacoes()"
-          class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 hover:border-amber-300 transition-all animate-pulse"
+          class="hidden items-center gap-1.5 px-2.5 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 hover:border-amber-300 transition-all animate-pulse shrink-0"
           title="Ativar notificações no celular">
           <i data-lucide="bell-ring" class="w-4 h-4"></i>
-          <span class="text-[10px] font-black uppercase hidden sm:inline">Ativar Push</span>
+          <span class="text-[10px] font-black uppercase hidden lg:inline">Ativar Push</span>
         </button>
       </div>
     </div>
