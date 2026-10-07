@@ -1,5 +1,11 @@
 /* ==========================================================
    HEADER.JS — Header unificado (Inforteca)
+   ==========================================================
+   MODO COMPLETO:    páginas com <header id="appHeader">
+                     → injeta o header inteiro
+   MODO COMPLEMENTAR: páginas com header custom (premiada.html)
+                     → só injeta o modal de avatar
+                     → escuta evento "perfilPronto" para atualizar
    ========================================================== */
 
 (function () {
@@ -21,7 +27,7 @@
   let _userHeader = null;
 
   /* ==========================================================
-     RENDER DO HEADER
+     RENDER DO HEADER (modo completo)
      ========================================================== */
   function renderHeader(opts) {
     const header = $('appHeader');
@@ -151,50 +157,50 @@
   /* ==========================================================
      CARREGA PERFIL + AVATAR (com retry inteligente)
      ========================================================== */
-async function carregarPerfilHeader() {
-  if (!sb) return;
+  async function carregarPerfilHeader() {
+    if (!sb) return;
 
-  try {
-    // 1) Sempre pega a sessão (com retry)
-    let session = null;
-    for (let i = 0; i < 30; i++) {
-      const { data } = await sb.auth.getSession();
-      if (data?.session) { session = data.session; break; }
-      await new Promise(r => setTimeout(r, 100));
+    try {
+      // 1) Sempre pega a sessão (com retry)
+      let session = null;
+      for (let i = 0; i < 30; i++) {
+        const { data } = await sb.auth.getSession();
+        if (data?.session) { session = data.session; break; }
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!session) return;
+
+      _userHeader = session.user;
+
+      // 2) SEMPRE busca perfil direto do banco (ignora window.state)
+      const { data: perfil, error } = await sb
+        .from('perfis')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error) console.warn('[Header] Erro ao buscar perfil:', error);
+      if (!perfil) { console.warn('[Header] Perfil não encontrado'); return; }
+
+      _perfilHeader = perfil;
+
+      // 3) Atualiza nome + permissão
+      const nome = perfil?.nome_completo || session.user.email || 'Usuário';
+      const perm = perfil?.permissao || 'Operador';
+
+      const elNome = $('userName');
+      const elPerm = $('userPerm');
+      if (elNome) elNome.textContent = nome;
+      if (elPerm) elPerm.textContent = perm;
+
+      // 4) Atualiza avatar
+      atualizarAvatarUI(perfil?.avatar_url || null);
+
+      console.log('[Header] Perfil carregado:', { nome, perm, avatar: perfil?.avatar_url });
+    } catch (e) {
+      console.warn('[Header] Falha ao carregar perfil:', e);
     }
-    if (!session) return;
-
-    _userHeader = session.user;
-
-    // 2) SEMPRE busca perfil direto do banco (ignora window.state)
-    const { data: perfil, error } = await sb
-      .from('perfis')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle();
-
-    if (error) console.warn('[Header] Erro ao buscar perfil:', error);
-    if (!perfil) { console.warn('[Header] Perfil não encontrado'); return; }
-
-    _perfilHeader = perfil;
-
-    // 3) Atualiza nome + permissão
-    const nome = perfil?.nome_completo || session.user.email || 'Usuário';
-    const perm = perfil?.permissao || 'Operador';
-
-    const elNome = $('userName');
-    const elPerm = $('userPerm');
-    if (elNome) elNome.textContent = nome;
-    if (elPerm) elPerm.textContent = perm;
-
-    // 4) Atualiza avatar
-    atualizarAvatarUI(perfil?.avatar_url || null);
-
-    console.log('[Header] Perfil carregado:', { nome, perm, avatar: perfil?.avatar_url });
-  } catch (e) {
-    console.warn('[Header] Falha ao carregar perfil:', e);
   }
-}
 
   /* ==========================================================
      AVATAR — UI
@@ -382,7 +388,33 @@ async function carregarPerfilHeader() {
     box.classList.remove('hidden');
   }
 
-  /* Fechar modal */
+  /* ==========================================================
+     EVENTO "perfilPronto" — páginas custom avisam quando o perfil chegou
+     ========================================================== */
+  window.addEventListener('perfilPronto', (e) => {
+    const perfil = e.detail?.perfil;
+    const user = e.detail?.user;
+
+    if (!perfil) return;
+
+    console.log('[Header] Evento perfilPronto recebido:', perfil);
+
+    _perfilHeader = perfil;
+    if (user) _userHeader = user;
+
+    // Atualiza nome + permissão
+    const elNome = $('userName');
+    const elPerm = $('userPerm');
+    if (elNome) elNome.textContent = perfil.nome_completo || user?.email || 'Usuário';
+    if (elPerm) elPerm.textContent = perfil.permissao || 'Operador';
+
+    // Atualiza avatar (header clicável)
+    atualizarAvatarUI(perfil.avatar_url || null);
+  });
+
+  /* ==========================================================
+     FECHAR MODAL — clique fora / ESC
+     ========================================================== */
   document.addEventListener('click', (e) => {
     const modal = $('modalAvatar');
     if (!modal || modal.classList.contains('hidden')) return;
@@ -400,16 +432,33 @@ async function carregarPerfilHeader() {
      ========================================================== */
   function boot() {
     const header = $('appHeader');
-    if (!header) return;
 
-    renderHeader({
-      titulo:      header.dataset.title || 'Portal',
-      mostraBusca: header.dataset.search === 'true',
-      mostraNotif: header.dataset.notif === 'true',
-    });
+    // ─────────────────────────────────────────────
+    // MODO COMPLETO: injeta o header inteiro
+    // ─────────────────────────────────────────────
+    if (header) {
+      renderHeader({
+        titulo:      header.dataset.title || 'Portal',
+        mostraBusca: header.dataset.search === 'true',
+        mostraNotif: header.dataset.notif === 'true',
+      });
 
-    // 🔁 Tenta carregar o perfil várias vezes (até o dashboard popular)
-    [200, 600, 1200, 2500].forEach((delay) => {
+      [200, 600, 1200, 2500].forEach((delay) => {
+        setTimeout(carregarPerfilHeader, delay);
+      });
+      return;
+    }
+
+    // ─────────────────────────────────────────────
+    // MODO COMPLEMENTAR: só injeta o modal de avatar
+    // (usado em páginas com header custom, tipo premiada.html)
+    // ─────────────────────────────────────────────
+    if (!$('modalAvatar')) {
+      document.body.insertAdjacentHTML('beforeend', MODAL_AVATAR_HTML);
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    [300, 800, 1500, 2500].forEach((delay) => {
       setTimeout(carregarPerfilHeader, delay);
     });
   }
