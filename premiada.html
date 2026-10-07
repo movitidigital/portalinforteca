@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inforteca Premiada — PORTAL INFORTECA</title>
   <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
+  <!-- ============ PWA ============ -->
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0e8890">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Inforteca">
+<link rel="apple-touch-icon" href="/icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -141,6 +149,15 @@
             </div>
           </div>
         </div>
+
+      <!-- 🔔 BOTÃO ATIVAR PUSH (aparece só se ainda não ativou) -->
+<button id="btnAtivarPush" onclick="ativarNotificacoes()"
+  class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 hover:border-amber-300 transition-all animate-pulse"
+  title="Ativar notificações no celular">
+  <i data-lucide="bell-ring" class="w-4 h-4"></i>
+  <span class="text-[10px] font-black uppercase hidden sm:inline">Ativar Push</span>
+</button>
+      
       <div class="flex items-center gap-4">
         <div class="text-right hidden sm:block">
           <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
@@ -3421,6 +3438,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   navegarPremiada('hub');
 
+    // PWA
+  await registrarServiceWorker();
+  await atualizarBotaoPush();
+
   // 🎁 Toast especial de boas-vindas (só na primeira vez)
   if (window.__mostrarBoasVindas) {
     setTimeout(() => {
@@ -4519,6 +4540,150 @@ async function desativarMissaoResgate(id) {
   if (error) { toast('❌ ' + error.message, 'erro'); return; }
   toast('Operação Resgate encerrada.');
   await carregarMissoesEmergenciais();
+}
+
+  /* ==========================================================
+   PWA — REGISTRO + PUSH NOTIFICATIONS
+   ========================================================== */
+const VAPID_PUBLIC_KEY = 'COLE_AQUI_SUA_CHAVE_PUBLICA_VAPID';
+
+/* Converte base64 URL-safe pra Uint8Array (formato exigido pelo Push API) */
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+/* Detecta iOS */
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
+/* Detecta se está instalado como PWA (standalone) */
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches ||
+         window.navigator.standalone === true;
+}
+
+/* Registra o service worker */
+async function registrarServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('/service-worker.js');
+    console.log('[PWA] Service worker registrado:', reg.scope);
+    return reg;
+  } catch (e) {
+    console.warn('[PWA] Falha ao registrar SW:', e);
+    return null;
+  }
+}
+
+/* Verifica se já está inscrito */
+async function verificarInscricaoPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  return !!sub;
+}
+
+/* Mostra o botão "Ativar Push" se ainda não ativou */
+async function atualizarBotaoPush() {
+  const btn = $('btnAtivarPush');
+  if (!btn) return;
+
+  // Não suporta push? Esconde.
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    btn.classList.add('hidden');
+    return;
+  }
+
+  // iOS sem estar instalado? Mostra aviso
+  if (isIOS() && !isStandalone()) {
+    btn.classList.remove('hidden');
+    btn.classList.add('flex');
+    btn.querySelector('span') && (btn.querySelector('span').textContent = 'Instalar App');
+    return;
+  }
+
+  // Já tem inscrição? Esconde.
+  const inscrito = await verificarInscricaoPush();
+  if (inscrito) {
+    btn.classList.add('hidden');
+    btn.classList.remove('flex');
+    return;
+  }
+
+  // Senão, mostra
+  btn.classList.remove('hidden');
+  btn.classList.add('flex');
+}
+
+/* Ativa notificações */
+async function ativarNotificacoes() {
+  // iOS sem instalar → mostra tutorial
+  if (isIOS() && !isStandalone()) {
+    alert(
+      '📱 Para ativar notificações no iPhone:\n\n' +
+      '1. Toque no botão Compartilhar (□↑) do Safari\n' +
+      '2. Escolha "Adicionar à Tela de Início"\n' +
+      '3. Abra o app pelo ícone novo\n' +
+      '4. Toque em "Ativar Push" novamente\n\n' +
+      'A Apple só permite notificações em apps instalados.'
+    );
+    return;
+  }
+
+  try {
+    // 1. Permissão
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      toast('❌ Você precisa permitir notificações', 'erro');
+      return;
+    }
+
+    // 2. Aguarda SW pronto
+    const reg = await navigator.serviceWorker.ready;
+
+    // 3. Cria subscription
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    // 4. Envia pro banco
+    const { data, error } = await supabaseClient.rpc('salvar_push_subscription', {
+      p_subscription: sub.toJSON(),
+      p_user_agent: navigator.userAgent,
+    });
+
+    if (error) throw error;
+
+    toast('🔔 Notificações ativadas! Você vai receber avisos de pontos e resgates.');
+    await atualizarBotaoPush();
+  } catch (e) {
+    console.error('[PWA] Erro ao ativar:', e);
+    toast('❌ ' + e.message, 'erro');
+  }
+}
+
+/* Escuta mensagens do SW (renovação de subscription) */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', async (event) => {
+    if (event.data?.type === 'PUSH_SUB_CHANGED') {
+      try {
+        await supabaseClient.rpc('salvar_push_subscription', {
+          p_subscription: event.data.sub,
+          p_user_agent: navigator.userAgent,
+        });
+        console.log('[PWA] Subscription renovada');
+      } catch (e) {
+        console.warn('[PWA] Falha ao renovar sub:', e);
+      }
+    }
+  });
 }
 </script>
 </body>
