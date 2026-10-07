@@ -38,6 +38,10 @@
     .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px; color: transparent; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+    /* Badge "Modo Admin" no header */
+    .admin-badge { animation: pulse-admin 2s ease-in-out infinite; }
+    @keyframes pulse-admin { 0%,100% { box-shadow: 0 0 0 0 rgba(147,51,234,0.4); } 50% { box-shadow: 0 0 0 6px rgba(147,51,234,0); } }
+
     @media print {
       #sidebar, header, .toc-link, #btnImprimir, #btnVoltar { display: none !important; }
       main { margin: 0 !important; }
@@ -60,6 +64,11 @@
           <i data-lucide="book-open" class="w-5 h-5 text-[#0e8890]"></i>
           <h2 class="text-lg font-bold text-[#000033]">Manual Inforteca Premiada</h2>
         </div>
+        <!-- Badge "Modo Admin" (só aparece pra admin) -->
+        <span id="headerAdminBadge" class="hidden admin-badge items-center gap-1.5 bg-purple-100 border-2 border-purple-300 text-purple-800 text-[10px] font-black uppercase tracking-wide px-3 py-1.5 rounded-full">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          Modo Admin Ativo
+        </span>
       </div>
       <div class="flex items-center gap-3">
         <a href="premiada.html" id="btnVoltar" class="text-slate-500 hover:text-[#0e8890] text-xs font-bold flex items-center gap-1">
@@ -126,7 +135,7 @@
             </p>
             <div id="heroBadges" class="flex flex-wrap gap-3 mt-5 text-[11px] font-bold">
               <span class="bg-white/15 px-3 py-1.5 rounded-full">📘 Guia do Consultor</span>
-              <span id="heroBadgeAdmin" class="hidden bg-white/15 px-3 py-1.5 rounded-full">🔧 Guia do Admin</span>
+              <span id="heroBadgeAdmin" class="hidden bg-purple-500/40 border border-purple-300/50 px-3 py-1.5 rounded-full">🔧 Guia do Admin</span>
               <span class="bg-white/15 px-3 py-1.5 rounded-full">💡 FAQ</span>
             </div>
           </div>
@@ -160,7 +169,7 @@
                 <i data-lucide="badge-dollar-sign" class="w-5 h-5 text-emerald-500"></i>
                 Como ganhar pontos
               </h3>
-              <span id="badgeLive" class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1">
+              <span class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Dados ao vivo
               </span>
@@ -181,7 +190,7 @@
 
             <div class="callout callout-tip">
               <p class="text-xs leading-relaxed" id="dicaPontos">
-                🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale mais que um CONTROLE simples. É o produto mais rentável pra TIM e o que mais recompensa.
+                🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale mais que um CONTROLE simples.
               </p>
             </div>
 
@@ -290,10 +299,10 @@
           <section id="roleta" class="manual-section bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl shadow-lg p-6 mb-6 text-white">
             <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
               <h3 class="text-lg font-black flex items-center gap-2">🎰 Roleta da Sorte</h3>
-              <span class="text-[9px] font-black uppercase bg-white/20 px-2 py-1 rounded-full">Custo: <span id="roletaCusto">300</span> pts</span>
+              <span class="text-[9px] font-black uppercase bg-white/20 px-2 py-1 rounded-full">Custo: <span id="roletaCusto">—</span> pts</span>
             </div>
             <p class="text-sm text-white/90 leading-relaxed mb-3">
-              Gire a roleta e ganhe pontos extras! Limite de <strong><span id="roletaLimite">1</span> giro por dia</strong>.
+              Gire a roleta e ganhe pontos extras! Limite de <strong><span id="roletaLimite">—</span> giro(s) por dia</strong>.
             </p>
             <div id="gridRoleta" class="grid grid-cols-3 gap-2 text-center text-xs">
               <p class="col-span-3 text-center opacity-70 py-3">Carregando…</p>
@@ -375,9 +384,14 @@
 
           <!-- ============ SEÇÃO ADMIN (só renderiza pra admin) ============ -->
           <div id="secaoAdmin" class="hidden">
-            <div class="flex items-center gap-3 mb-6 pb-3 border-b-2 border-purple-200 mt-12">
-              <span class="bg-purple-600 text-white w-10 h-10 rounded-xl flex items-center justify-center text-xl">🔧</span>
-              <h2 class="text-xl font-black text-[#000033]">GUIA DO ADMINISTRADOR</h2>
+            <!-- Divisor grande -->
+            <div class="my-12 py-8 border-y-4 border-dashed border-purple-300 bg-purple-50/40 rounded-2xl">
+              <div class="text-center">
+                <span class="text-5xl">🔧</span>
+                <p class="text-[10px] font-black text-purple-600 uppercase tracking-widest mt-2">Acesso restrito</p>
+                <h2 class="text-2xl font-black text-[#000033] mt-1">GUIA DO ADMINISTRADOR</h2>
+                <p class="text-xs text-slate-500 mt-2">Esta seção só é visível para administradores.</p>
+              </div>
             </div>
 
             <section id="admin-visao" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
@@ -511,7 +525,7 @@
                 Configurações (aba ⚙️)
               </h3>
               <p class="text-sm text-slate-600 leading-relaxed mb-3">
-                Aqui você edita 4 blocos críticos. <strong>Esta própria página do manual atualiza automaticamente</strong> quando você salva mudanças.
+                Aqui você edita 4 blocos críticos. <strong>Esta própria página do manual atualiza automaticamente</strong> quando você salva mudanças (é só recarregar).
               </p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
@@ -608,7 +622,7 @@
           </section>
 
           <div class="text-center text-xs text-slate-400 py-8">
-            <p>📘 Manual Inforteca Premiada · v2.0</p>
+            <p>📘 Manual Inforteca Premiada · v2.1</p>
             <p class="mt-1">Loja TIM Dom José · Portal Inforteca</p>
           </div>
 
@@ -622,11 +636,14 @@
        CONFIG
        ========================================================== */
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJqcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const $ = (id) => document.getElementById(id);
     const fmtMoeda = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtNum   = (v) => Number(v || 0).toLocaleString('pt-BR');
+    const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
+      m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
     /* ==========================================================
        BOOT
@@ -638,19 +655,17 @@
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) { window.location.href = 'index.html'; return; }
 
-      // 2. Verifica se é admin
-      const { data: perfil } = await supabaseClient
-        .from('perfis').select('*').eq('id', session.user.id).single();
-
-      const { data: cargos } = await supabaseClient.from('cargos').select('*');
-      const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
-      const isAdmin = meuCargo?.is_admin === true;
+      // 2. Verifica se é admin (robusto, com 3 fallbacks)
+      const isAdmin = await verificarAdmin(session);
+      console.log('%c[Manual] isAdmin =', 'color:#9333ea;font-weight:bold', isAdmin);
 
       // 3. Mostra seção admin se for admin
       if (isAdmin) {
         $('secaoAdmin').classList.remove('hidden');
         $('tocAdminSection').classList.remove('hidden');
         $('heroBadgeAdmin').classList.remove('hidden');
+        $('headerAdminBadge').classList.remove('hidden');
+        $('headerAdminBadge').classList.add('flex');
       }
 
       // 4. Carrega configs do banco
@@ -661,88 +676,186 @@
     });
 
     /* ==========================================================
+       VERIFICAÇÃO DE ADMIN — robusta
+       ========================================================== */
+    async function verificarAdmin(session) {
+      try {
+        const { data: perfil, error: errPerfil } = await supabaseClient
+          .from('perfis')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (errPerfil) {
+          console.warn('[Manual/Admin] Erro ao buscar perfil:', errPerfil);
+          return false;
+        }
+        if (!perfil) {
+          console.warn('[Manual/Admin] Perfil não encontrado para', session.user.id);
+          return false;
+        }
+
+        console.log('[Manual/Admin] Perfil carregado:', perfil);
+
+        // Fallback 1: campo permissao direto na tabela perfis
+        if (perfil.permissao && /admin/i.test(perfil.permissao)) {
+          console.log('[Manual/Admin] ✅ Admin por campo permissao:', perfil.permissao);
+          return true;
+        }
+
+        // Fallback 2: cargo_id → tabela cargos
+        if (perfil.cargo_id) {
+          const { data: cargo, error: errCargo } = await supabaseClient
+            .from('cargos')
+            .select('*')
+            .eq('id', perfil.cargo_id)
+            .maybeSingle();
+
+          if (errCargo) console.warn('[Manual/Admin] Erro ao buscar cargo:', errCargo);
+          console.log('[Manual/Admin] Cargo carregado:', cargo);
+
+          if (cargo?.is_admin === true) {
+            console.log('[Manual/Admin] ✅ Admin por cargo.is_admin');
+            return true;
+          }
+        }
+
+        console.warn('[Manual/Admin] ❌ Usuário NÃO é admin');
+        return false;
+      } catch (e) {
+        console.error('[Manual/Admin] Erro inesperado:', e);
+        return false;
+      }
+    }
+
+    /* ==========================================================
        CARREGA CONFIG DO BANCO
        ========================================================== */
     async function carregarConfigs() {
-      const { data: configs } = await supabaseClient.from('premiada_config').select('*');
-      const cfg = {};
-      (configs || []).forEach(c => { cfg[c.chave] = c.valor; });
+      try {
+        const { data: configs, error } = await supabaseClient
+          .from('premiada_config')
+          .select('*');
 
-      renderPontos(cfg.pontos_regras || {});
-      renderBonus(cfg.boas_vindas || {});
-      renderNiveis(cfg.niveis || {});
-      renderRoleta(cfg.roleta || {});
+        if (error) {
+          console.error('[Manual/Config] Erro:', error);
+          return;
+        }
+
+        const cfg = {};
+        (configs || []).forEach(c => { cfg[c.chave] = c.valor; });
+
+        console.log('[Manual/Config] Configs carregadas:', cfg);
+
+        renderPontos(cfg.pontos_regras || {});
+        renderBonus(cfg.boas_vindas || {}, cfg.pontos_regras || {});
+        renderNiveis(cfg.niveis || {});
+        renderRoleta(cfg.roleta || {});
+      } catch (e) {
+        console.error('[Manual/Config] Erro inesperado:', e);
+      }
     }
 
     /* ------- Régua de Pontos ------- */
     function renderPontos(r) {
+      const cs = Number(r.controle_simples)      || 0;
+      const cp = Number(r.controle_portabilidade)|| 0;
+      const ps = Number(r.pos_simples)           || 0;
+      const pp = Number(r.pos_portabilidade)     || 0;
+
+      const mult = (base, valor) => {
+        if (!base || !valor) return null;
+        const m = valor / base;
+        return (Math.round(m * 10) / 10).toString().replace('.', ',') + 'x';
+      };
+
       const linhas = [
-        { label: '📱 CONTROLE simples', valor: r.controle_simples, mult: null, tipo: 'normal' },
-        { label: '⚡ CONTROLE + Portabilidade', valor: r.controle_portabilidade, mult: '3x', tipo: 'teal' },
-        { label: '💎 PÓS simples (TIM BLACK)', valor: r.pos_simples, mult: null, tipo: 'amber' },
-        { label: '👑 PÓS + Portabilidade', valor: r.pos_portabilidade, mult: '5x', tipo: 'emerald' },
+        { label: '📱 CONTROLE simples',        valor: cs, mult: null,                 tipo: 'normal'  },
+        { label: '⚡ CONTROLE + Portabilidade', valor: cp, mult: mult(cs, cp),        tipo: 'teal'    },
+        { label: '💎 PÓS simples (TIM BLACK)',  valor: ps, mult: mult(cs, ps),        tipo: 'amber'   },
+        { label: '👑 PÓS + Portabilidade',      valor: pp, mult: mult(cs, pp),        tipo: 'emerald' },
       ];
 
+      const cores = {
+        normal:  { txt: 'text-slate-700',    bg: 'bg-slate-100',    label: 'text-slate-700' },
+        teal:    { txt: 'text-[#0e8890]',    bg: 'bg-teal-100',     label: 'text-teal-700' },
+        amber:   { txt: 'text-amber-600',    bg: 'bg-amber-100',    label: 'text-amber-700' },
+        emerald: { txt: 'text-emerald-600',  bg: 'bg-emerald-100',  label: 'text-emerald-700' },
+      };
+
       $('tbodyPontos').innerHTML = linhas.map(l => {
-        const cor = l.tipo === 'teal' ? 'text-[#0e8890]' : l.tipo === 'amber' ? 'text-amber-600' : l.tipo === 'emerald' ? 'text-emerald-600' : 'text-slate-700';
-        const multBadge = l.mult ? `<span class="text-[10px] font-black bg-${l.tipo}-100 text-${l.tipo}-700 px-2 py-0.5 rounded">${l.mult}</span>` : '<span class="text-slate-400">—</span>';
+        const c = cores[l.tipo];
+        const multBadge = l.mult
+          ? `<span class="text-[10px] font-black ${c.bg} ${c.label} px-2 py-0.5 rounded">${l.mult}</span>`
+          : '<span class="text-slate-400">—</span>';
         return `
           <tr>
             <td>${l.label}</td>
-            <td class="text-right font-mono font-bold ${cor}">${(l.valor || 0).toLocaleString('pt-BR')}</td>
+            <td class="text-right font-mono font-bold ${c.txt}">${fmtNum(l.valor)}</td>
             <td class="text-center">${multBadge}</td>
           </tr>`;
       }).join('');
 
-      // Atualiza dica
-      const posPort = r.pos_portabilidade || 500;
-      const ctrlSimp = r.controle_simples || 30;
-      const ratio = ctrlSimp > 0 ? (posPort / ctrlSimp).toFixed(1) : '0';
+      // Dica dinâmica
+      const ratio = cs > 0 ? (pp / cs).toFixed(1).replace('.', ',') : '—';
       $('dicaPontos').innerHTML = `🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale <strong>${ratio}x mais</strong> que um CONTROLE simples. É o produto mais rentável pra TIM e o que mais recompensa.`;
 
-      // Dica da operação resgate
-      $('dicaOperacao').innerHTML = `Durante uma Operação Resgate, um <strong>PÓS + Port</strong> que vale ${posPort.toLocaleString('pt-BR')} pts passa a valer <strong>${(posPort * 2).toLocaleString('pt-BR')} pts</strong>!`;
+      // Dica da Operação Resgate
+      $('dicaOperacao').innerHTML = `Durante uma Operação Resgate, um <strong>PÓS + Port</strong> que vale ${fmtNum(pp)} pts passa a valer <strong>${fmtNum(pp * 2)} pts</strong>!`;
     }
 
-    /* ------- Bônus ------- */
-    function renderBonus(b) {
+    /* ------- Bônus (agora com streak + meta + top1) ------- */
+    function renderBonus(b, r) {
       const linhas = [
-        { icon: '🎉', label: 'Boas-vindas', valor: b.primeiro_login, quando: 'Primeiro login no sistema', cor: 'purple' },
-        { icon: '🎁', label: 'Primeira venda', valor: b.primeira_venda, quando: 'Ao pontuar a 1ª venda', cor: 'indigo' },
-        { icon: '💰', label: 'Primeiro resgate', valor: b.primeiro_resgate, quando: 'Após o 1º resgate', cor: 'teal' },
-        { icon: '🔥', label: 'Streak de 10 dias', valor: 500, quando: '10 dias seguidos com venda', cor: 'orange' },
+        { icon: '🎉', label: 'Boas-vindas',              valor: b.primeiro_login,    quando: 'Primeiro login no sistema',      cor: 'purple' },
+        { icon: '🎁', label: 'Primeira venda',           valor: b.primeira_venda,    quando: 'Ao pontuar a 1ª venda',          cor: 'indigo' },
+        { icon: '💰', label: 'Primeiro resgate',         valor: b.primeiro_resgate,  quando: 'Após o 1º resgate',              cor: 'teal'   },
+        { icon: '🔥', label: 'Streak de 10 dias',        valor: r.bonus_streak_10,   quando: '10 dias seguidos com venda',     cor: 'orange' },
+        { icon: '🎯', label: 'Meta Mensal batida',       valor: r.bonus_meta_mensal, quando: 'Ao bater a meta do mês',         cor: 'emerald'},
+        { icon: '🏆', label: 'Top 1 do Mês',             valor: r.bonus_top1,        quando: 'Terminar o mês em 1º lugar',     cor: 'amber'  },
       ];
 
-      $('tbodyBonus').innerHTML = linhas.map(l => `
-        <tr>
-          <td>${l.icon} ${l.label}</td>
-          <td class="text-right font-mono font-bold text-${l.cor}-600">+${(l.valor || 0).toLocaleString('pt-BR')}</td>
-          <td class="text-xs text-slate-500">${l.quando}</td>
-        </tr>`).join('');
+      $('tbodyBonus').innerHTML = linhas.map(l => {
+        const v = Number(l.valor) || 0;
+        return `
+          <tr>
+            <td>${l.icon} ${l.label}</td>
+            <td class="text-right font-mono font-bold text-${l.cor}-600">+${fmtNum(v)}</td>
+            <td class="text-xs text-slate-500">${l.quando}</td>
+          </tr>`;
+      }).join('');
     }
 
     /* ------- Níveis ------- */
     function renderNiveis(n) {
       const ordem = ['bronze', 'prata', 'ouro', 'diamante'];
       const estilos = {
-        bronze:   { bg: 'bg-slate-50 border-slate-200', emoji: '🥉' },
-        prata:    { bg: 'border-slate-300', style: 'background: linear-gradient(135deg, #f8fafc, #e2e8f0);', emoji: '🥈' },
-        ouro:     { bg: 'border-amber-300', style: 'background: linear-gradient(135deg, #fffbeb, #fde68a);', emoji: '🥇' },
-        diamante: { bg: 'border-sky-300', style: 'background: linear-gradient(135deg, #f0f9ff, #bae6fd);', emoji: '💎' },
+        bronze:   { border: 'border-slate-300',  style: 'background: linear-gradient(135deg, #fef3c7, #fde68a);', emoji: '🥉' },
+        prata:    { border: 'border-slate-300',  style: 'background: linear-gradient(135deg, #f8fafc, #e2e8f0);', emoji: '🥈' },
+        ouro:     { border: 'border-amber-300',  style: 'background: linear-gradient(135deg, #fffbeb, #fde68a);', emoji: '🥇' },
+        diamante: { border: 'border-sky-300',    style: 'background: linear-gradient(135deg, #f0f9ff, #bae6fd);', emoji: '💎' },
       };
 
-      $('gridNiveis').innerHTML = ordem.map(key => {
+      $('gridNiveis').innerHTML = ordem.map((key, i) => {
         const info = n[key] || {};
-        const est = estilos[key];
-        const min = (info.min || 0).toLocaleString('pt-BR');
-        const max = info.max ? info.max.toLocaleString('pt-BR') : null;
-        const range = max ? `${min} a ${max} pts` : `${min}+ pts`;
-        const desc = info.desconto || 0;
+        const est  = estilos[key];
+        const min  = Number(info.min) || 0;
+
+        // Próximo nível
+        const prox = ordem[i + 1];
+        const maxProx = prox ? (Number(n[prox]?.min) || null) : null;
+
+        const range = maxProx
+          ? `${fmtNum(min)} a ${fmtNum(maxProx - 1)} pts`
+          : `${fmtNum(min)}+ pts`;
+
+        const desc = Number(info.desconto) || 0;
+        const emoji = info.icone || est.emoji;
 
         return `
-          <div class="border-2 ${est.bg} rounded-xl p-4" style="${est.style || ''}">
-            <p class="text-2xl mb-1">${est.emoji}</p>
-            <p class="font-black text-slate-800">${(info.label || key).toUpperCase()}</p>
+          <div class="border-2 ${est.border} rounded-xl p-4" style="${est.style}">
+            <p class="text-2xl mb-1">${emoji}</p>
+            <p class="font-black text-slate-800">${escapeHTML(info.label || key).toUpperCase()}</p>
             <p class="text-[11px] text-slate-500 mt-1">${range}</p>
             <p class="text-xs text-slate-600 mt-2">${desc > 0 ? desc + '% desconto' : 'Sem desconto'}</p>
           </div>`;
@@ -751,14 +864,19 @@
 
     /* ------- Roleta ------- */
     function renderRoleta(r) {
-      $('roletaCusto').textContent = (r.custo_pontos || 300).toLocaleString('pt-BR');
+      $('roletaCusto').textContent = fmtNum(r.custo_pontos || 300);
       $('roletaLimite').textContent = r.limite_diario || 1;
 
       const premios = r.premios || [];
+      if (!premios.length) {
+        $('gridRoleta').innerHTML = `<p class="col-span-3 text-center opacity-70 py-3">Sem prêmios configurados</p>`;
+        return;
+      }
+
       $('gridRoleta').innerHTML = premios.map(p => `
         <div class="bg-white/15 backdrop-blur rounded-lg p-2">
           <p class="font-black">${p.prob}%</p>
-          <p class="opacity-80">${p.pontos} pts</p>
+          <p class="opacity-80">${fmtNum(p.pontos)} pts</p>
         </div>`).join('');
     }
 
@@ -787,9 +905,7 @@
         link.addEventListener('click', (e) => {
           e.preventDefault();
           const target = document.querySelector(link.getAttribute('href'));
-          if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       });
     }
