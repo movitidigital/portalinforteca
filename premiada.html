@@ -1558,7 +1558,9 @@ async function carregarNotificacoes() {
     badge.classList.add('hidden');
     badge.classList.remove('flex');
   }
-
+  // 🔴 Sincroniza o badge do ícone do app com o número de não lidas
+  atualizarBadgeApp(naoLidas);
+  
   // Atualiza lista do painel
   renderListaNotificacoes(lista, 'listaNotificacoes');
 
@@ -3438,9 +3440,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   navegarPremiada('hub');
 
-    // PWA
+  // PWA
   await registrarServiceWorker();
   await atualizarBotaoPush();
+
+  // 🔴 Zera o badge do ícone ao abrir o app
+  await limparBadgeApp();
 
   // 🎁 Toast especial de boas-vindas (só na primeira vez)
   if (window.__mostrarBoasVindas) {
@@ -4619,6 +4624,41 @@ async function atualizarBotaoPush() {
   // Senão, mostra
   btn.classList.remove('hidden');
   btn.classList.add('flex');
+}
+
+  /* 🔴 Zera o badge no ícone do app */
+async function limparBadgeApp() {
+  if (!('clearAppBadge' in navigator)) return;
+  try {
+    await navigator.clearAppBadge();
+    // Avisa o service worker também
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_BADGE' });
+    }
+  } catch (e) {
+    console.warn('[PWA] Erro ao limpar badge:', e);
+  }
+}
+
+/* 🔴 Atualiza o badge com o número de não lidas */
+async function atualizarBadgeApp(count) {
+  if (!('setAppBadge' in navigator)) return;
+  try {
+    if (count > 0) {
+      await navigator.setAppBadge(count);
+    } else {
+      await navigator.clearAppBadge();
+    }
+    // Avisa o service worker também
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: count > 0 ? 'SET_BADGE' : 'CLEAR_BADGE',
+        count,
+      });
+    }
+  } catch (e) {
+    console.warn('[PWA] Erro ao atualizar badge:', e);
+  }
 }
 
 /* Ativa notificações */
