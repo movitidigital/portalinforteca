@@ -2,7 +2,7 @@
    Inforteca Premiada — Service Worker
    ========================================================== */
 
-const CACHE_NAME = 'inforteca-v1';
+const CACHE_NAME = 'inforteca-v2';
 const OFFLINE_URLS = [
   '/premiada.html',
   '/sidebar.js',
@@ -91,7 +91,31 @@ self.addEventListener('push', (event) => {
     ],
   };
 
+  // 🔴 Atualiza o badge no ícone do app
+  const badgeCount = data.badge_count || 1;
+  if ('setAppBadge' in self.registration) {
+    self.registration.setAppBadge(badgeCount).catch((e) => {
+      console.warn('[SW] Badge falhou:', e);
+    });
+  }
+
   event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/* ----------------------------------------
+   MESSAGE — recebe comandos da página
+   ---------------------------------------- */
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CLEAR_BADGE') {
+    if ('clearAppBadge' in self.registration) {
+      self.registration.clearAppBadge().catch(() => {});
+    }
+  }
+  if (event.data?.type === 'SET_BADGE') {
+    if ('setAppBadge' in self.registration) {
+      self.registration.setAppBadge(event.data.count || 0).catch(() => {});
+    }
+  }
 });
 
 /* ----------------------------------------
