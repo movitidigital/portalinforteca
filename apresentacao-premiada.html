@@ -851,7 +851,14 @@
 <body>
 
   <div class="progress" id="progress"></div>
-
+  <!-- Botão voltar (canto superior esquerdo) -->
+  <a href="premiada.html" id="btnVoltar"
+    style="position:fixed;top:20px;left:20px;z-index:1002;display:none;align-items:center;gap:6px;
+           background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);
+           color:#fff;padding:8px 14px;border-radius:999px;font-size:12px;font-weight:800;text-decoration:none;
+           text-transform:uppercase;letter-spacing:0.08em;transition:all 0.15s ease;">
+    <span style="font-size:14px;">←</span> Voltar
+  </a>
   <div class="stage" id="stage">
 
     <!-- ============ SLIDE 1 — CAPA ============ -->
@@ -1525,6 +1532,44 @@
        BOOT
        ========================================================== */
     window.addEventListener('DOMContentLoaded', async () => {
+      // 🔒 Verificação: só admin acessa a apresentação
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+          window.location.href = 'index.html';
+          return;
+        }
+
+        const { data: perfil } = await supabaseClient
+          .from('perfis').select('*').eq('id', session.user.id).maybeSingle();
+
+        let isAdmin = false;
+
+        // Fallback 1: campo permissao
+        if (perfil?.permissao && /admin/i.test(perfil.permissao)) isAdmin = true;
+
+        // Fallback 2: cargo_id → cargos.is_admin
+        if (!isAdmin && perfil?.cargo_id) {
+          const { data: cargo } = await supabaseClient
+            .from('cargos').select('*').eq('id', perfil.cargo_id).maybeSingle();
+          if (cargo?.is_admin === true) isAdmin = true;
+        }
+
+        if (!isAdmin) {
+          // Não é admin → manda de volta pro painel
+          window.location.href = 'premiada.html';
+          return;
+        }
+
+        // É admin → mostra botão voltar
+        const btnVoltar = document.getElementById('btnVoltar');
+        if (btnVoltar) btnVoltar.style.display = 'inline-flex';
+      } catch (e) {
+        console.warn('[Apresentação] Bloqueio admin:', e);
+        window.location.href = 'premiada.html';
+        return;
+      }
+
       // Data na capa
       const agora = new Date();
       const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
