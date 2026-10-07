@@ -1281,6 +1281,10 @@ function badgeNivelHTML(nivel) {
     $('userName').textContent = perfil?.nome_completo || session.user.email;
     $('userPerm').textContent = perfil?.permissao || 'Operador';
 
+    // 🎯 AVISA O HEADER.JS QUE O PERFIL ESTÁ PRONTO
+    window.dispatchEvent(new CustomEvent('perfilPronto', {
+      detail: { perfil, user: session.user }
+    }));
     // Verifica admin
     const { data: cargos } = await supabaseClient.from('cargos').select('*');
     const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
