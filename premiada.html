@@ -20,6 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="sidebar.js"></script>
+  <script src="header.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -96,33 +97,74 @@
         </div>
       </div>
 
-              <!-- 📖 BOTÃO MANUAL -->
-        <a href="manual-premiada.html" 
-          class="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+      <div class="flex items-center gap-3">
+        <div class="text-right hidden sm:block">
+          <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
+          <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
+        </div>
+
+        <button onclick="abrirModalAvatar()" id="btnAbrirAvatar"
+          class="relative w-10 h-10 rounded-full bg-[#0e8890]/10 border-2 border-[#0e8890]/20 hover:border-[#0e8890] flex items-center justify-center text-[#0e8890] font-bold overflow-hidden transition-all hover:scale-105 hover:shadow-lg group"
+          title="Alterar foto de perfil">
+          <i data-lucide="user" id="headerAvatarIcone" class="w-5 h-5"></i>
+          <img id="headerAvatarImg" src="" alt="Foto de perfil" class="hidden absolute inset-0 w-full h-full object-cover">
+          <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+          </div>
+        </button>
+      </div>
+    </header>
+    <!-- NAVEGAÇÃO ENTRE VIEWS + AÇÕES -->
+    <div class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
+
+      <!-- ABAS (esquerda) -->
+      <div class="flex flex-wrap gap-2">
+        <button data-tab="hub" onclick="navegarPremiada('hub')" class="tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+          🏠 Meu Painel
+        </button>
+        <button data-tab="loja" onclick="navegarPremiada('loja')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+          🏪 Loja
+        </button>
+        <button data-tab="carteira" onclick="navegarPremiada('carteira')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+          💰 Minha Carteira
+        </button>
+        <button data-tab="ranking" onclick="navegarPremiada('ranking')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+          📊 Ranking
+        </button>
+        <button data-tab="admin" id="tabAdmin" onclick="navegarPremiada('admin')" class="tab-premiada hidden px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
+          ⚙️ Admin
+        </button>
+      </div>
+
+      <!-- AÇÕES (direita) -->
+      <div class="flex items-center gap-2">
+
+        <!-- 📖 MANUAL -->
+        <a href="manual-premiada.html"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 transition-colors"
           title="Manual do Sistema">
           <i data-lucide="book-open" class="w-4 h-4"></i>
-          <span class="text-xs font-bold">Manual</span>
+          <span class="text-[10px] font-black uppercase hidden sm:inline">Manual</span>
         </a>
 
-      <!-- 🎬 BOTÃO APRESENTAÇÃO (só admin) -->
-<a href="apresentacao-premiada.html" id="btnApresentacao"
-  class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border-2 border-purple-200 hover:border-purple-300 transition-all"
-  title="Apresentação para a equipe">
-  <i data-lucide="presentation" class="w-4 h-4"></i>
-  <span class="text-xs font-black uppercase">Apresentar</span>
-</a>
-      
-              <!-- 🔔 SINO DE NOTIFICAÇÕES -->
+        <!-- 🎬 APRESENTAR (só admin) -->
+        <a href="apresentacao-premiada.html" id="btnApresentacao"
+          class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border-2 border-purple-200 hover:border-purple-300 transition-all"
+          title="Apresentação para a equipe">
+          <i data-lucide="presentation" class="w-4 h-4"></i>
+          <span class="text-[10px] font-black uppercase hidden sm:inline">Apresentar</span>
+        </a>
+
+        <!-- 🔔 SINO DE NOTIFICAÇÕES -->
         <div class="relative" id="sinoWrapper">
-          <button onclick="togglePainelNotificacoes()" 
-            class="relative p-2 text-slate-500 hover:text-[#0e8890] transition-colors rounded-full hover:bg-slate-50">
+          <button onclick="togglePainelNotificacoes()"
+            class="relative p-2 rounded-lg text-slate-500 hover:text-[#0e8890] hover:bg-slate-100 transition-colors">
             <i data-lucide="bell" class="w-5 h-5"></i>
             <span id="sinoBadge" class="hidden absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">0</span>
           </button>
 
           <!-- Painel dropdown -->
           <div id="painelNotificacoes" class="hidden absolute right-0 top-full mt-3 w-[400px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border-2 border-slate-200 overflow-hidden z-50" style="transform-origin: top right; animation: fadeInScale 0.15s ease-out;">
-            <!-- Header com seta/notch -->
             <div class="relative bg-[#0e8890] px-5 py-4 flex justify-between items-center">
               <div class="flex items-center gap-2">
                 <i data-lucide="bell" class="w-4 h-4 text-white"></i>
@@ -132,7 +174,6 @@
               <button onclick="marcarTodasLidas()" class="text-[10px] text-white/80 hover:text-white font-black uppercase">
                 Marcar todas
               </button>
-              <!-- Notch (setinha apontando pro sino) -->
               <div class="absolute -top-1.5 right-7 w-3 h-3 bg-[#0e8890] transform rotate-45"></div>
             </div>
 
@@ -141,7 +182,7 @@
             </div>
 
             <div class="px-4 py-3 bg-slate-50 border-t border-slate-100">
-              <button onclick="verTodasNotificacoes()" 
+              <button onclick="verTodasNotificacoes()"
                 class="w-full bg-white hover:bg-[#0e8890] hover:text-white text-[#0e8890] border-2 border-[#0e8890]/20 hover:border-[#0e8890] py-2 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2">
                 <i data-lucide="list" class="w-3.5 h-3.5"></i>
                 Ver todas as notificações
@@ -150,42 +191,14 @@
           </div>
         </div>
 
-      <!-- 🔔 BOTÃO ATIVAR PUSH (aparece só se ainda não ativou) -->
-<button id="btnAtivarPush" onclick="ativarNotificacoes()"
-  class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 hover:border-amber-300 transition-all animate-pulse"
-  title="Ativar notificações no celular">
-  <i data-lucide="bell-ring" class="w-4 h-4"></i>
-  <span class="text-[10px] font-black uppercase hidden sm:inline">Ativar Push</span>
-</button>
-      
-      <div class="flex items-center gap-4">
-        <div class="text-right hidden sm:block">
-          <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
-          <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
-        </div>
-        <div class="w-10 h-10 rounded-full bg-[#0e8890]/10 border border-[#0e8890]/20 flex items-center justify-center text-[#0e8890] font-bold">
-          <i data-lucide="user" class="w-5 h-5"></i>
-        </div>
+        <!-- 🔕 ATIVAR PUSH -->
+        <button id="btnAtivarPush" onclick="ativarNotificacoes()"
+          class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 hover:border-amber-300 transition-all animate-pulse"
+          title="Ativar notificações no celular">
+          <i data-lucide="bell-ring" class="w-4 h-4"></i>
+          <span class="text-[10px] font-black uppercase hidden sm:inline">Ativar Push</span>
+        </button>
       </div>
-    </header>
-
-    <!-- NAVEGAÇÃO ENTRE VIEWS -->
-    <div class="bg-white border-b border-slate-200 px-6 py-3 flex flex-wrap gap-2 sticky top-0 z-30 shadow-sm">
-      <button data-tab="hub" onclick="navegarPremiada('hub')" class="tab-premiada active px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-        🏠 Meu Painel
-      </button>
-      <button data-tab="loja" onclick="navegarPremiada('loja')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-        🏪 Loja
-      </button>
-      <button data-tab="carteira" onclick="navegarPremiada('carteira')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-        💰 Minha Carteira
-      </button>
-      <button data-tab="ranking" onclick="navegarPremiada('ranking')" class="tab-premiada px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-        📊 Ranking
-      </button>
-      <button data-tab="admin" id="tabAdmin" onclick="navegarPremiada('admin')" class="tab-premiada hidden px-4 py-2 rounded-md text-xs font-bold uppercase border transition-all">
-        ⚙️ Admin
-      </button>
     </div>
 
     <!-- ÁREA DE CONTEÚDO -->
