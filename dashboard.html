@@ -12,6 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="sidebar.js"></script>
+  <script src="header.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -1758,7 +1759,8 @@ function navegar(destino) {
   });
 
   // 5. Atualiza o título do header
-  $('headerTitle').textContent = TITULOS[destino] || 'Portal';
+  const elTitulo = $('headerTitle');
+  if (elTitulo) elTitulo.textContent = TITULOS[destino] || 'Portal';
 }
 
 
