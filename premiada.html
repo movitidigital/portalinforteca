@@ -29,7 +29,27 @@
       transition: all 0.3s ease; pointer-events: none;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
-
+    /* Mini-badge de nível (círculo + letra) */
+    .badge-nivel {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 900;
+      color: #fff;
+      flex-shrink: 0;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    .badge-nivel.bronze   { background: linear-gradient(135deg, #B45309, #92400E); }
+    .badge-nivel.prata    { background: linear-gradient(135deg, #94A3B8, #64748B); }
+    .badge-nivel.ouro     { background: linear-gradient(135deg, #F59E0B, #B45309); }
+    .badge-nivel.diamante { background: linear-gradient(135deg, #0EA5E9, #0369A1); }
+    
     /* Níveis */
     .nivel-bronze  { background: linear-gradient(135deg, #B45309, #92400E); color: #fff; }
     .nivel-prata   { background: linear-gradient(135deg, #94A3B8, #64748B); color: #fff; }
@@ -493,10 +513,13 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <h3 class="text-base font-black text-[#000033] flex items-center gap-2 mb-4">
-              <i data-lucide="award" class="w-4 h-4 text-purple-500"></i> Minhas Conquistas
-            </h3>
+                  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+              <h3 class="text-base font-black text-[#000033] flex items-center gap-2">
+                <i data-lucide="award" class="w-4 h-4 text-purple-500"></i> Minhas Conquistas
+              </h3>
+              <div id="badgesNivelInfo" class="flex items-center gap-2"></div>
+            </div>
             <div id="badgesLista" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <p class="text-center text-slate-400 col-span-4 py-6 text-sm">Carregando conquistas…</p>
             </div>
@@ -1155,6 +1178,13 @@
      STATE + HELPERS
      ========================================================== */
   const $ = (id) => document.getElementById(id);
+  /* Helper: retorna HTML do mini-badge de nível */
+function badgeNivelHTML(nivel) {
+  const letras = { bronze: 'B', prata: 'P', ouro: 'O', diamante: 'D' };
+  const n = String(nivel || 'bronze').toLowerCase();
+  const letra = letras[n] || 'B';
+  return `<span class="badge-nivel ${n}" title="Nível ${n}">${letra}</span>`;
+}
   const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
     m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const capitalizar = (s) => String(s || '').toLowerCase()
@@ -2433,8 +2463,19 @@ async function exportarRankingImagem() {
               <p style="font-size: 15px; font-weight: 900; color: #0F172A; margin: 0; letter-spacing: -0.01em;">
                 ${escapeHTML(primeiroNome)}${restoNome ? ` <span style="font-weight: 500; color: #64748B;">${escapeHTML(restoNome)}</span>` : ''}
               </p>
-              ${nivelConf.icone ? `<span style="font-size: 14px;">${nivelConf.icone}</span>` : ''}
-            </div>
+              ${(() => {
+                const letras = { bronze: 'B', prata: 'P', ouro: 'O', diamante: 'D' };
+                const cores = {
+                  bronze:   'linear-gradient(135deg, #B45309, #92400E)',
+                  prata:    'linear-gradient(135deg, #94A3B8, #64748B)',
+                  ouro:     'linear-gradient(135deg, #F59E0B, #B45309)',
+                  diamante: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
+                };
+                const n = String(c.nivel || 'bronze').toLowerCase();
+                const letra = letras[n] || 'B';
+                const cor = cores[n] || cores.bronze;
+                return `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: ${cor}; color: #fff; font-size: 11px; font-weight: 900; font-family: Inter, sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">${letra}</span>`;
+              })()}            </div>
             <!-- Barra -->
             <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; margin-top: 6px; overflow: hidden;">
               <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
@@ -2639,10 +2680,10 @@ async function carregarRanking() {
           ${medalha}
         </div>
 
-        <!-- Nome + Nível -->
+              <!-- Nome + Nível -->
         <div class="relative flex-1 min-w-0 flex items-center gap-2">
           <p class="font-black text-slate-800 text-[13px] truncate">${escapeHTML(capitalizar(nome))}</p>
-          <span class="text-[9px] font-black px-1.5 py-0.5 rounded-full nivel-${c.nivel} shrink-0">${confNivel.icone || ''}</span>
+          ${badgeNivelHTML(c.nivel)}
           ${ehEu ? '<span class="text-[9px] font-black bg-[#0e8890] text-white px-1.5 py-0.5 rounded-full shrink-0">VOCÊ</span>' : ''}
         </div>
 
@@ -2658,43 +2699,58 @@ async function carregarRanking() {
   lucide.createIcons();
 }
 
-  async function carregarBadges() {
-    const { data: todos } = await supabaseClient
-      .from('premiada_badges').select('*').eq('ativo', true);
+async function carregarBadges() {
+  const { data: todos } = await supabaseClient
+    .from('premiada_badges').select('*').eq('ativo', true);
 
-    const { data: ganhos } = await supabaseClient
-      .from('premiada_badges_consultor')
-      .select('badge_id')
-      .eq('user_id', state.user.id);
+  const { data: ganhos } = await supabaseClient
+    .from('premiada_badges_consultor')
+    .select('badge_id')
+    .eq('user_id', state.user.id);
 
-    const ganhosSet = new Set((ganhos || []).map(g => g.badge_id));
+  const ganhosSet = new Set((ganhos || []).map(g => g.badge_id));
 
-    const box = $('badgesLista');
-    if (!todos || !todos.length) {
-      box.innerHTML = `<p class="text-center text-slate-400 col-span-4 py-6 text-sm">Sem conquistas cadastradas.</p>`;
-      return;
-    }
+  // 🎖️ Mostra o nível atual ao lado do título
+  const c = state.consultor;
+  const niveis = state.config.niveis || {};
+  const nivelAtual = c?.nivel || 'bronze';
+  const confNivel = niveis[nivelAtual] || {};
+  const letras = { bronze: 'B', prata: 'P', ouro: 'O', diamante: 'D' };
 
-    const raridadeCor = {
-      comum: 'border-slate-200 bg-slate-50',
-      raro: 'border-amber-200 bg-amber-50',
-      epico: 'border-purple-200 bg-purple-50',
-      lendario: 'border-rose-200 bg-rose-50',
-    };
-
-    box.innerHTML = todos.map(b => {
-      const conquistado = ganhosSet.has(b.id);
-      return `
-        <div class="${raridadeCor[b.raridade] || raridadeCor.comum} border rounded-xl p-3 text-center ${conquistado ? '' : 'opacity-40 grayscale'}">
-          <div class="text-3xl mb-2">${conquistado ? b.icone : '🔒'}</div>
-          <p class="text-[10px] font-black text-slate-700 uppercase leading-tight">${escapeHTML(b.nome)}</p>
-          <p class="text-[9px] text-slate-500 mt-1 leading-tight">${escapeHTML(b.descricao || '')}</p>
-          <p class="text-[8px] font-black uppercase mt-1 ${conquistado ? 'text-emerald-600' : 'text-slate-400'}">
-            ${conquistado ? '✓ Conquistado' : b.raridade}
-          </p>
-        </div>`;
-    }).join('');
+  if ($('badgesNivelInfo') && c) {
+    $('badgesNivelInfo').innerHTML = `
+      <span class="text-[10px] font-black text-slate-400 uppercase">Seu nível:</span>
+      <span class="badge-nivel ${nivelAtual}" style="width: 24px; height: 24px; font-size: 12px;">${letras[nivelAtual] || 'B'}</span>
+      <span class="text-xs font-black text-slate-700">${confNivel.label || 'Bronze'}</span>
+    `;
   }
+
+  const box = $('badgesLista');
+  if (!todos || !todos.length) {
+    box.innerHTML = `<p class="text-center text-slate-400 col-span-4 py-6 text-sm">Sem conquistas cadastradas.</p>`;
+    return;
+  }
+
+  const raridadeCor = {
+    comum: 'border-slate-200 bg-slate-50',
+    raro: 'border-amber-200 bg-amber-50',
+    epico: 'border-purple-200 bg-purple-50',
+    lendario: 'border-rose-200 bg-rose-50',
+  };
+
+  box.innerHTML = todos.map(b => {
+    const conquistado = ganhosSet.has(b.id);
+    return `
+      <div class="${raridadeCor[b.raridade] || raridadeCor.comum} border rounded-xl p-3 text-center ${conquistado ? '' : 'opacity-40 grayscale'}">
+        <div class="text-3xl mb-2">${conquistado ? b.icone : '🔒'}</div>
+        <p class="text-[10px] font-black text-slate-700 uppercase leading-tight">${escapeHTML(b.nome)}</p>
+        <p class="text-[9px] text-slate-500 mt-1 leading-tight">${escapeHTML(b.descricao || '')}</p>
+        <p class="text-[8px] font-black uppercase mt-1 ${conquistado ? 'text-emerald-600' : 'text-slate-400'}">
+          ${conquistado ? '✓ Conquistado' : b.raridade}
+        </p>
+      </div>`;
+  }).join('');
+}
 
   /* ==========================================================
      ROLETA
