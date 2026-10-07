@@ -1,43 +1,35 @@
 /* ==========================================================
    HEADER.JS — Header unificado (Inforteca)
-   ==========================================================
-   Injeta automaticamente o header em qualquer página que
-   tenha <header id="appHeader" data-title="...">
    ========================================================== */
 
 (function () {
   'use strict';
 
   const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJxcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
 
-  // Reusa cliente Supabase da página, se existir
   const sb = window.supabaseClient
     || (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
 
   const $ = (id) => document.getElementById(id);
-
   const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
     m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
-  /* ==========================================================
-     ESTADO LOCAL DO HEADER (não interfere com state da página)
-     ========================================================== */
   let _avatarUrlAtual = null;
   let _avatarArquivo = null;
   let _perfilHeader = null;
   let _userHeader = null;
 
   /* ==========================================================
-     RENDER
+     RENDER DO HEADER
      ========================================================== */
   function renderHeader(opts) {
     const header = $('appHeader');
     if (!header) return;
 
-    const titulo       = opts.titulo       || 'Portal';
-    const mostraBusca  = opts.mostraBusca  === true;
-    const mostraNotif  = opts.mostraNotif  === true;
+    const titulo      = opts.titulo      || 'Portal';
+    const mostraBusca = opts.mostraBusca === true;
+    const mostraNotif = opts.mostraNotif === true;
 
     header.className = 'h-16 md:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 z-10 shrink-0';
 
@@ -74,7 +66,6 @@
             <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
           </div>
 
-          <!-- 📸 AVATAR CLICÁVEL -->
           <button onclick="abrirModalAvatar()" id="btnAbrirAvatar"
             class="relative w-10 h-10 rounded-full bg-[#0e8890]/10 border-2 border-[#0e8890]/20 hover:border-[#0e8890] flex items-center justify-center text-[#0e8890] font-bold overflow-hidden transition-all hover:scale-105 hover:shadow-lg group"
             title="Alterar foto de perfil">
@@ -88,7 +79,6 @@
       </div>
     `;
 
-    // Injeta o modal de avatar no body (se ainda não existir)
     if (!$('modalAvatar')) {
       document.body.insertAdjacentHTML('beforeend', MODAL_AVATAR_HTML);
     }
@@ -97,12 +87,11 @@
   }
 
   /* ==========================================================
-     MODAL DE AVATAR (HTML)
+     MODAL DE AVATAR
      ========================================================== */
   const MODAL_AVATAR_HTML = `
     <div id="modalAvatar" class="fixed inset-0 z-[70] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-
         <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-5 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
@@ -160,29 +149,54 @@
   `;
 
   /* ==========================================================
-     CARREGA PERFIL + AVATAR
+     CARREGA PERFIL + AVATAR (com retry inteligente)
      ========================================================== */
   async function carregarPerfilHeader() {
     if (!sb) return;
+
     try {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) return;
+      // 1) Tenta pegar do state da página (o dashboard popula primeiro)
+      let perfil = window.state?.perfil;
+      let user = window.state?.user;
 
-      _userHeader = session.user;
+      // 2) Se a página ainda não populou, espera a sessão
+      if (!user) {
+        let session = null;
+        for (let i = 0; i < 30; i++) {
+          const { data } = await sb.auth.getSession();
+          if (data?.session) { session = data.session; break; }
+          await new Promise(r => setTimeout(r, 100));
+        }
+        if (!session) return;
+        user = session.user;
+      }
 
-      const { data: perfil } = await sb.from('perfis').select('*').eq('id', session.user.id).single();
+      // 3) Se ainda não tem perfil, busca direto do Supabase
+      if (!perfil && user) {
+        const { data, error } = await sb
+          .from('perfis')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (error) console.warn('[Header] Erro ao buscar perfil:', error);
+        perfil = data;
+      }
+
+      // 4) Se ainda nada, aborta silenciosamente
+      if (!perfil || !user) {
+        console.warn('[Header] Perfil não encontrado — usando fallback');
+        return;
+      }
+
+      _userHeader = user;
       _perfilHeader = perfil;
 
-      const nome = perfil?.nome_completo || session.user.email || 'Usuário';
+      const nome = perfil?.nome_completo || user?.email || 'Usuário';
       const perm = perfil?.permissao || 'Operador';
 
       if ($('userName')) $('userName').textContent = nome;
       if ($('userPerm')) $('userPerm').textContent = perm;
-
-      // Guarda global pra outras partes do código lerem (retrocompatível)
-      if (!window.state) window.state = {};
-      if (!window.state.perfil) window.state.perfil = perfil;
-      if (!window.state.user) window.state.user = session.user;
 
       atualizarAvatarUI(perfil?.avatar_url || null);
     } catch (e) {
@@ -224,7 +238,7 @@
   }
 
   /* ==========================================================
-     AVATAR — FUNÇÕES PÚBLICAS (chamadas via onclick)
+     AVATAR — FUNÇÕES PÚBLICAS
      ========================================================== */
   window.abrirModalAvatar = function () {
     const m = $('modalAvatar');
@@ -310,6 +324,8 @@
       if (!rpcData?.success) throw new Error(rpcData?.erro || 'Erro ao salvar no perfil');
 
       if (_perfilHeader) _perfilHeader.avatar_url = publicUrl;
+      if (window.state?.perfil) window.state.perfil.avatar_url = publicUrl;
+
       atualizarAvatarUI(publicUrl);
       renderPreviewAvatar(publicUrl);
 
@@ -345,6 +361,8 @@
       } catch (e) { console.warn('[Avatar] Não apagou arquivo:', e); }
 
       if (_perfilHeader) _perfilHeader.avatar_url = null;
+      if (window.state?.perfil) window.state.perfil.avatar_url = null;
+
       atualizarAvatarUI(null);
       renderPreviewAvatar(null);
 
@@ -372,9 +390,7 @@
     box.classList.remove('hidden');
   }
 
-  /* ==========================================================
-     FECHAR MODAL — fora / ESC
-     ========================================================== */
+  /* Fechar modal */
   document.addEventListener('click', (e) => {
     const modal = $('modalAvatar');
     if (!modal || modal.classList.contains('hidden')) return;
@@ -390,41 +406,27 @@
   /* ==========================================================
      BOOT
      ========================================================== */
-function boot() {
-  const header = $('appHeader');
-  if (!header) {
-    // Se ainda não achou, tenta de novo por até 3s (Vercel às vezes demora)
-    let tentativas = 0;
-    const tentar = setInterval(() => {
-      const h = $('appHeader');
-      if (h) {
-        clearInterval(tentar);
-        renderizar(h);
-      } else if (++tentativas > 60) {
-        clearInterval(tentar);
-        console.warn('[Header] appHeader não encontrado após 3s');
-      }
-    }, 50);
-    return;
-  }
-  renderizar(header);
+  function boot() {
+    const header = $('appHeader');
+    if (!header) return;
 
-  function renderizar(h) {
     renderHeader({
-      titulo:      h.dataset.title || 'Portal',
-      mostraBusca: h.dataset.search === 'true',
-      mostraNotif: h.dataset.notif === 'true',
+      titulo:      header.dataset.title || 'Portal',
+      mostraBusca: header.dataset.search === 'true',
+      mostraNotif: header.dataset.notif === 'true',
     });
-    setTimeout(carregarPerfilHeader, 100);
+
+    // 🔁 Tenta carregar o perfil várias vezes (até o dashboard popular)
+    [200, 600, 1200, 2500].forEach((delay) => {
+      setTimeout(carregarPerfilHeader, delay);
+    });
   }
-}
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot);
-} else {
-  boot();
-}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 
-// 🔄 Fallback: se o DOMContentLoaded já passou quando header.js carregar
-setTimeout(boot, 200);
+  setTimeout(boot, 200);
 })();
