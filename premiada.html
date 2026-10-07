@@ -2444,7 +2444,6 @@ async function exportarRankingImagem() {
     const hoje = agora.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const linhasHTML = comPontos.slice(0, 10).map((c, i) => {
-      const conf = medalhaConf(i);
       const pontos = Number(c[campoPontos]);
       const pct = Math.round((pontos / maxPts) * 100);
       const nivelConf = niveis[c.nivel] || {};
@@ -2465,16 +2464,16 @@ async function exportarRankingImagem() {
             <!-- Nome + Nível + Barra -->
             <div style="flex: 1; min-width: 0;">
               <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px; min-height: 22px;">
-                <span style="font-size: 15px; font-weight: 900; color: #0F172A; letter-spacing: -0.01em; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <span style="font-size: 15px; font-weight: 900; color: #0F172A; letter-spacing: -0.01em; line-height: 1.4;">
                   ${escapeHTML(primeiroNome)}
                 </span>
                 ${restoNome ? `
-                  <span style="font-size: 15px; font-weight: 500; color: #64748B; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  <span style="font-size: 15px; font-weight: 500; color: #64748B; line-height: 1.4;">
                     ${escapeHTML(restoNome)}
                   </span>
                 ` : ''}
                 ${nivelConf.icone ? `
-                  <span style="font-size: 14px; line-height: 1; flex-shrink: 0;">${nivelConf.icone}</span>
+                  <span style="font-size: 14px; line-height: 1;">${nivelConf.icone}</span>
                 ` : ''}
               </div>
               <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
@@ -2491,19 +2490,6 @@ async function exportarRankingImagem() {
                 pts
               </p>
             </div>
-          </div>
-        </div>
-
-          <!-- LINHA 2: Barra de progresso (embaixo, alinhada com o nome) -->
-          <div style="display: flex; margin-top: 8px;">
-            <!-- Espaço da medalha (mesma largura: 40px + gap 12px = 52px) -->
-            <div style="width: 52px; flex-shrink: 0;"></div>
-            <!-- Barra -->
-            <div style="flex: 1; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
-              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
-            </div>
-            <!-- Espaço dos pontos (mesma largura: 80px) -->
-            <div style="width: 80px; flex-shrink: 0;"></div>
           </div>
         </div>
       `;
