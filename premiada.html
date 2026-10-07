@@ -2432,10 +2432,27 @@ async function exportarRankingImagem() {
     });
 
     const medalhaConf = (pos) => {
-      if (pos === 0) return { icone: '🥇', bg: 'linear-gradient(135deg, #FFD700, #FFA500)', cor: '#7C2D12' };
-      if (pos === 1) return { icone: '🥈', bg: 'linear-gradient(135deg, #E5E7EB, #9CA3AF)', cor: '#374151' };
-      if (pos === 2) return { icone: '🥉', bg: 'linear-gradient(135deg, #FDBA74, #C2410C)', cor: '#7C2D12' };
-      return { icone: `${pos + 1}º`, bg: '#F1F5F9', cor: '#475569' };
+      if (pos === 0) return { 
+        numero: '1', 
+        bg: 'linear-gradient(135deg, #FCD34D 0%, #F59E0B 50%, #B45309 100%)',
+        sombra: 'rgba(180, 83, 9, 0.35)'
+      };
+      if (pos === 1) return { 
+        numero: '2', 
+        bg: 'linear-gradient(135deg, #F1F5F9 0%, #94A3B8 50%, #64748B 100%)',
+        sombra: 'rgba(100, 116, 139, 0.35)'
+      };
+      if (pos === 2) return { 
+        numero: '3', 
+        bg: 'linear-gradient(135deg, #FDBA74 0%, #EA580C 50%, #9A3412 100%)',
+        sombra: 'rgba(154, 52, 18, 0.35)'
+      };
+      return { 
+        numero: `${pos + 1}`,
+        bg: '#F1F5F9',
+        sombra: 'rgba(148, 163, 184, 0.2)',
+        cor: '#475569'
+      };
     };
 
     const maxPts = Math.max(...comPontos.map(c => Number(c[campoPontos])));
@@ -2452,9 +2469,9 @@ async function exportarRankingImagem() {
 
       return `
         <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F1F5F9; background: ${i < 3 ? 'linear-gradient(90deg, #FEFCE8 0%, #FFFFFF 100%)' : '#FFFFFF'};">
-          <!-- Medalha -->
-          <div style="width: 48px; height: 48px; border-radius: 12px; background: ${conf.bg}; display: flex; align-items: center; justify-content: center; font-size: ${i < 3 ? '24px' : '16px'}; font-weight: 900; color: ${conf.cor}; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
-            ${conf.icone}
+          <!-- Medalha (CSS-drawn) -->
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: ${conf.bg}; display: flex; align-items: center; justify-content: center; font-size: ${i < 3 ? '22px' : '18px'}; font-weight: 900; color: ${conf.cor || '#FFFFFF'}; flex-shrink: 0; box-shadow: 0 3px 8px ${conf.sombra}; font-family: Inter, sans-serif; border: 3px solid #FFFFFF; line-height: 1;">
+            ${conf.numero}
           </div>
 
           <!-- Nome -->
@@ -2474,8 +2491,9 @@ async function exportarRankingImagem() {
                 const n = String(c.nivel || 'bronze').toLowerCase();
                 const letra = letras[n] || 'B';
                 const cor = cores[n] || cores.bronze;
-                return `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: ${cor}; color: #fff; font-size: 11px; font-weight: 900; font-family: Inter, sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">${letra}</span>`;
-              })()}            </div>
+                return `<span style="display: inline-block; vertical-align: middle; width: 24px; height: 24px; line-height: 24px; text-align: center; border-radius: 50%; background: ${cor}; color: #fff; font-size: 12px; font-weight: 900; font-family: Inter, sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${letra}</span>`;
+              })()}         
+              </div>
             <!-- Barra -->
             <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; margin-top: 6px; overflow: hidden;">
               <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
