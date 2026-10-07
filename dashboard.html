@@ -78,9 +78,23 @@
             <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
             <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
           </div>
-          <div class="w-10 h-10 rounded-full bg-[#0e8890]/10 border border-[#0e8890]/20 flex items-center justify-center text-[#0e8890] font-bold">
-            <i data-lucide="user" class="w-5 h-5"></i>
-          </div>
+
+          <!-- 📸 AVATAR CLICÁVEL -->
+          <button onclick="abrirModalAvatar()" id="btnAbrirAvatar"
+            class="relative w-10 h-10 rounded-full bg-[#0e8890]/10 border-2 border-[#0e8890]/20 hover:border-[#0e8890] flex items-center justify-center text-[#0e8890] font-bold overflow-hidden transition-all hover:scale-105 hover:shadow-lg group"
+            title="Alterar foto de perfil">
+            <!-- Ícone padrão (some quando tem foto) -->
+            <i data-lucide="user" id="headerAvatarIcone" class="w-5 h-5"></i>
+
+            <!-- Imagem (aparece quando tem foto salva) -->
+            <img id="headerAvatarImg" src="" alt="Foto de perfil"
+              class="hidden absolute inset-0 w-full h-full object-cover">
+
+            <!-- Overlay com ícone de câmera no hover -->
+            <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+            </div>
+          </button>
         </div>
       </div>
     </header>
@@ -1669,6 +1683,9 @@ async function verificarAuth() {
 
   $('userName').textContent = state.perfil.nome_completo || session.user.email;
   $('userPerm').textContent = state.perfil.permissao;
+
+    // 📸 Carrega avatar no header
+  atualizarAvatarUI(perfil?.avatar_url || null);
 
   // ─────────────────────────────────────────────────────────
   // Carrega cargos e permissões do usuário
@@ -4891,6 +4908,256 @@ async function carregarRankingEquipe() {
       lucide.createIcons();
       verificarAuth();
     });
+
+/* ==========================================================
+   FOTO DE PERFIL (AVATAR)
+   ========================================================== */
+let _avatarArquivo = null;      // arquivo selecionado (ainda não enviado)
+let _avatarUrlAtual = null;     // URL da foto atual (do banco)
+
+/* Abre o modal de foto */
+function abrirModalAvatar() {
+  const m = $('modalAvatar');
+  if (!m) return;
+
+  // Reset
+  _avatarArquivo = null;
+  $('avatarInput').value = '';
+  $('avatarAlert').classList.add('hidden');
+  $('avatarBtnSalvar').classList.add('hidden');
+  $('avatarBtnSalvar').classList.remove('flex');
+  $('avatarBtnTexto').textContent = 'Escolher Foto';
+
+  // Preenche nome/permissão
+  $('avatarNomeUser').textContent = state.perfil?.nome_completo || 'Usuário';
+  $('avatarPermUser').textContent = state.perfil?.permissao || 'Operador';
+
+  // Mostra preview atual
+  renderPreviewAvatar(_avatarUrlAtual);
+
+  m.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function fecharModalAvatar() {
+  $('modalAvatar').classList.add('hidden');
+  _avatarArquivo = null;
+}
+
+/* Renderiza preview no modal */
+function renderPreviewAvatar(url) {
+  const box = $('avatarPreview');
+  if (!box) return;
+
+  if (url) {
+    box.innerHTML = `<img src="${escapeHTML(url)}" alt="Avatar" class="w-full h-full object-cover">`;
+    $('avatarBtnRemover').classList.remove('hidden');
+  } else {
+    box.innerHTML = `<i data-lucide="user" class="w-14 h-14 text-[#0e8890]"></i>`;
+    $('avatarBtnRemover').classList.add('hidden');
+  }
+  lucide.createIcons();
+}
+
+/* Atualiza avatar no header (a foto pequena) */
+function atualizarAvatarUI(url) {
+  _avatarUrlAtual = url || null;
+
+  const img = $('headerAvatarImg');
+  const icone = $('headerAvatarIcone');
+  if (!img || !icone) return;
+
+  if (url) {
+    img.src = url;
+    img.classList.remove('hidden');
+    icone.classList.add('hidden');
+  } else {
+    img.src = '';
+    img.classList.add('hidden');
+    icone.classList.remove('hidden');
+  }
+}
+
+/* Quando o usuário escolhe um arquivo */
+function onFotoSelecionada(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const alertBox = $('avatarAlert');
+
+  // Valida tipo
+  if (!file.type.startsWith('image/')) {
+    mostrarAlertaAvatar('❌ O arquivo precisa ser uma imagem (JPG, PNG ou WebP).', 'red');
+    input.value = '';
+    return;
+  }
+
+  // Valida tamanho (2 MB)
+  if (file.size > 2 * 1024 * 1024) {
+    mostrarAlertaAvatar('❌ Imagem muito grande. Máximo 2 MB.', 'red');
+    input.value = '';
+    return;
+  }
+
+  _avatarArquivo = file;
+
+  // Preview local (antes de subir)
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const box = $('avatarPreview');
+    if (box) {
+      box.innerHTML = `<img src="${e.target.result}" alt="Preview" class="w-full h-full object-cover">`;
+    }
+    $('avatarBtnRemover').classList.remove('hidden');
+    $('avatarBtnTexto').textContent = 'Escolher outra foto';
+    $('avatarBtnSalvar').classList.remove('hidden');
+    $('avatarBtnSalvar').classList.add('flex');
+    alertBox.classList.add('hidden');
+    lucide.createIcons();
+  };
+  reader.readAsDataURL(file);
+}
+
+/* Salva a foto no Supabase Storage + atualiza perfil */
+async function salvarFotoPerfil() {
+  if (!_avatarArquivo) return;
+
+  const btn = $('avatarBtnSalvar');
+  const alertBox = $('avatarAlert');
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Enviando…`;
+  lucide.createIcons();
+
+  try {
+    const userId = state.user.id;
+    const ext = _avatarArquivo.name.split('.').pop().toLowerCase() || 'jpg';
+    const nomeArquivo = `${Date.now()}.${ext}`;
+    const path = `${userId}/${nomeArquivo}`;
+
+    // 1. Upload pro Storage
+    const { error: errUpload } = await supabaseClient.storage
+      .from('avatars')
+      .upload(path, _avatarArquivo, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: _avatarArquivo.type,
+      });
+
+    if (errUpload) throw new Error('Erro no upload: ' + errUpload.message);
+
+    // 2. Pega URL pública
+    const { data: { publicUrl } } = supabaseClient.storage
+      .from('avatars')
+      .getPublicUrl(path);
+
+    // 3. Salva a URL no perfil via RPC
+    const { data: rpcData, error: errRpc } = await supabaseClient.rpc('atualizar_avatar', {
+      p_url: publicUrl,
+    });
+
+    if (errRpc) throw errRpc;
+    if (!rpcData?.success) throw new Error(rpcData?.erro || 'Erro ao salvar no perfil');
+
+    // 4. Atualiza state + UI
+    if (state.perfil) state.perfil.avatar_url = publicUrl;
+    atualizarAvatarUI(publicUrl);
+    renderPreviewAvatar(publicUrl);
+
+    mostrarAlertaAvatar('✅ Foto atualizada com sucesso!', 'emerald');
+
+    // Fecha depois de 1.5s
+    setTimeout(() => {
+      fecharModalAvatar();
+    }, 1500);
+
+  } catch (err) {
+    console.error('[Avatar]', err);
+    mostrarAlertaAvatar('❌ ' + err.message, 'red');
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> Salvar Foto`;
+    lucide.createIcons();
+  }
+}
+
+/* Remove a foto atual */
+async function removerFotoPerfil() {
+  if (!_avatarUrlAtual) return;
+
+  if (!confirm('Remover sua foto de perfil?\n\nVocê voltará a usar o ícone genérico.')) return;
+
+  const btn = $('avatarBtnRemover');
+  const alertBox = $('avatarAlert');
+
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>`;
+  lucide.createIcons();
+
+  try {
+    // 1. Remove do perfil (RPC)
+    const { data: rpcData, error: errRpc } = await supabaseClient.rpc('remover_avatar');
+    if (errRpc) throw errRpc;
+    if (!rpcData?.success) throw new Error(rpcData?.erro || 'Erro ao remover');
+
+    // 2. Tenta apagar o arquivo do Storage (não é crítico se falhar)
+    try {
+      const path = _avatarUrlAtual.split('/avatars/')[1]?.split('?')[0];
+      if (path) {
+        await supabaseClient.storage.from('avatars').remove([path]);
+      }
+    } catch (e) {
+      console.warn('[Avatar] Não foi possível apagar arquivo:', e);
+    }
+
+    // 3. Atualiza UI
+    if (state.perfil) state.perfil.avatar_url = null;
+    atualizarAvatarUI(null);
+    renderPreviewAvatar(null);
+
+    mostrarAlertaAvatar('✅ Foto removida.', 'emerald');
+
+    setTimeout(() => {
+      fecharModalAvatar();
+    }, 1200);
+
+  } catch (err) {
+    console.error('[Avatar]', err);
+    mostrarAlertaAvatar('❌ ' + err.message, 'red');
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i>`;
+    lucide.createIcons();
+  }
+}
+
+/* Helper: mostra alerta no modal */
+function mostrarAlertaAvatar(msg, cor) {
+  const box = $('avatarAlert');
+  if (!box) return;
+  const cores = {
+    red:     'bg-red-50 border-red-200 text-red-600',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    amber:   'bg-amber-50 border-amber-200 text-amber-700',
+  };
+  box.textContent = msg;
+  box.className = `text-xs p-3 rounded-xl border font-medium mt-4 ${cores[cor] || cores.red}`;
+  box.classList.remove('hidden');
+}
+
+
+    /* Fecha modal clicando fora do card */
+document.addEventListener('click', (e) => {
+  const modal = $('modalAvatar');
+  if (!modal || modal.classList.contains('hidden')) return;
+  // Se clicou no backdrop (não no conteúdo interno), fecha
+  if (e.target === modal) fecharModalAvatar();
+});
+
+/* Fecha modal com ESC */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !$('modalAvatar')?.classList.contains('hidden')) {
+    fecharModalAvatar();
+  }
+});
     /* ==========================================================
    MÓDULO: PORTABILIDADES
    ========================================================== */
