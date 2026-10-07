@@ -390,23 +390,41 @@
   /* ==========================================================
      BOOT
      ========================================================== */
-  function boot() {
-    const header = $('appHeader');
-    if (!header) return;
+function boot() {
+  const header = $('appHeader');
+  if (!header) {
+    // Se ainda não achou, tenta de novo por até 3s (Vercel às vezes demora)
+    let tentativas = 0;
+    const tentar = setInterval(() => {
+      const h = $('appHeader');
+      if (h) {
+        clearInterval(tentar);
+        renderizar(h);
+      } else if (++tentativas > 60) {
+        clearInterval(tentar);
+        console.warn('[Header] appHeader não encontrado após 3s');
+      }
+    }, 50);
+    return;
+  }
+  renderizar(header);
 
+  function renderizar(h) {
     renderHeader({
-      titulo:      header.dataset.title || 'Portal',
-      mostraBusca: header.dataset.search === 'true',
-      mostraNotif: header.dataset.notif === 'true',
+      titulo:      h.dataset.title || 'Portal',
+      mostraBusca: h.dataset.search === 'true',
+      mostraNotif: h.dataset.notif === 'true',
     });
-
-    // Espera a página terminar o próprio boot pra carregar perfil
     setTimeout(carregarPerfilHeader, 100);
   }
+}
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+
+// 🔄 Fallback: se o DOMContentLoaded já passou quando header.js carregar
+setTimeout(boot, 200);
 })();
