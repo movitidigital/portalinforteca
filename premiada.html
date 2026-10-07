@@ -2468,20 +2468,23 @@ async function exportarRankingImagem() {
       const restoNome = nome.split(' ').slice(1).join(' ');
 
       return `
-        <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F1F5F9; background: ${i < 3 ? 'linear-gradient(90deg, #FEFCE8 0%, #FFFFFF 100%)' : '#FFFFFF'};">
-          <!-- Medalha compacta -->
-          <div style="width: 40px; height: 40px; border-radius: 50%; background: ${conf.bg}; display: flex; align-items: center; justify-content: center; font-size: ${i < 3 ? '16px' : '14px'}; font-weight: 900; color: ${conf.cor || '#FFFFFF'}; flex-shrink: 0; box-shadow: 0 2px 6px ${conf.sombra}; font-family: Inter, sans-serif; border: 2px solid #FFFFFF; line-height: 1;">
-            ${conf.numero}
-          </div>
+        <div style="padding: 14px 20px; border-bottom: 1px solid #F1F5F9; background: ${i < 3 ? 'linear-gradient(90deg, #FEFCE8 0%, #FFFFFF 100%)' : '#FFFFFF'};">
+          
+          <!-- LINHA 1: Medalha + Nome + Badge + Pontos (todos alinhados) -->
+          <div style="display: flex; align-items: center; gap: 12px;">
+            
+            <!-- Medalha -->
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: ${conf.bg}; display: flex; align-items: center; justify-content: center; font-size: ${i < 3 ? '16px' : '14px'}; font-weight: 900; color: ${conf.cor || '#FFFFFF'}; flex-shrink: 0; box-shadow: 0 2px 6px ${conf.sombra}; font-family: Inter, sans-serif; border: 2px solid #FFFFFF; line-height: 1;">
+              ${conf.numero}
+            </div>
 
-                <!-- Nome + Nível na mesma linha -->
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-              <span style="font-size: 15px; font-weight: 900; color: #0F172A; margin: 0; letter-spacing: -0.01em; line-height: 1;">
+            <!-- Nome + Badge -->
+            <div style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 15px; font-weight: 900; color: #0F172A; letter-spacing: -0.01em; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 ${escapeHTML(primeiroNome)}
               </span>
               ${restoNome ? `
-                <span style="font-size: 15px; font-weight: 500; color: #64748B; line-height: 1;">
+                <span style="font-size: 15px; font-weight: 500; color: #64748B; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                   ${escapeHTML(restoNome)}
                 </span>
               ` : ''}
@@ -2496,23 +2499,31 @@ async function exportarRankingImagem() {
                 const n = String(c.nivel || 'bronze').toLowerCase();
                 const letra = letras[n] || 'B';
                 const cor = cores[n] || cores.bronze;
-                return `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: ${cor}; color: #fff; font-size: 11px; font-weight: 900; font-family: Inter, sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.15); flex-shrink: 0; line-height: 1;">${letra}</span>`;
+                return `<span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: ${cor}; color: #fff; font-size: 11px; font-weight: 900; font-family: Inter, sans-serif; box-shadow: 0 1px 2px rgba(0,0,0,0.15); flex-shrink: 0; line-height: 1; margin-left: 2px;">${letra}</span>`;
               })()}
             </div>
-            <!-- Barra de progresso -->
-            <div style="width: 100%; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
-              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
+
+            <!-- Pontos -->
+            <div style="text-align: right; flex-shrink: 0; min-width: 80px;">
+              <p style="font-size: 22px; font-weight: 900; color: #0e8890; margin: 0; letter-spacing: -0.02em; line-height: 1;">
+                ${pontos.toLocaleString('pt-BR')}
+              </p>
+              <p style="font-size: 9px; font-weight: 900; color: #94A3B8; margin: 3px 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
+                pts
+              </p>
             </div>
           </div>
-          
-          <!-- Pontos -->
-          <div style="text-align: right; flex-shrink: 0;">
-            <p style="font-size: 22px; font-weight: 900; color: #0e8890; margin: 0; letter-spacing: -0.02em; line-height: 1;">
-              ${pontos.toLocaleString('pt-BR')}
-            </p>
-            <p style="font-size: 9px; font-weight: 900; color: #94A3B8; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 0.05em;">
-              pts
-            </p>
+
+          <!-- LINHA 2: Barra de progresso (embaixo, alinhada com o nome) -->
+          <div style="display: flex; margin-top: 8px;">
+            <!-- Espaço da medalha (mesma largura: 40px + gap 12px = 52px) -->
+            <div style="width: 52px; flex-shrink: 0;"></div>
+            <!-- Barra -->
+            <div style="flex: 1; height: 6px; background: #F1F5F9; border-radius: 999px; overflow: hidden;">
+              <div style="width: ${pct}%; height: 100%; background: linear-gradient(90deg, #0e8890, #14b8a6); border-radius: 999px;"></div>
+            </div>
+            <!-- Espaço dos pontos (mesma largura: 80px) -->
+            <div style="width: 80px; flex-shrink: 0;"></div>
           </div>
         </div>
       `;
