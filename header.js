@@ -151,58 +151,50 @@
   /* ==========================================================
      CARREGA PERFIL + AVATAR (com retry inteligente)
      ========================================================== */
-  async function carregarPerfilHeader() {
-    if (!sb) return;
+async function carregarPerfilHeader() {
+  if (!sb) return;
 
-    try {
-      // 1) Tenta pegar do state da página (o dashboard popula primeiro)
-      let perfil = window.state?.perfil;
-      let user = window.state?.user;
-
-      // 2) Se a página ainda não populou, espera a sessão
-      if (!user) {
-        let session = null;
-        for (let i = 0; i < 30; i++) {
-          const { data } = await sb.auth.getSession();
-          if (data?.session) { session = data.session; break; }
-          await new Promise(r => setTimeout(r, 100));
-        }
-        if (!session) return;
-        user = session.user;
-      }
-
-      // 3) Se ainda não tem perfil, busca direto do Supabase
-      if (!perfil && user) {
-        const { data, error } = await sb
-          .from('perfis')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (error) console.warn('[Header] Erro ao buscar perfil:', error);
-        perfil = data;
-      }
-
-      // 4) Se ainda nada, aborta silenciosamente
-      if (!perfil || !user) {
-        console.warn('[Header] Perfil não encontrado — usando fallback');
-        return;
-      }
-
-      _userHeader = user;
-      _perfilHeader = perfil;
-
-      const nome = perfil?.nome_completo || user?.email || 'Usuário';
-      const perm = perfil?.permissao || 'Operador';
-
-      if ($('userName')) $('userName').textContent = nome;
-      if ($('userPerm')) $('userPerm').textContent = perm;
-
-      atualizarAvatarUI(perfil?.avatar_url || null);
-    } catch (e) {
-      console.warn('[Header] Falha ao carregar perfil:', e);
+  try {
+    // 1) Sempre pega a sessão (com retry)
+    let session = null;
+    for (let i = 0; i < 30; i++) {
+      const { data } = await sb.auth.getSession();
+      if (data?.session) { session = data.session; break; }
+      await new Promise(r => setTimeout(r, 100));
     }
+    if (!session) return;
+
+    _userHeader = session.user;
+
+    // 2) SEMPRE busca perfil direto do banco (ignora window.state)
+    const { data: perfil, error } = await sb
+      .from('perfis')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (error) console.warn('[Header] Erro ao buscar perfil:', error);
+    if (!perfil) { console.warn('[Header] Perfil não encontrado'); return; }
+
+    _perfilHeader = perfil;
+
+    // 3) Atualiza nome + permissão
+    const nome = perfil?.nome_completo || session.user.email || 'Usuário';
+    const perm = perfil?.permissao || 'Operador';
+
+    const elNome = $('userName');
+    const elPerm = $('userPerm');
+    if (elNome) elNome.textContent = nome;
+    if (elPerm) elPerm.textContent = perm;
+
+    // 4) Atualiza avatar
+    atualizarAvatarUI(perfil?.avatar_url || null);
+
+    console.log('[Header] Perfil carregado:', { nome, perm, avatar: perfil?.avatar_url });
+  } catch (e) {
+    console.warn('[Header] Falha ao carregar perfil:', e);
   }
+}
 
   /* ==========================================================
      AVATAR — UI
