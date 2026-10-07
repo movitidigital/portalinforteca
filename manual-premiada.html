@@ -7,6 +7,7 @@
   <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="sidebar.js"></script>
   <style>
@@ -17,29 +18,28 @@
 
     .manual-section { scroll-margin-top: 100px; }
 
-    /* Índice lateral fixo */
     .toc-link { transition: all 0.15s ease; border-left: 3px solid transparent; }
     .toc-link:hover { background: #f1f5f9; border-left-color: #0e8890; }
     .toc-link.active { background: #f0fdfa; border-left-color: #0e8890; color: #0e8890; font-weight: 700; }
 
-    /* Callouts */
     .callout { border-left: 4px solid; padding: 12px 16px; border-radius: 8px; margin: 12px 0; }
-    .callout-info    { background: #eff6ff; border-color: #3b82f6; color: #1e3a8a; }
-    .callout-warn    { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
-    .callout-tip     { background: #f0fdf4; border-color: #10b981; color: #065f46; }
-    .callout-danger  { background: #fef2f2; border-color: #ef4444; color: #7f1d1d; }
+    .callout-info   { background: #eff6ff; border-color: #3b82f6; color: #1e3a8a; }
+    .callout-warn   { background: #fffbeb; border-color: #f59e0b; color: #78350f; }
+    .callout-tip    { background: #f0fdf4; border-color: #10b981; color: #065f46; }
+    .callout-danger { background: #fef2f2; border-color: #ef4444; color: #7f1d1d; }
 
-    /* Tabelas */
     .manual-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .manual-table th { background: #f8fafc; padding: 10px 12px; text-align: left; font-weight: 800; color: #334155; border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
     .manual-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: #475569; }
     .manual-table tr:hover td { background: #f8fafc; }
 
-    /* Código */
     code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: ui-monospace, monospace; color: #be123c; }
 
+    .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 4px; color: transparent; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
     @media print {
-      #sidebar, header, .toc-link, #btnImprimir { display: none !important; }
+      #sidebar, header, .toc-link, #btnImprimir, #btnVoltar { display: none !important; }
       main { margin: 0 !important; }
       .manual-section { page-break-inside: avoid; }
     }
@@ -47,10 +47,8 @@
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
-  <!-- ============ SIDEBAR ============ -->
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
 
-  <!-- ============ MAIN ============ -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
 
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-40 shrink-0">
@@ -64,8 +62,8 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <a href="premiada.html" class="text-slate-500 hover:text-[#0e8890] text-xs font-bold flex items-center gap-1">
-          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Voltar ao Portal
+        <a href="premiada.html" id="btnVoltar" class="text-slate-500 hover:text-[#0e8890] text-xs font-bold flex items-center gap-1">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Voltar
         </a>
         <button onclick="window.print()" id="btnImprimir"
           class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2">
@@ -74,34 +72,36 @@
       </div>
     </header>
 
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 overflow-y-auto" id="scrollContainer">
       <div class="max-w-7xl mx-auto p-6 md:p-8 flex gap-8">
 
-        <!-- ÍNDICE LATERAL -->
         <nav class="hidden lg:block w-64 shrink-0 sticky top-0 self-start">
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 max-h-[calc(100vh-140px)] overflow-y-auto">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Índice</p>
 
             <p class="text-[9px] font-black text-teal-600 uppercase tracking-widest mt-3 mb-1 px-2">📘 Para Consultores</p>
-            <a href="#o-que-e" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">O que é a Inforteca Premiada?</a>
+            <a href="#o-que-e" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">O que é?</a>
             <a href="#como-ganhar" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Como ganhar pontos</a>
-            <a href="#niveis" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Níveis (Bronze a Diamante)</a>
+            <a href="#niveis" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Níveis</a>
             <a href="#missoes" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Missões</a>
             <a href="#operacao-resgate" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Operação Resgate</a>
-            <a href="#badges" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Badges e Conquistas</a>
+            <a href="#badges" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Badges</a>
             <a href="#roleta" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Roleta da Sorte</a>
             <a href="#loja" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Loja de Prêmios</a>
             <a href="#resgates" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Como resgatar</a>
 
-            <p class="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-4 mb-1 px-2">🔧 Para Administradores</p>
-            <a href="#admin-visao" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Visão Geral</a>
-            <a href="#admin-resgates" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Aprovar Resgates</a>
-            <a href="#admin-estoque" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Gerenciar Estoque</a>
-            <a href="#admin-operacao" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Operação Resgate</a>
-            <a href="#admin-orcamento" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Orçamento</a>
-            <a href="#admin-missoes" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Criar Missões</a>
-            <a href="#admin-badges" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Criar Badges</a>
-            <a href="#admin-config" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Configurações</a>
+            <!-- Seção admin (só aparece pra admin) -->
+            <div id="tocAdminSection" class="hidden">
+              <p class="text-[9px] font-black text-purple-600 uppercase tracking-widest mt-4 mb-1 px-2">🔧 Para Admins</p>
+              <a href="#admin-visao" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Visão Geral</a>
+              <a href="#admin-resgates" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Aprovar Resgates</a>
+              <a href="#admin-estoque" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Gerenciar Estoque</a>
+              <a href="#admin-operacao" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Operação Resgate</a>
+              <a href="#admin-orcamento" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Orçamento</a>
+              <a href="#admin-missoes" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Criar Missões</a>
+              <a href="#admin-badges" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Criar Badges</a>
+              <a href="#admin-config" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Configurações</a>
+            </div>
 
             <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-4 mb-1 px-2">💡 Extras</p>
             <a href="#faq" class="toc-link block px-3 py-2 text-xs text-slate-600 rounded">Perguntas Frequentes</a>
@@ -109,7 +109,6 @@
           </div>
         </nav>
 
-        <!-- CONTEÚDO -->
         <article class="flex-1 min-w-0 max-w-3xl">
 
           <!-- HERO -->
@@ -125,9 +124,9 @@
               Sistema de gamificação de vendas da <strong>Loja TIM Dom José</strong>.
               Ganhe pontos vendendo, suba de nível, conquiste badges e troque por prêmios reais.
             </p>
-            <div class="flex flex-wrap gap-3 mt-5 text-[11px] font-bold">
+            <div id="heroBadges" class="flex flex-wrap gap-3 mt-5 text-[11px] font-bold">
               <span class="bg-white/15 px-3 py-1.5 rounded-full">📘 Guia do Consultor</span>
-              <span class="bg-white/15 px-3 py-1.5 rounded-full">🔧 Guia do Admin</span>
+              <span id="heroBadgeAdmin" class="hidden bg-white/15 px-3 py-1.5 rounded-full">🔧 Guia do Admin</span>
               <span class="bg-white/15 px-3 py-1.5 rounded-full">💡 FAQ</span>
             </div>
           </div>
@@ -156,10 +155,16 @@
 
           <!-- Como ganhar -->
           <section id="como-ganhar" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-4 flex items-center gap-2">
-              <i data-lucide="badge-dollar-sign" class="w-5 h-5 text-emerald-500"></i>
-              Como ganhar pontos
-            </h3>
+            <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+              <h3 class="text-lg font-black text-[#000033] flex items-center gap-2">
+                <i data-lucide="badge-dollar-sign" class="w-5 h-5 text-emerald-500"></i>
+                Como ganhar pontos
+              </h3>
+              <span id="badgeLive" class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Dados ao vivo
+              </span>
+            </div>
 
             <table class="manual-table mb-4">
               <thead>
@@ -169,33 +174,14 @@
                   <th class="text-center">Multiplicador</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
-                  <td>📱 CONTROLE simples</td>
-                  <td class="text-right font-mono font-bold text-slate-700">30</td>
-                  <td class="text-center text-slate-400">—</td>
-                </tr>
-                <tr>
-                  <td>⚡ CONTROLE + Portabilidade</td>
-                  <td class="text-right font-mono font-bold text-[#0e8890]">90</td>
-                  <td class="text-center"><span class="text-[10px] font-black bg-teal-100 text-teal-700 px-2 py-0.5 rounded">3x</span></td>
-                </tr>
-                <tr>
-                  <td>💎 PÓS simples (TIM BLACK)</td>
-                  <td class="text-right font-mono font-bold text-amber-600">100</td>
-                  <td class="text-center text-slate-400">—</td>
-                </tr>
-                <tr>
-                  <td>👑 PÓS + Portabilidade</td>
-                  <td class="text-right font-mono font-bold text-emerald-600">500</td>
-                  <td class="text-center"><span class="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">5x</span></td>
-                </tr>
+              <tbody id="tbodyPontos">
+                <tr><td colspan="3" class="text-center py-4 text-slate-400 text-xs">Carregando…</td></tr>
               </tbody>
             </table>
 
             <div class="callout callout-tip">
-              <p class="text-xs leading-relaxed">
-                🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale <strong>5,5x mais</strong> que um CONTROLE simples. É o produto mais rentável pra TIM e o que mais recompensa.
+              <p class="text-xs leading-relaxed" id="dicaPontos">
+                🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale mais que um CONTROLE simples. É o produto mais rentável pra TIM e o que mais recompensa.
               </p>
             </div>
 
@@ -208,11 +194,8 @@
                   <th>Quando</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr><td>🎉 Boas-vindas</td><td class="text-right font-mono font-bold text-purple-600">+200</td><td>Primeiro login no sistema</td></tr>
-                <tr><td>🎁 Primeira venda</td><td class="text-right font-mono font-bold text-indigo-600">+300</td><td>Ao pontuar a 1ª venda</td></tr>
-                <tr><td>💰 Primeiro resgate</td><td class="text-right font-mono font-bold text-teal-600">+500</td><td>Após o 1º resgate</td></tr>
-                <tr><td>🔥 Streak de 10 dias</td><td class="text-right font-mono font-bold text-orange-600">+500</td><td>10 dias seguidos com venda</td></tr>
+              <tbody id="tbodyBonus">
+                <tr><td colspan="3" class="text-center py-4 text-slate-400 text-xs">Carregando…</td></tr>
               </tbody>
             </table>
           </section>
@@ -227,31 +210,8 @@
               Seu nível é calculado pelos pontos acumulados <strong>no trimestre</strong>. Cada nível desbloqueia descontos e benefícios.
             </p>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
-                <p class="text-2xl mb-1">🥉</p>
-                <p class="font-black text-slate-800">BRONZE</p>
-                <p class="text-[11px] text-slate-500 mt-1">0 a 5.000 pts</p>
-                <p class="text-xs text-slate-600 mt-2">Sem desconto</p>
-              </div>
-              <div class="border-2 border-slate-300 rounded-xl p-4" style="background: linear-gradient(135deg, #f8fafc, #e2e8f0);">
-                <p class="text-2xl mb-1">🥈</p>
-                <p class="font-black text-slate-800">PRATA</p>
-                <p class="text-[11px] text-slate-500 mt-1">5.001 a 15.000 pts</p>
-                <p class="text-xs text-slate-600 mt-2">10% desconto</p>
-              </div>
-              <div class="border-2 border-amber-300 rounded-xl p-4" style="background: linear-gradient(135deg, #fffbeb, #fde68a);">
-                <p class="text-2xl mb-1">🥇</p>
-                <p class="font-black text-slate-800">OURO</p>
-                <p class="text-[11px] text-slate-500 mt-1">15.001 a 30.000 pts</p>
-                <p class="text-xs text-slate-600 mt-2">15% desconto</p>
-              </div>
-              <div class="border-2 border-sky-300 rounded-xl p-4" style="background: linear-gradient(135deg, #f0f9ff, #bae6fd);">
-                <p class="text-2xl mb-1">💎</p>
-                <p class="font-black text-slate-800">DIAMANTE</p>
-                <p class="text-[11px] text-slate-500 mt-1">30.001+ pts</p>
-                <p class="text-xs text-slate-600 mt-2">20% desconto</p>
-              </div>
+            <div id="gridNiveis" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <p class="col-span-2 text-center text-slate-400 text-xs py-4">Carregando…</p>
             </div>
           </section>
 
@@ -269,17 +229,17 @@
               <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p class="text-xl mb-1">📅</p>
                 <p class="text-xs font-black text-amber-700 uppercase">Missão Diária</p>
-                <p class="text-xs text-slate-600 mt-1">Ex: <em>Venda 2 controles hoje</em> (+200 pts)</p>
+                <p class="text-xs text-slate-600 mt-1">Ex: <em>Venda 2 controles hoje</em></p>
               </div>
               <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p class="text-xl mb-1">📆</p>
                 <p class="text-xs font-black text-amber-700 uppercase">Missão Semanal</p>
-                <p class="text-xs text-slate-600 mt-1">Ex: <em>2 PÓS + Port até domingo</em> (+1.000 pts)</p>
+                <p class="text-xs text-slate-600 mt-1">Ex: <em>2 PÓS + Port até domingo</em></p>
               </div>
               <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <p class="text-xl mb-1">🗓️</p>
                 <p class="text-xs font-black text-amber-700 uppercase">Missão Mensal</p>
-                <p class="text-xs text-slate-600 mt-1">Ex: <em>10 portabilidades no mês</em> (+2.000 pts)</p>
+                <p class="text-xs text-slate-600 mt-1">Ex: <em>10 portabilidades no mês</em></p>
               </div>
               <div class="bg-red-50 border border-red-200 rounded-xl p-4">
                 <p class="text-xl mb-1">🚨</p>
@@ -297,9 +257,7 @@
 
           <!-- Operação Resgate -->
           <section id="operacao-resgate" class="manual-section bg-gradient-to-br from-red-500 to-red-700 rounded-2xl shadow-lg p-6 mb-6 text-white">
-            <h3 class="text-lg font-black mb-3 flex items-center gap-2">
-              🚨 Operação Resgate
-            </h3>
+            <h3 class="text-lg font-black mb-3 flex items-center gap-2">🚨 Operação Resgate</h3>
             <p class="text-sm text-white/90 leading-relaxed mb-3">
               Quando a loja está <strong>abaixo da meta</strong>, o sistema ativa automaticamente uma campanha emergencial. Durante a operação:
             </p>
@@ -310,9 +268,7 @@
             </ul>
             <div class="bg-white/15 backdrop-blur rounded-xl p-4 mt-4">
               <p class="text-xs font-black uppercase tracking-wider mb-1">💡 Exemplo real</p>
-              <p class="text-sm leading-relaxed">
-                Durante uma Operação Resgate de Portabilidade, um <strong>PÓS + Port</strong> que vale 500 pts passa a valer <strong>1.000 pts</strong>!
-              </p>
+              <p class="text-sm leading-relaxed" id="dicaOperacao">Durante uma Operação Resgate, um PÓS + Port vale o dobro do normal!</p>
             </div>
           </section>
 
@@ -332,37 +288,15 @@
 
           <!-- Roleta -->
           <section id="roleta" class="manual-section bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl shadow-lg p-6 mb-6 text-white">
-            <h3 class="text-lg font-black mb-3 flex items-center gap-2">
-              🎰 Roleta da Sorte
-            </h3>
+            <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+              <h3 class="text-lg font-black flex items-center gap-2">🎰 Roleta da Sorte</h3>
+              <span class="text-[9px] font-black uppercase bg-white/20 px-2 py-1 rounded-full">Custo: <span id="roletaCusto">300</span> pts</span>
+            </div>
             <p class="text-sm text-white/90 leading-relaxed mb-3">
-              Gire a roleta e ganhe pontos extras! Custa <strong>300 pts</strong> por giro e tem limite de <strong>1 giro por dia</strong>.
+              Gire a roleta e ganhe pontos extras! Limite de <strong><span id="roletaLimite">1</span> giro por dia</strong>.
             </p>
-            <div class="grid grid-cols-3 gap-2 text-center text-xs">
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">40%</p>
-                <p class="opacity-80">100 pts</p>
-              </div>
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">25%</p>
-                <p class="opacity-80">200 pts</p>
-              </div>
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">20%</p>
-                <p class="opacity-80">300 pts</p>
-              </div>
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">10%</p>
-                <p class="opacity-80">500 pts</p>
-              </div>
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">4%</p>
-                <p class="opacity-80">800 pts</p>
-              </div>
-              <div class="bg-white/15 backdrop-blur rounded-lg p-2">
-                <p class="font-black">1%</p>
-                <p class="opacity-80">1.000 pts</p>
-              </div>
+            <div id="gridRoleta" class="grid grid-cols-3 gap-2 text-center text-xs">
+              <p class="col-span-3 text-center opacity-70 py-3">Carregando…</p>
             </div>
             <p class="text-xs opacity-75 mt-3">🎁 Acesso em <strong>Meu Painel</strong> → card "Roleta da Sorte"</p>
           </section>
@@ -439,193 +373,171 @@
             </div>
           </section>
 
-          <!-- ============ SEÇÃO ADMIN ============ -->
-          <div class="flex items-center gap-3 mb-6 pb-3 border-b-2 border-purple-200 mt-12">
-            <span class="bg-purple-600 text-white w-10 h-10 rounded-xl flex items-center justify-center text-xl">🔧</span>
-            <h2 class="text-xl font-black text-[#000033]">GUIA DO ADMINISTRADOR</h2>
+          <!-- ============ SEÇÃO ADMIN (só renderiza pra admin) ============ -->
+          <div id="secaoAdmin" class="hidden">
+            <div class="flex items-center gap-3 mb-6 pb-3 border-b-2 border-purple-200 mt-12">
+              <span class="bg-purple-600 text-white w-10 h-10 rounded-xl flex items-center justify-center text-xl">🔧</span>
+              <h2 class="text-xl font-black text-[#000033]">GUIA DO ADMINISTRADOR</h2>
+            </div>
+
+            <section id="admin-visao" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="layout-dashboard" class="w-5 h-5 text-purple-500"></i>
+                Visão Geral (aba 📊)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">Mostra 3 KPIs principais:</p>
+              <ul class="text-xs text-slate-600 space-y-2 ml-4">
+                <li>💰 <strong>Pontos em circulação</strong> — quanto a loja deve em pontos (convertido em R$)</li>
+                <li>📥 <strong>Resgates pendentes</strong> — quantos precisam de aprovação</li>
+                <li>💸 <strong>Gasto do mês</strong> — quanto já foi aprovado em prêmios</li>
+              </ul>
+            </section>
+
+            <section id="admin-resgates" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="inbox" class="w-5 h-5 text-purple-500"></i>
+                Aprovar Resgates (aba 📥)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">
+                Lista todos os resgates. Cada um mostra: consultor, prêmio, valor, data e dados de pagamento.
+              </p>
+              <div class="callout callout-info">
+                <p class="text-xs leading-relaxed">
+                  ✅ <strong>Aprovar:</strong> debita estoque automaticamente + soma no orçamento do mês
+                  <br>❌ <strong>Rejeitar:</strong> devolve os pontos ao consultor + pede motivo
+                </p>
+              </div>
+              <div class="callout callout-warn">
+                <p class="text-xs leading-relaxed">
+                  ⚠️ Se o orçamento estourou, aparece um alerta vermelho no topo. Novos resgates ficam bloqueados até você aumentar o teto ou virar o mês.
+                </p>
+              </div>
+            </section>
+
+            <section id="admin-estoque" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="package" class="w-5 h-5 text-purple-500"></i>
+                Gerenciar Estoque (aba 🎁)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">Cadastre e edite prêmios. Cada um tem:</p>
+              <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
+                <li>• <strong>Nome, descrição, categoria</strong> (PIX, voucher, produto)</li>
+                <li>• <strong>Valor em R$</strong> e <strong>custo em pontos</strong> (100 pts = R$ 1)</li>
+                <li>• <strong>Estoque atual e máximo</strong></li>
+                <li>• <strong>Imagem</strong> (JPG/PNG até 2MB)</li>
+                <li>• <strong>Ordem</strong> de exibição (menor = primeiro)</li>
+                <li>• <strong>Ativo/Inativo</strong> (inativo some da loja)</li>
+              </ul>
+              <div class="callout callout-tip">
+                <p class="text-xs leading-relaxed">
+                  💡 <strong>Dica:</strong> mantenha sempre 1-2 prêmios de entrada (ex: PIX R$ 10 a 1.000 pts). Isso engaja quem está começando.
+                </p>
+              </div>
+            </section>
+
+            <section id="admin-operacao" class="manual-section bg-gradient-to-br from-red-500 to-red-700 rounded-2xl shadow-lg p-6 mb-6 text-white">
+              <h3 class="text-lg font-black mb-3 flex items-center gap-2">🚨 Operação Resgate (aba 🚨)</h3>
+              <p class="text-sm text-white/90 leading-relaxed mb-3">
+                Aqui você <strong>verifica as tendências</strong> do mês e ativa operações emergenciais.
+              </p>
+              <p class="text-xs text-white/85 leading-relaxed mb-3">
+                <strong>Como funciona:</strong> clique em <em>"Verificar Tendências"</em> → o sistema analisa o ritmo de vendas → se alguma categoria está abaixo de 85% da meta, ele cria automaticamente uma missão emergencial com pontos dobrados.
+              </p>
+              <div class="bg-white/15 backdrop-blur rounded-xl p-3">
+                <p class="text-xs leading-relaxed">
+                  💡 <strong>Recomendação:</strong> rode essa verificação 1x por semana (ex: toda segunda-feira de manhã). Se a loja está no ritmo, não faz nada; se está atrás, ativa automaticamente.
+                </p>
+              </div>
+            </section>
+
+            <section id="admin-orcamento" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="wallet" class="w-5 h-5 text-purple-500"></i>
+                Orçamento (aba 💰)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">
+                Define o <strong>teto de gasto mensal</strong> com prêmios.
+              </p>
+              <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
+                <li>• Mostra <strong>% utilizado</strong> (verde &lt;70%, amarelo 70-90%, vermelho &gt;90%)</li>
+                <li>• Clique em <strong>"Editar Teto"</strong> pra alterar o valor</li>
+                <li>• Se o orçamento estourar, resgates são <strong>bloqueados automaticamente</strong></li>
+              </ul>
+              <div class="callout callout-tip">
+                <p class="text-xs leading-relaxed">
+                  💡 <strong>Ajuste fino:</strong> se em 1 mês a equipe resgatar tudo antes do dia 20, aumente o teto no mês seguinte.
+                </p>
+              </div>
+            </section>
+
+            <section id="admin-missoes" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="target" class="w-5 h-5 text-purple-500"></i>
+                Criar Missões (aba 🎯)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">
+                Crie missões diárias, semanais e mensais manualmente.
+              </p>
+              <div class="callout callout-info">
+                <p class="text-xs leading-relaxed">
+                  🔄 <strong>Missões automáticas:</strong> o sistema já cria sozinho uma missão diária ("Venda 2 controles hoje"), uma semanal e uma mensal. Você só precisa criar as <strong>extras</strong> que quiser.
+                </p>
+              </div>
+              <div class="callout callout-warn">
+                <p class="text-xs leading-relaxed">
+                  ⚠️ Missões <strong>emergenciais</strong> (Operação Resgate) são automáticas — não dá pra criar manualmente e nem editar título/métrica, só encerrar.
+                </p>
+              </div>
+            </section>
+
+            <section id="admin-badges" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="award" class="w-5 h-5 text-purple-500"></i>
+                Criar Badges (aba 🏅)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">Cadastre conquistas automáticas. Cada badge tem:</p>
+              <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
+                <li>• <strong>Ícone</strong> (emoji)</li>
+                <li>• <strong>Código único</strong> (ex: <code>portador_master</code>)</li>
+                <li>• <strong>Nome e descrição</strong></li>
+                <li>• <strong>Raridade</strong> (Comum, Raro, Épico, Lendário)</li>
+                <li>• <strong>Critério automático</strong> (ex: 10+ portabilidades/mês)</li>
+              </ul>
+            </section>
+
+            <section id="admin-config" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
+                <i data-lucide="settings" class="w-5 h-5 text-purple-500"></i>
+                Configurações (aba ⚙️)
+              </h3>
+              <p class="text-sm text-slate-600 leading-relaxed mb-3">
+                Aqui você edita 4 blocos críticos. <strong>Esta própria página do manual atualiza automaticamente</strong> quando você salva mudanças.
+              </p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <p class="text-xs font-black text-slate-700">💰 Régua de Pontos</p>
+                  <p class="text-[11px] text-slate-500 mt-1">Quanto vale cada venda</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <p class="text-xs font-black text-slate-700">🏅 Níveis</p>
+                  <p class="text-[11px] text-slate-500 mt-1">Pontos mínimos + desconto</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <p class="text-xs font-black text-slate-700">🎁 Bônus</p>
+                  <p class="text-[11px] text-slate-500 mt-1">Boas-vindas, 1ª venda, etc</p>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <p class="text-xs font-black text-slate-700">🎰 Roleta</p>
+                  <p class="text-[11px] text-slate-500 mt-1">Custo + probabilidades</p>
+                </div>
+              </div>
+              <div class="callout callout-warn mt-4">
+                <p class="text-xs leading-relaxed">
+                  ⚠️ <strong>Atenção:</strong> ao salvar <strong>Níveis</strong>, todos os consultores são recalculados automaticamente. Ao salvar <strong>Régua de Pontos</strong>, as novas regras só valem para vendas futuras (não recalcula o histórico).
+                </p>
+              </div>
+            </section>
           </div>
-
-          <!-- Admin - Visão Geral -->
-          <section id="admin-visao" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="layout-dashboard" class="w-5 h-5 text-purple-500"></i>
-              Visão Geral (aba 📊)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Mostra 3 KPIs principais:
-            </p>
-            <ul class="text-xs text-slate-600 space-y-2 ml-4">
-              <li>💰 <strong>Pontos em circulação</strong> — quanto a loja deve em pontos (convertido em R$)</li>
-              <li>📥 <strong>Resgates pendentes</strong> — quantos precisam de aprovação</li>
-              <li>💸 <strong>Gasto do mês</strong> — quanto já foi aprovado em prêmios</li>
-            </ul>
-          </section>
-
-          <!-- Admin - Resgates -->
-          <section id="admin-resgates" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="inbox" class="w-5 h-5 text-purple-500"></i>
-              Aprovar Resgates (aba 📥)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Lista todos os resgates. Cada um mostra: consultor, prêmio, valor, data e dados de pagamento.
-            </p>
-            <div class="callout callout-info">
-              <p class="text-xs leading-relaxed">
-                ✅ <strong>Aprovar:</strong> debita estoque automaticamente + soma no orçamento do mês
-                <br>❌ <strong>Rejeitar:</strong> devolve os pontos ao consultor + pede motivo
-              </p>
-            </div>
-            <div class="callout callout-warn">
-              <p class="text-xs leading-relaxed">
-                ⚠️ Se o orçamento estourou, aparece um alerta vermelho no topo. Novos resgates ficam bloqueados até você aumentar o teto ou virar o mês.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Estoque -->
-          <section id="admin-estoque" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="package" class="w-5 h-5 text-purple-500"></i>
-              Gerenciar Estoque (aba 🎁)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Cadastre e edite prêmios. Cada um tem:
-            </p>
-            <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
-              <li>• <strong>Nome, descrição, categoria</strong> (PIX, voucher, produto)</li>
-              <li>• <strong>Valor em R$</strong> e <strong>custo em pontos</strong> (100 pts = R$ 1)</li>
-              <li>• <strong>Estoque atual e máximo</strong></li>
-              <li>• <strong>Imagem</strong> (JPG/PNG até 2MB)</li>
-              <li>• <strong>Ordem</strong> de exibição (menor = primeiro)</li>
-              <li>• <strong>Ativo/Inativo</strong> (inativo some da loja)</li>
-            </ul>
-            <div class="callout callout-tip">
-              <p class="text-xs leading-relaxed">
-                💡 <strong>Dica:</strong> mantenha sempre 1-2 prêmios de entrada (ex: PIX R$ 10 a 1.000 pts). Isso engaja quem está começando.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Operação -->
-          <section id="admin-operacao" class="manual-section bg-gradient-to-br from-red-500 to-red-700 rounded-2xl shadow-lg p-6 mb-6 text-white">
-            <h3 class="text-lg font-black mb-3 flex items-center gap-2">
-              🚨 Operação Resgate (aba 🚨)
-            </h3>
-            <p class="text-sm text-white/90 leading-relaxed mb-3">
-              Aqui você <strong>verifica as tendências</strong> do mês e ativa operações emergenciais.
-            </p>
-            <p class="text-xs text-white/85 leading-relaxed mb-3">
-              <strong>Como funciona:</strong> clique em <em>"Verificar Tendências"</em> → o sistema analisa o ritmo de vendas → se alguma categoria está abaixo de 85% da meta, ele cria automaticamente uma missão emergencial com pontos dobrados.
-            </p>
-            <div class="bg-white/15 backdrop-blur rounded-xl p-3">
-              <p class="text-xs leading-relaxed">
-                💡 <strong>Recomendação:</strong> rode essa verificação 1x por semana (ex: toda segunda-feira de manhã). Se a loja está no ritmo, não faz nada; se está atrás, ativa automaticamente.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Orçamento -->
-          <section id="admin-orcamento" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="wallet" class="w-5 h-5 text-purple-500"></i>
-              Orçamento (aba 💰)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Define o <strong>teto de gasto mensal</strong> com prêmios. Padrão: R$ 500.
-            </p>
-            <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
-              <li>• Mostra <strong>% utilizado</strong> (verde &lt;70%, amarelo 70-90%, vermelho &gt;90%)</li>
-              <li>• Clique em <strong>"Editar Teto"</strong> pra alterar o valor</li>
-              <li>• Se o orçamento estourar, resgates são <strong>bloqueados automaticamente</strong></li>
-            </ul>
-            <div class="callout callout-tip">
-              <p class="text-xs leading-relaxed">
-                💡 <strong>Ajuste fino:</strong> se em 1 mês a equipe resgatar tudo antes do dia 20, aumente o teto pra R$ 700 no mês seguinte. Se sobrar muito, reduza pra R$ 400.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Missões -->
-          <section id="admin-missoes" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="target" class="w-5 h-5 text-purple-500"></i>
-              Criar Missões (aba 🎯)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Crie missões diárias, semanais e mensais manualmente.
-            </p>
-            <p class="text-xs text-slate-500 leading-relaxed mb-3">
-              <strong>Campos obrigatórios:</strong> título, tipo, métrica, meta, pontos bônus, datas início/fim.
-            </p>
-            <div class="callout callout-info">
-              <p class="text-xs leading-relaxed">
-                🔄 <strong>Missões automáticas:</strong> o sistema já cria sozinho uma missão diária ("Venda 2 controles hoje"), uma semanal e uma mensal. Você só precisa criar as <strong>extras</strong> que quiser (ex: "Semana do iPhone: venda 3 aparelhos").
-              </p>
-            </div>
-            <div class="callout callout-warn">
-              <p class="text-xs leading-relaxed">
-                ⚠️ Missões <strong>emergenciais</strong> (Operação Resgate) são automáticas — não dá pra criar manualmente e nem editar título/métrica, só encerrar.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Badges -->
-          <section id="admin-badges" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="award" class="w-5 h-5 text-purple-500"></i>
-              Criar Badges (aba 🏅)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Cadastre conquistas automáticas. Cada badge tem:
-            </p>
-            <ul class="text-xs text-slate-600 space-y-1.5 ml-4">
-              <li>• <strong>Ícone</strong> (emoji)</li>
-              <li>• <strong>Código único</strong> (ex: <code>portador_master</code>)</li>
-              <li>• <strong>Nome e descrição</strong></li>
-              <li>• <strong>Raridade</strong> (Comum, Raro, Épico, Lendário)</li>
-              <li>• <strong>Critério automático</strong> (ex: 10+ portabilidades/mês)</li>
-            </ul>
-            <div class="callout callout-tip">
-              <p class="text-xs leading-relaxed">
-                💡 <strong>Tipos de critério:</strong> N portabilidades, N dias de streak, N giros na roleta, Top N do ranking, primeiro resgate, participar de Operação Resgate.
-              </p>
-            </div>
-          </section>
-
-          <!-- Admin - Config -->
-          <section id="admin-config" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
-            <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
-              <i data-lucide="settings" class="w-5 h-5 text-purple-500"></i>
-              Configurações (aba ⚙️)
-            </h3>
-            <p class="text-sm text-slate-600 leading-relaxed mb-3">
-              Aqui você edita 4 blocos críticos:
-            </p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <p class="text-xs font-black text-slate-700">💰 Régua de Pontos</p>
-                <p class="text-[11px] text-slate-500 mt-1">Quanto vale cada venda</p>
-              </div>
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <p class="text-xs font-black text-slate-700">🏅 Níveis</p>
-                <p class="text-[11px] text-slate-500 mt-1">Pontos mínimos por nível + desconto</p>
-              </div>
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <p class="text-xs font-black text-slate-700">🎁 Bônus</p>
-                <p class="text-[11px] text-slate-500 mt-1">Valores de boas-vindas e primeira venda</p>
-              </div>
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                <p class="text-xs font-black text-slate-700">🎰 Roleta</p>
-                <p class="text-[11px] text-slate-500 mt-1">Custo do giro + probabilidades</p>
-              </div>
-            </div>
-            <div class="callout callout-warn mt-4">
-              <p class="text-xs leading-relaxed">
-                ⚠️ <strong>Atenção:</strong> ao salvar <strong>Níveis</strong>, todos os consultores são recalculados automaticamente. Ao salvar <strong>Régua de Pontos</strong>, as novas regras só valem para vendas futuras (não recalcula o histórico).
-              </p>
-            </div>
-          </section>
 
           <!-- ============ EXTRAS ============ -->
           <div class="flex items-center gap-3 mb-6 pb-3 border-b-2 border-slate-200 mt-12">
@@ -633,7 +545,6 @@
             <h2 class="text-xl font-black text-[#000033]">EXTRAS</h2>
           </div>
 
-          <!-- FAQ -->
           <section id="faq" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
             <h3 class="text-lg font-black text-[#000033] mb-4 flex items-center gap-2">
               <i data-lucide="help-circle" class="w-5 h-5 text-slate-500"></i>
@@ -645,40 +556,33 @@
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Quando os pontos aparecem na minha conta?</p>
                 <p class="text-xs text-slate-600 leading-relaxed">Depois que o admin importa a planilha do Datasys e clica em <em>"Processar Pontos"</em>. Normalmente no final do dia ou início do dia seguinte.</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Posso acumular pontos de um mês pro outro?</p>
-                <p class="text-xs text-slate-600 leading-relaxed">Sim! O saldo é cumulativo. Você só perde pontos se resgatar. O nível (Bronze/Diamante), porém, é recalculado a cada trimestre.</p>
+                <p class="text-xs text-slate-600 leading-relaxed">Sim! O saldo é cumulativo. Você só perde pontos se resgatar. O nível, porém, é recalculado a cada trimestre.</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Quanto vale 1 ponto em reais?</p>
                 <p class="text-xs text-slate-600 leading-relaxed">A régua base é 100 pts = R$ 1. Ex: o PIX de R$ 10 custa 1.000 pts.</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Meu resgate foi rejeitado. Perdi os pontos?</p>
                 <p class="text-xs text-slate-600 leading-relaxed">Não. Os pontos voltam automaticamente pro seu saldo, e aparece o motivo da rejeição na aba Minha Carteira → Meus Resgates.</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Posso girar a roleta quantas vezes?</p>
-                <p class="text-xs text-slate-600 leading-relaxed">1 giro por dia, custando 300 pts cada. Você pode girar todos os dias úteis (segunda a domingo).</p>
+                <p class="text-xs text-slate-600 leading-relaxed">Conforme configurado pelo admin (o padrão é 1 giro por dia).</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Por que meu nível caiu?</p>
                 <p class="text-xs text-slate-600 leading-relaxed">O nível é recalculado ao final de cada trimestre. Se você não atingiu os pontos mínimos pro nível atual nos últimos 3 meses, ele pode cair.</p>
               </div>
-
               <div>
                 <p class="text-sm font-black text-slate-800 mb-1">❓ Perdi meu streak. Posso recuperar?</p>
-                <p class="text-xs text-slate-600 leading-relaxed">Não. Streak zera automaticamente quando você fica um dia sem vender. O histórico máximo fica salvo no seu perfil.</p>
+                <p class="text-xs text-slate-600 leading-relaxed">Não. Streak zera automaticamente quando você fica um dia sem vender.</p>
               </div>
             </div>
           </section>
 
-          <!-- Manutenção -->
           <section id="manutencao" class="manual-section bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
             <h3 class="text-lg font-black text-[#000033] mb-3 flex items-center gap-2">
               <i data-lucide="wrench" class="w-5 h-5 text-slate-500"></i>
@@ -698,14 +602,13 @@
 
             <div class="callout callout-tip mt-4">
               <p class="text-xs leading-relaxed">
-                📅 <strong>Sugestão:</strong> agenda pro <strong>1º dia útil do mês</strong>. Leva 30 segundos e mantém o sistema leve.
+                📅 <strong>Sugestão:</strong> agenda pro <strong>1º dia útil do mês</strong>. Leva 30 segundos.
               </p>
             </div>
           </section>
 
-          <!-- Footer -->
           <div class="text-center text-xs text-slate-400 py-8">
-            <p>📘 Manual Inforteca Premiada · v1.0</p>
+            <p>📘 Manual Inforteca Premiada · v2.0</p>
             <p class="mt-1">Loja TIM Dom José · Portal Inforteca</p>
           </div>
 
@@ -715,33 +618,181 @@
   </main>
 
   <script>
-    // Scroll spy do índice
-    const sections = document.querySelectorAll('.manual-section');
-    const tocLinks = document.querySelectorAll('.toc-link');
+    /* ==========================================================
+       CONFIG
+       ========================================================== */
+    const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJqcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function updateActiveToc() {
-      const scrollY = document.querySelector('.overflow-y-auto')?.scrollTop || 0;
-      let current = '';
-      sections.forEach(s => {
-        if (s.offsetTop - 120 <= scrollY) current = s.id;
-      });
-      tocLinks.forEach(l => {
-        l.classList.toggle('active', l.getAttribute('href') === '#' + current);
-      });
+    const $ = (id) => document.getElementById(id);
+    const fmtMoeda = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    /* ==========================================================
+       BOOT
+       ========================================================== */
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+
+      // 1. Verifica auth
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'index.html'; return; }
+
+      // 2. Verifica se é admin
+      const { data: perfil } = await supabaseClient
+        .from('perfis').select('*').eq('id', session.user.id).single();
+
+      const { data: cargos } = await supabaseClient.from('cargos').select('*');
+      const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+      const isAdmin = meuCargo?.is_admin === true;
+
+      // 3. Mostra seção admin se for admin
+      if (isAdmin) {
+        $('secaoAdmin').classList.remove('hidden');
+        $('tocAdminSection').classList.remove('hidden');
+        $('heroBadgeAdmin').classList.remove('hidden');
+      }
+
+      // 4. Carrega configs do banco
+      await carregarConfigs();
+
+      // 5. Setup scroll spy
+      setupScrollSpy();
+    });
+
+    /* ==========================================================
+       CARREGA CONFIG DO BANCO
+       ========================================================== */
+    async function carregarConfigs() {
+      const { data: configs } = await supabaseClient.from('premiada_config').select('*');
+      const cfg = {};
+      (configs || []).forEach(c => { cfg[c.chave] = c.valor; });
+
+      renderPontos(cfg.pontos_regras || {});
+      renderBonus(cfg.boas_vindas || {});
+      renderNiveis(cfg.niveis || {});
+      renderRoleta(cfg.roleta || {});
     }
 
-    document.querySelector('.overflow-y-auto')?.addEventListener('scroll', updateActiveToc);
+    /* ------- Régua de Pontos ------- */
+    function renderPontos(r) {
+      const linhas = [
+        { label: '📱 CONTROLE simples', valor: r.controle_simples, mult: null, tipo: 'normal' },
+        { label: '⚡ CONTROLE + Portabilidade', valor: r.controle_portabilidade, mult: '3x', tipo: 'teal' },
+        { label: '💎 PÓS simples (TIM BLACK)', valor: r.pos_simples, mult: null, tipo: 'amber' },
+        { label: '👑 PÓS + Portabilidade', valor: r.pos_portabilidade, mult: '5x', tipo: 'emerald' },
+      ];
 
-    // Smooth scroll ao clicar
-    tocLinks.forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const target = document.querySelector(link.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+      $('tbodyPontos').innerHTML = linhas.map(l => {
+        const cor = l.tipo === 'teal' ? 'text-[#0e8890]' : l.tipo === 'amber' ? 'text-amber-600' : l.tipo === 'emerald' ? 'text-emerald-600' : 'text-slate-700';
+        const multBadge = l.mult ? `<span class="text-[10px] font-black bg-${l.tipo}-100 text-${l.tipo}-700 px-2 py-0.5 rounded">${l.mult}</span>` : '<span class="text-slate-400">—</span>';
+        return `
+          <tr>
+            <td>${l.label}</td>
+            <td class="text-right font-mono font-bold ${cor}">${(l.valor || 0).toLocaleString('pt-BR')}</td>
+            <td class="text-center">${multBadge}</td>
+          </tr>`;
+      }).join('');
+
+      // Atualiza dica
+      const posPort = r.pos_portabilidade || 500;
+      const ctrlSimp = r.controle_simples || 30;
+      const ratio = ctrlSimp > 0 ? (posPort / ctrlSimp).toFixed(1) : '0';
+      $('dicaPontos').innerHTML = `🏆 <strong>Foco em PÓS + Portabilidade:</strong> vale <strong>${ratio}x mais</strong> que um CONTROLE simples. É o produto mais rentável pra TIM e o que mais recompensa.`;
+
+      // Dica da operação resgate
+      $('dicaOperacao').innerHTML = `Durante uma Operação Resgate, um <strong>PÓS + Port</strong> que vale ${posPort.toLocaleString('pt-BR')} pts passa a valer <strong>${(posPort * 2).toLocaleString('pt-BR')} pts</strong>!`;
+    }
+
+    /* ------- Bônus ------- */
+    function renderBonus(b) {
+      const linhas = [
+        { icon: '🎉', label: 'Boas-vindas', valor: b.primeiro_login, quando: 'Primeiro login no sistema', cor: 'purple' },
+        { icon: '🎁', label: 'Primeira venda', valor: b.primeira_venda, quando: 'Ao pontuar a 1ª venda', cor: 'indigo' },
+        { icon: '💰', label: 'Primeiro resgate', valor: b.primeiro_resgate, quando: 'Após o 1º resgate', cor: 'teal' },
+        { icon: '🔥', label: 'Streak de 10 dias', valor: 500, quando: '10 dias seguidos com venda', cor: 'orange' },
+      ];
+
+      $('tbodyBonus').innerHTML = linhas.map(l => `
+        <tr>
+          <td>${l.icon} ${l.label}</td>
+          <td class="text-right font-mono font-bold text-${l.cor}-600">+${(l.valor || 0).toLocaleString('pt-BR')}</td>
+          <td class="text-xs text-slate-500">${l.quando}</td>
+        </tr>`).join('');
+    }
+
+    /* ------- Níveis ------- */
+    function renderNiveis(n) {
+      const ordem = ['bronze', 'prata', 'ouro', 'diamante'];
+      const estilos = {
+        bronze:   { bg: 'bg-slate-50 border-slate-200', emoji: '🥉' },
+        prata:    { bg: 'border-slate-300', style: 'background: linear-gradient(135deg, #f8fafc, #e2e8f0);', emoji: '🥈' },
+        ouro:     { bg: 'border-amber-300', style: 'background: linear-gradient(135deg, #fffbeb, #fde68a);', emoji: '🥇' },
+        diamante: { bg: 'border-sky-300', style: 'background: linear-gradient(135deg, #f0f9ff, #bae6fd);', emoji: '💎' },
+      };
+
+      $('gridNiveis').innerHTML = ordem.map(key => {
+        const info = n[key] || {};
+        const est = estilos[key];
+        const min = (info.min || 0).toLocaleString('pt-BR');
+        const max = info.max ? info.max.toLocaleString('pt-BR') : null;
+        const range = max ? `${min} a ${max} pts` : `${min}+ pts`;
+        const desc = info.desconto || 0;
+
+        return `
+          <div class="border-2 ${est.bg} rounded-xl p-4" style="${est.style || ''}">
+            <p class="text-2xl mb-1">${est.emoji}</p>
+            <p class="font-black text-slate-800">${(info.label || key).toUpperCase()}</p>
+            <p class="text-[11px] text-slate-500 mt-1">${range}</p>
+            <p class="text-xs text-slate-600 mt-2">${desc > 0 ? desc + '% desconto' : 'Sem desconto'}</p>
+          </div>`;
+      }).join('');
+    }
+
+    /* ------- Roleta ------- */
+    function renderRoleta(r) {
+      $('roletaCusto').textContent = (r.custo_pontos || 300).toLocaleString('pt-BR');
+      $('roletaLimite').textContent = r.limite_diario || 1;
+
+      const premios = r.premios || [];
+      $('gridRoleta').innerHTML = premios.map(p => `
+        <div class="bg-white/15 backdrop-blur rounded-lg p-2">
+          <p class="font-black">${p.prob}%</p>
+          <p class="opacity-80">${p.pontos} pts</p>
+        </div>`).join('');
+    }
+
+    /* ==========================================================
+       SCROLL SPY
+       ========================================================== */
+    function setupScrollSpy() {
+      const sections = document.querySelectorAll('.manual-section');
+      const tocLinks = document.querySelectorAll('.toc-link');
+      const container = $('scrollContainer');
+
+      function updateActive() {
+        const scrollY = container.scrollTop;
+        let current = '';
+        sections.forEach(s => {
+          if (s.offsetTop - 120 <= scrollY) current = s.id;
+        });
+        tocLinks.forEach(l => {
+          l.classList.toggle('active', l.getAttribute('href') === '#' + current);
+        });
+      }
+
+      container.addEventListener('scroll', updateActive);
+
+      tocLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = document.querySelector(link.getAttribute('href'));
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
       });
-    });
+    }
   </script>
 </body>
 </html>
