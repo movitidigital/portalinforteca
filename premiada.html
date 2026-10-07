@@ -95,6 +95,15 @@
           <i data-lucide="book-open" class="w-4 h-4"></i>
           <span class="text-xs font-bold">Manual</span>
         </a>
+
+      <!-- 🎬 BOTÃO APRESENTAÇÃO (só admin) -->
+<a href="apresentacao-premiada.html" id="btnApresentacao"
+  class="hidden items-center gap-2 px-3 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 border-2 border-purple-200 hover:border-purple-300 transition-all"
+  title="Apresentação para a equipe">
+  <i data-lucide="presentation" class="w-4 h-4"></i>
+  <span class="text-xs font-black uppercase">Apresentar</span>
+</a>
+      
               <!-- 🔔 SINO DE NOTIFICAÇÕES -->
         <div class="relative" id="sinoWrapper">
           <button onclick="togglePainelNotificacoes()" 
@@ -1247,8 +1256,15 @@ function badgeNivelHTML(nivel) {
     const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
     state.isAdmin = meuCargo?.is_admin === true;
 
-    // Mostra aba admin se for admin
-if (state.isAdmin) $('tabAdmin').classList.remove('hidden');
+   // Mostra aba admin + botão apresentação se for admin
+    if (state.isAdmin) {
+      $('tabAdmin').classList.remove('hidden');
+      const btnAp = $('btnApresentacao');
+      if (btnAp) {
+        btnAp.classList.remove('hidden');
+        btnAp.classList.add('flex');
+      }
+    }
 
     // Carrega configs
     const { data: configs } = await supabaseClient.from('premiada_config').select('*');
