@@ -1635,8 +1635,10 @@ async function verificarAuth() {
     .from('perfis').select('*').eq('id', session.user.id).single();
   state.perfil = perfil || { nome_completo: session.user.email, permissao: 'Operador' };
 
-  $('userName').textContent = state.perfil.nome_completo || session.user.email;
-  $('userPerm').textContent = state.perfil.permissao;
+const elUser = $('userName');
+const elPerm = $('userPerm');
+if (elUser) elUser.textContent = state.perfil.nome_completo || session.user.email;
+if (elPerm) elPerm.textContent = state.perfil.permissao;
 
     // 📸 Carrega avatar no header
   atualizarAvatarUI(perfil?.avatar_url || null);
