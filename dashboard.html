@@ -188,6 +188,18 @@
     placeholder="Dia"
     class="w-16 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#0e8890]"
     title="Filtrar por dia do mês (ex: 7, 10, 15)">
+
+  <!-- 📅 FILTRO POR DATA EXATA -->
+  <div class="relative">
+    <input type="date" id="inputVencDataExata" onchange="filtrar()"
+      class="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-xl px-3 py-2.5 pr-8 focus:outline-none focus:border-[#0e8890]"
+      title="Filtrar por data exata de vencimento">
+    <button type="button" onclick="limparDataExata()" id="btnLimparDataExata"
+      class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+      title="Limpar data">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+  </div>
 </div>
             
             <button onclick="abrirModalImportacao()"
@@ -1470,9 +1482,19 @@ function maiorAtraso(c) {
    ──────────────────────────────────────────────────────────── */
 
 // Verifica se UMA data de fatura passa o filtro de vencimento
-function _faturaVencMatch(dataVencStr, rangeFiltro, diaFiltro) {
+function _faturaVencMatch(dataVencStr, rangeFiltro, diaFiltro, dataExata) {
   const dataFat = parseBR(dataVencStr);
   if (!dataFat) return false;
+
+  // 🎯 FILTRO POR DATA EXATA (tem prioridade sobre os outros)
+  if (dataExata) {
+    const [anoE, mesE, diaE] = dataExata.split('-').map(Number);
+    return (
+      dataFat.getFullYear() === anoE &&
+      dataFat.getMonth() === (mesE - 1) &&
+      dataFat.getDate() === diaE
+    );
+  }
 
   // Filtro por dia específico do mês
   if (diaFiltro && dataFat.getDate() !== diaFiltro) return false;
@@ -1500,8 +1522,8 @@ function _faturaVencMatch(dataVencStr, rangeFiltro, diaFiltro) {
 }
 
 // Cliente passa o filtro se ALGUMA fatura em aberto casa
-function clientePassaFiltroVencimento(c, rangeFiltro, diaFiltro) {
-  if (!rangeFiltro && !diaFiltro) return true;
+function clientePassaFiltroVencimento(c, rangeFiltro, diaFiltro, dataExata) {
+  if (!rangeFiltro && !diaFiltro && !dataExata) return true;
 
   const faturas = [c.fatura_p, c.fatura_q, c.fatura_r];
   return faturas.some(f => {
@@ -1510,7 +1532,7 @@ function clientePassaFiltroVencimento(c, rangeFiltro, diaFiltro) {
     if (st !== 'pendente' && st !== 'enviada') return false;
     const data = extrairDataFatura(f);
     if (!data) return false;
-    return _faturaVencMatch(data, rangeFiltro, diaFiltro);
+    return _faturaVencMatch(data, rangeFiltro, diaFiltro, dataExata);
   });
 }
     
@@ -1828,6 +1850,18 @@ function filtrar() {
   const termo = state.filtros.texto;
   const termoNum = termo.replace(/\D/g, '');
 
+  // 🎯 LÊ OS FILTROS DE VENCIMENTO UMA VEZ SÓ (fora do loop)
+  const rangeVenc     = $('selectVencFiltro')?.value || '';
+  const diaVenc       = parseInt($('inputVencDia')?.value) || 0;
+  const dataExataVenc = $('inputVencDataExata')?.value || ''; // formato YYYY-MM-DD
+
+  // Mostra/esconde botão X do filtro de data exata
+  const btnX = $('btnLimparDataExata');
+  if (btnX) btnX.classList.toggle('hidden', !dataExataVenc);
+
+  // ─────────────────────────────────────────────────────
+  // FILTRO PRINCIPAL
+  // ─────────────────────────────────────────────────────
   const filtrados = state.clientes.filter(c => {
     // 1. Oculta TROCA DE APARELHO
     if (deveOcultar(c)) return false;
@@ -1860,20 +1894,22 @@ function filtrar() {
     }
     if (!passaSituacao) return false;
 
-    // 4. Filtro por vencimento (NOVO)
-    const rangeVenc = $('selectVencFiltro')?.value || '';
-    const diaVenc = parseInt($('inputVencDia')?.value) || 0;
-    if (!clientePassaFiltroVencimento(c, rangeVenc, diaVenc)) return false;
+    // 4. Filtro por vencimento (range + dia + data exata)
+    if (!clientePassaFiltroVencimento(c, rangeVenc, diaVenc, dataExataVenc)) return false;
 
     return true;
   });
 
-  // Contador com detalhe de atraso
+  // ─────────────────────────────────────────────────────
+  // CONTADOR
+  // ─────────────────────────────────────────────────────
   const contAtrasados = filtrados.filter(c => maiorAtraso(c) > 0).length;
   $('contadorResultados').textContent =
     `Exibindo ${filtrados.length} registros · ${contAtrasados} em atraso (Troca de Aparelho ocultada)`;
 
-  // 🎯 ORDENAÇÃO POR ATRASO (dias DESC) e depois por prioridade
+  // ─────────────────────────────────────────────────────
+  // ORDENAÇÃO: atraso DESC → prioridade → venda mais recente
+  // ─────────────────────────────────────────────────────
   const ordenados = [...filtrados].sort((a, b) => {
     const atrasoA = maiorAtraso(a);
     const atrasoB = maiorAtraso(b);
@@ -2086,6 +2122,12 @@ function filtrar() {
       state.faturaEmEdicao = null;
     }
 
+function limparDataExata() {
+  const input = $('inputVencDataExata');
+  if (input) input.value = '';
+  filtrar();
+}
+    
     /* ==========================================================
        AÇÕES SOBRE A FATURA
        ========================================================== */
