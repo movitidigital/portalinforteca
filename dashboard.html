@@ -4019,7 +4019,7 @@ function prepararAbaCancelamentos() {
     const opt = document.createElement('option');
     opt.value = label;
     opt.textContent = label;
-    if (i === 2) opt.selected = true; // default: +2 meses
+    if (i === 0) opt.selected = true; // default: mês atual
     sel.appendChild(opt);
   }
 
