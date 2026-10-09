@@ -4293,12 +4293,86 @@ async function verDetalhesSuspensao(id) {
     </div>
 
     ${renderArquivosSuspensao(s)}
+    ${renderAnotacoesPosVenda(s)}
   `;
 
   $('modalSuspDetalhes').classList.remove('hidden');
   lucide.createIcons();
 }
 
+/* ==========================================================
+   ANOTAÇÕES PÓS-VENDA
+   ========================================================== */
+function renderAnotacoesPosVenda(s) {
+  return `
+    <div class="mt-5 pt-5 border-t border-slate-100">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <p class="text-[10px] font-black text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="pencil-line" class="w-3.5 h-3.5"></i>
+            Anotações Pós-Venda
+          </p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Registre detalhes do contato, fidelidade, observações internas…</p>
+        </div>
+        <button onclick="salvarAnotacoesPosVenda(${s.id})" id="btnSalvarAnotacoes"
+          class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase flex items-center gap-1.5 transition-colors shadow-sm">
+          <i data-lucide="save" class="w-3.5 h-3.5"></i>
+          Salvar
+        </button>
+      </div>
+      <textarea id="inputAnotacoesPosVenda" rows="4"
+        placeholder="Digite aqui suas anotações…"
+        class="w-full bg-amber-50/50 border-2 border-amber-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50 resize-none transition-all">${escapeHTML(s.draft_notes || '')}</textarea>
+    </div>
+  `;
+}
+
+async function salvarAnotacoesPosVenda(id) {
+  const btn = document.getElementById('btnSalvarAnotacoes');
+  const textarea = document.getElementById('inputAnotacoesPosVenda');
+  if (!btn || !textarea) return;
+
+  const valor = textarea.value.trim();
+  const htmlOrig = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Salvando…';
+  lucide.createIcons();
+
+  try {
+    const { error } = await supabaseClient
+      .from('suspensoes')
+      .update({ draft_notes: valor || null })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Feedback visual
+    btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Salvo!';
+    btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+    btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+    lucide.createIcons();
+
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = htmlOrig;
+      btn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+      btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+      lucide.createIcons();
+    }, 1500);
+
+    if (typeof mostrarToastCopy === 'function') {
+      mostrarToastCopy('Anotações salvas com sucesso!');
+    }
+  } catch (err) {
+    console.error('[Anotações]', err);
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    lucide.createIcons();
+    alert('Erro ao salvar anotações: ' + err.message);
+  }
+}
+    
 function renderArquivosSuspensao(s) {
   const faturas = Array.isArray(s.arquivos_fatura) ? s.arquivos_fatura : [];
   const docs = Array.isArray(s.arquivos_documentos) ? s.arquivos_documentos : [];
