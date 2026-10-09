@@ -4292,6 +4292,7 @@ async function verDetalhesSuspensao(id) {
       </div>` : ''}
     </div>
 
+    ${renderBotaoDevolucaoChip(s)}
     ${renderArquivosSuspensao(s)}
     ${renderAnotacoesPosVenda(s)}
   `;
@@ -4300,6 +4301,91 @@ async function verDetalhesSuspensao(id) {
   lucide.createIcons();
 }
 
+/* ==========================================================
+   CONFIRMAR DEVOLUÇÃO DO CHIP
+   ========================================================== */
+function renderBotaoDevolucaoChip(s) {
+  const deixouChip    = String(s.deixou_chip    || '').toUpperCase() === 'SIM';
+  const chipDevolvido = String(s.chip_devolvido || '').toUpperCase() === 'SIM';
+
+  // Só aparece se deixou chip E ainda não foi devolvido
+  if (!deixouChip || chipDevolvido) {
+    // Se já foi devolvido, mostra um aviso discreto
+    if (deixouChip && chipDevolvido) {
+      return `
+        <div class="mt-4 flex justify-end">
+          <div class="inline-flex items-center gap-2 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 px-4 py-2 rounded-xl text-[11px] font-black uppercase">
+            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+            Chip Devolvido
+          </div>
+        </div>
+      `;
+    }
+    return '';
+  }
+
+  return `
+    <div class="mt-4 flex justify-end">
+      <button onclick="confirmarDevolucaoChip(${s.id})" id="btnDevolverChip"
+        class="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white px-5 py-3 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-lg shadow-purple-500/30 transition-all hover:scale-105">
+        <i data-lucide="smartphone" class="w-4 h-4"></i>
+        Confirmar Devolução do Chip
+      </button>
+    </div>
+  `;
+}
+
+async function confirmarDevolucaoChip(id) {
+  const btn = document.getElementById('btnDevolverChip');
+  if (!btn) return;
+
+  if (!confirm('Confirmar que o cliente DEVOLVEU o chip?\n\nEssa ação registra a devolução.')) return;
+
+  const htmlOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Confirmando…';
+  btn.classList.add('opacity-70', 'cursor-not-allowed');
+  lucide.createIcons();
+
+  try {
+    const { error } = await supabaseClient
+      .from('suspensoes')
+      .update({ chip_devolvido: 'SIM' })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Feedback visual: troca pra verde
+    btn.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4"></i> Chip Devolvido!';
+    btn.classList.remove('from-violet-500', 'to-purple-600', 'hover:from-violet-600', 'hover:to-purple-700', 'opacity-70', 'cursor-not-allowed');
+    btn.classList.add('from-emerald-500', 'to-emerald-600');
+    lucide.createIcons();
+
+    if (typeof mostrarToastCopy === 'function') {
+      mostrarToastCopy('✅ Devolução do chip registrada!');
+    }
+
+    // Recarrega a lista em background
+    setTimeout(async () => {
+      if (typeof carregarCancelamentos === 'function') {
+        await carregarCancelamentos();
+      }
+      // Reabre o modal atualizado
+      if (typeof verDetalhesSuspensao === 'function') {
+        verDetalhesSuspensao(id);
+      }
+    }, 1500);
+
+  } catch (err) {
+    console.error('[Chip]', err);
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    btn.classList.remove('opacity-70', 'cursor-not-allowed');
+    lucide.createIcons();
+    alert('Erro ao confirmar devolução: ' + err.message);
+  }
+}
+    
 /* ==========================================================
    ANOTAÇÕES PÓS-VENDA
    ========================================================== */
