@@ -4302,28 +4302,34 @@ async function verDetalhesSuspensao(id) {
 }
 
 /* ==========================================================
-   CONFIRMAR DEVOLUÇÃO DO CHIP
+   CONFIRMAR DEVOLUÇÃO DO CHIP (com desfazer)
    ========================================================== */
 function renderBotaoDevolucaoChip(s) {
   const deixouChip    = String(s.deixou_chip    || '').toUpperCase() === 'SIM';
   const chipDevolvido = String(s.chip_devolvido || '').toUpperCase() === 'SIM';
 
-  // Só aparece se deixou chip E ainda não foi devolvido
-  if (!deixouChip || chipDevolvido) {
-    // Se já foi devolvido, mostra um aviso discreto
-    if (deixouChip && chipDevolvido) {
-      return `
-        <div class="mt-4 flex justify-end">
-          <div class="inline-flex items-center gap-2 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 px-4 py-2 rounded-xl text-[11px] font-black uppercase">
-            <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            Chip Devolvido
-          </div>
+  // Cliente não deixou chip → não mostra nada
+  if (!deixouChip) return '';
+
+  // Chip já devolvido → mostra selo verde + botão desfazer
+  if (chipDevolvido) {
+    return `
+      <div class="mt-4 flex items-center justify-end gap-2 flex-wrap">
+        <div class="inline-flex items-center gap-2 bg-emerald-50 border-2 border-emerald-200 text-emerald-700 px-4 py-2 rounded-xl text-[11px] font-black uppercase">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          Chip Devolvido
         </div>
-      `;
-    }
-    return '';
+        <button onclick="desfazerDevolucaoChip(${s.id})"
+          class="text-slate-400 hover:text-amber-600 hover:bg-amber-50 px-3 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-1.5 transition-colors border border-transparent hover:border-amber-200"
+          title="Marcou por engano? Clique aqui para desfazer">
+          <i data-lucide="undo-2" class="w-3.5 h-3.5"></i>
+          Desfazer
+        </button>
+      </div>
+    `;
   }
 
+  // Chip pendente de devolução → botão roxo pra confirmar
   return `
     <div class="mt-4 flex justify-end">
       <button onclick="confirmarDevolucaoChip(${s.id})" id="btnDevolverChip"
@@ -4333,6 +4339,56 @@ function renderBotaoDevolucaoChip(s) {
       </button>
     </div>
   `;
+}
+
+/* ─────────────────────────────────────────────────────────
+   DESFAZER DEVOLUÇÃO
+   ───────────────────────────────────────────────────────── */
+async function desfazerDevolucaoChip(id) {
+  if (!confirm('⚠️ Desfazer a devolução do chip?\n\nO status volta para "Chip pendente de devolução".')) return;
+
+  // Feedback visual: desabilita todos os botões do modal
+  const btns = document.querySelectorAll('#suspDetalhesConteudo button');
+  const estadosOriginais = [];
+  btns.forEach(b => {
+    estadosOriginais.push({ btn: b, disabled: b.disabled, html: b.innerHTML });
+    b.disabled = true;
+    b.classList.add('opacity-60');
+  });
+
+  try {
+    const { error } = await supabaseClient
+      .from('suspensoes')
+      .update({ chip_devolvido: 'NÃO' })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    if (typeof mostrarToastCopy === 'function') {
+      mostrarToastCopy('↩️ Devolução desfeita — chip voltou para pendente');
+    }
+
+    // Recarrega a lista + modal
+    setTimeout(async () => {
+      if (typeof carregarCancelamentos === 'function') {
+        await carregarCancelamentos();
+      }
+      if (typeof verDetalhesSuspensao === 'function') {
+        verDetalhesSuspensao(id);
+      }
+    }, 800);
+
+  } catch (err) {
+    console.error('[Chip/Desfazer]', err);
+    // Restaura botões em caso de erro
+    estadosOriginais.forEach(({ btn, disabled, html }) => {
+      btn.disabled = disabled;
+      btn.innerHTML = html;
+      btn.classList.remove('opacity-60');
+    });
+    if (window.lucide) lucide.createIcons();
+    alert('Erro ao desfazer: ' + err.message);
+  }
 }
 
 async function confirmarDevolucaoChip(id) {
