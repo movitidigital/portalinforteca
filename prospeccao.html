@@ -2088,13 +2088,44 @@
       const vendas = data || [];
       const totalDatasys = vendas.filter(v => v.tipo_fonte === 'DATASYS').length;
       const totalGestao = vendas.filter(v => v.tipo_fonte === 'GESTAO_CLICK').length;
-
-      // Clientes únicos
       const clientesUnicos = new Set(vendas.map(v => v.cliente?.cpf).filter(Boolean)).size;
-
-      // Valor total
       const valorTotal = vendas.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
 
+      // ⭐ AGRUPA POR CLIENTE + TIPO + CATEGORIA
+      const grupos = {};
+      vendas.forEach(v => {
+        const cpf = v.cliente?.cpf || 'sem-cpf';
+        const chave = `${cpf}|${v.tipo_fonte}|${v.categoria}`;
+
+        if (!grupos[chave]) {
+          grupos[chave] = {
+            cliente: v.cliente,
+            tipo_fonte: v.tipo_fonte,
+            categoria: v.categoria,
+            vendedor: v.vendedor,
+            produtos: [],
+            valorTotal: 0,
+            qtdNotas: 0,
+          };
+        }
+
+        grupos[chave].produtos.push({
+          nome: v.produto,
+          valor: Number(v.valor_total) || 0,
+        });
+        grupos[chave].valorTotal += Number(v.valor_total) || 0;
+        grupos[chave].qtdNotas++;
+
+        // Mantém o vendedor se estiver vazio
+        if (!grupos[chave].vendedor && v.vendedor) {
+          grupos[chave].vendedor = v.vendedor;
+        }
+      });
+
+      const gruposArr = Object.values(grupos)
+        .sort((a, b) => b.valorTotal - a.valorTotal);
+
+      // Cabeçalho
       let html = `
         <div class="bg-gradient-to-br from-[#000033] to-[#0e8890] rounded-2xl p-5 mb-5 text-white">
           <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-3">Resumo do dia</p>
@@ -2133,32 +2164,63 @@
             <p class="text-slate-500 font-bold text-sm">Nenhuma venda neste dia</p>
           </div>`;
       } else {
-        // Lista de vendas
         html += `
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vendas do dia</p>
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+            Vendas agrupadas por cliente
+          </p>
           <div class="space-y-2">
-            ${vendas.map(v => {
-              const tipo = v.tipo_fonte === 'DATASYS'
+            ${gruposArr.map(g => {
+              const tipo = g.tipo_fonte === 'DATASYS'
                 ? { label: 'DATASYS', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
                 : { label: 'GESTÃO CLICK', cor: 'bg-amber-50 text-amber-700 border-amber-200' };
 
-              const nomeCliente = capitalizar(v.cliente?.nome || 'Cliente');
-              const tel = v.cliente?.telefone_principal || '—';
+              const nomeCliente = capitalizar(g.cliente?.nome || 'Cliente');
+              const tel = g.cliente?.telefone_principal || '—';
+
+              // Múltiplas notas?
+              const multiNotas = g.qtdNotas > 1;
+
+              // Lista de produtos
+              const produtosHTML = g.produtos.map(p => `
+                <div class="flex justify-between items-start gap-2 text-[11px] py-0.5">
+                  <span class="text-slate-600 truncate flex-1" title="${escapeHTML(p.nome)}">
+                    • ${escapeHTML(p.nome || '—')}
+                  </span>
+                  <span class="text-slate-500 font-bold shrink-0">
+                    ${p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </span>
+                </div>
+              `).join('');
 
               return `
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-start gap-3">
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2 flex-wrap mb-1">
-                      <span class="badge-tipo ${tipo.cor} text-[8px]">${tipo.label}</span>
-                      <span class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(v.categoria || '—')}</span>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                  <div class="flex justify-between items-start gap-3 mb-2">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span class="badge-tipo ${tipo.cor} text-[8px]">${tipo.label}</span>
+                        <span class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(g.categoria || '—')}</span>
+                        ${multiNotas ? `
+                          <span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
+                            <i data-lucide="layers" class="w-2.5 h-2.5"></i> ${g.qtdNotas} notas
+                          </span>` : ''}
+                      </div>
+                      <p class="font-bold text-slate-800 text-sm uppercase truncate">${escapeHTML(nomeCliente)}</p>
                     </div>
-                    <p class="font-bold text-slate-800 text-sm uppercase truncate">${escapeHTML(nomeCliente)}</p>
-                    <p class="text-[10px] text-slate-500 truncate mt-0.5">${escapeHTML(v.produto || '—')}</p>
-                    ${v.vendedor ? `<p class="text-[9px] text-slate-400 mt-1">Vendido por: <strong>${escapeHTML(v.vendedor)}</strong></p>` : ''}
+                    <div class="text-right shrink-0">
+                      <p class="text-sm font-black text-emerald-600">
+                        ${g.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
                   </div>
-                  <div class="text-right shrink-0">
-                    <p class="text-sm font-black text-emerald-600">${Number(v.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+
+                  <div class="border-t border-slate-200 pt-2 mt-2 space-y-0.5">
+                    ${produtosHTML}
                   </div>
+
+                  ${g.vendedor ? `
+                    <p class="text-[9px] text-slate-400 mt-2 pt-2 border-t border-slate-200">
+                      Vendido por: <strong>${escapeHTML(g.vendedor)}</strong>
+                    </p>` : ''}
                 </div>`;
             }).join('')}
           </div>`;
@@ -2167,7 +2229,6 @@
       $('diaImportConteudo').innerHTML = html;
       lucide.createIcons();
     }
-
     function fecharModalDiaImport() {
       $('modalDiaImport').classList.add('hidden');
     }
@@ -2324,11 +2385,24 @@
     }
 
     function classificarCategoriaGestaoClick(produto) {
-      const p = String(produto || '').toUpperCase();
+      const p = String(produto || '').toUpperCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+      // 1️⃣ CHIP — sempre prioritário
       if (/CHIP|E-?SIM/.test(p)) return 'CHIP';
+
+      // 2️⃣ SERVIÇOS
       if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
-      if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA|PROJETOR|IPAD/.test(p)) return 'APARELHO';
-      if (/FONE|CAPA|CASE|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET|FONTE|SMARTWATCH|PULSEIRA|CANETA|TRIP|MOUSEPAD|CAIXA DE SOM|BAST|LIMPA|CÂMERA|CAMERA|HD|SSD/.test(p)) return 'ACESSORIO';
+
+      // 3️⃣ ACESSÓRIO — testado ANTES de aparelho porque muitos acessórios
+      //    contêm o nome do aparelho na descrição
+      //    (ex: "PELICULA PARA SMARTPHONE", "CAPA PARA IPAD")
+      if (/PELICULA|FILM|CAPA|CASE|FONE|HEADSET|CARREGADOR|CABO|ADAPTADOR|SUPORTE|TRIP|MOUSE|MOUSEPAD|TECLADO|FONTE|SMARTWATCH|PULSEIRA|CANETA|BAST|LIMPA|CAMERA|CÂMERA|HD|SSD|PEN DRIVE|CARTÃO DE MEMÓRIA|CARTAO DE MEMORIA|BASEUS|ALTOMEX|XTRAD|HIDROGEL|PENDRIVE|CAIXA DE SOM|SPEAKER|WEB CAM|WEBCAM|ANTENA|PILHA|BATERIA/.test(p)) return 'ACESSORIO';
+
+      // 4️⃣ APARELHO — agora só pega produtos que são realmente aparelhos
+      if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA|PROJETOR|IPAD|IPHONE|GALAXY|MOTOROLA|XIAOMI|MACBOOK|CHROMEBOOK/.test(p)) return 'APARELHO';
+
+      // 5️⃣ Fallback
       return 'OUTROS';
     }
 
