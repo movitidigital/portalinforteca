@@ -1881,11 +1881,18 @@
       const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
       $('impMesAtual').textContent = `${MESES[mes]} / ${ano}`;
 
-      // Agrupa imports por dia
+      // Agrupa imports por dia (com somatório de registros por tipo)
       const porDia = {};
       state._importacoesMes.forEach(imp => {
-        if (!porDia[imp.data_importacao]) porDia[imp.data_importacao] = [];
-        porDia[imp.data_importacao].push(imp);
+        if (!porDia[imp.data_importacao]) {
+          porDia[imp.data_importacao] = { datasys: 0, gestao: 0, total: 0 };
+        }
+        if (imp.tipo === 'DATASYS') {
+          porDia[imp.data_importacao].datasys += (imp.total_registros || 0);
+        } else {
+          porDia[imp.data_importacao].gestao += (imp.total_registros || 0);
+        }
+        porDia[imp.data_importacao].total += (imp.total_registros || 0);
       });
 
       // Descobre o primeiro dia da semana do dia 1
@@ -1911,44 +1918,64 @@
         const ehFuturo = dataAtual > hoje;
         const ehHoje = dataAtual.getTime() === hoje.getTime();
 
-        const imports = porDia[dataISO] || [];
-        const temDatasys = imports.some(i => i.tipo === 'DATASYS');
-        const temGestao = imports.some(i => i.tipo === 'GESTAO_CLICK');
+        const info = porDia[dataISO];
+        const temImport = info && info.total > 0;
+        const qtdDatasys = info?.datasys || 0;
+        const qtdGestao = info?.gestao || 0;
 
         // Cor de fundo
         let bgClass = 'bg-slate-50 hover:bg-slate-100';
         let borderClass = 'border-slate-200';
 
-        if (ehFimDeSemana || ehFuturo) {
+        if (ehFimDeSemana) {
+          bgClass = 'bg-slate-50/40';
+        } else if (ehFuturo) {
           bgClass = 'bg-slate-50/50';
-        } else if (imports.length > 0) {
+        } else if (temImport) {
           bgClass = 'bg-emerald-50/60 hover:bg-emerald-100/60';
-          borderClass = 'border-emerald-200';
+          borderClass = 'border-emerald-300';
         } else {
           // Dia útil no passado sem importar
-          bgClass = 'bg-red-50/70 hover:bg-red-100';
+          bgClass = 'bg-red-50/60 hover:bg-red-100';
           borderClass = 'border-red-300';
         }
 
         if (ehHoje) borderClass = 'border-[#0e8890] border-2';
 
-        // Indicadores
-        let indicadores = '';
-        if (temDatasys) indicadores += '<span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>';
-        if (temGestao)  indicadores += '<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>';
-
-        const alerta = (!ehFimDeSemana && !ehFuturo && !imports.length)
+        // Alerta de dia útil sem importar
+        const alerta = (!ehFimDeSemana && !ehFuturo && !temImport)
           ? '<i data-lucide="alert-triangle" class="w-3 h-3 text-red-500 absolute top-1 right-1"></i>'
           : '';
 
-        const clickable = imports.length > 0 || (!ehFimDeSemana && !ehFuturo);
+        // NOVO: contagens por tipo
+        let contagens = '';
+        if (qtdDatasys > 0 || qtdGestao > 0) {
+          contagens = '<div class="flex flex-col gap-0.5 mt-1">';
+          if (qtdDatasys > 0) {
+            contagens += `
+              <span class="inline-flex items-center gap-1 text-[8px] md:text-[10px] font-black text-indigo-700 bg-indigo-100 border border-indigo-200 px-1 py-0.5 rounded w-fit">
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                <span class="truncate">${qtdDatasys.toLocaleString('pt-BR')}</span>
+              </span>`;
+          }
+          if (qtdGestao > 0) {
+            contagens += `
+              <span class="inline-flex items-center gap-1 text-[8px] md:text-[10px] font-black text-amber-700 bg-amber-100 border border-amber-200 px-1 py-0.5 rounded w-fit">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                <span class="truncate">${qtdGestao.toLocaleString('pt-BR')}</span>
+              </span>`;
+          }
+          contagens += '</div>';
+        }
+
+        const clickable = temImport || (!ehFimDeSemana && !ehFuturo);
         const onclick = clickable ? `onclick="abrirDetalhesDia('${dataISO}')"` : '';
 
         html += `
-          <div ${onclick} class="aspect-square relative rounded-lg border ${borderClass} ${bgClass} p-1.5 md:p-2 flex flex-col justify-between ${clickable ? 'cursor-pointer' : ''} transition-all">
+          <div ${onclick} class="aspect-square relative rounded-lg border ${borderClass} ${bgClass} p-1.5 md:p-2 flex flex-col ${clickable ? 'cursor-pointer' : ''} transition-all overflow-hidden">
             ${alerta}
             <span class="text-xs md:text-sm font-black ${ehHoje ? 'text-[#0e8890]' : 'text-slate-700'}">${dia}</span>
-            <div class="flex items-center gap-1">${indicadores}</div>
+            ${contagens}
           </div>`;
       }
 
@@ -2055,7 +2082,41 @@
             <p class="text-[11px] text-slate-400 mt-1">Se foi um dia útil, considere importar as planilhas pendentes.</p>
           </div>`;
       } else {
-        $('diaImportConteudo').innerHTML = imports.map(i => {
+        // Consolida por tipo
+        const datasys = imports.filter(i => i.tipo === 'DATASYS');
+        const gestao = imports.filter(i => i.tipo === 'GESTAO_CLICK');
+
+        const somaDatasys = datasys.reduce((s, i) => s + (i.total_registros || 0), 0);
+        const somaGestao = gestao.reduce((s, i) => s + (i.total_registros || 0), 0);
+        const totalGeral = somaDatasys + somaGestao;
+
+        // Bloco de resumo
+        let html = `
+          <div class="bg-gradient-to-br from-[#000033] to-[#0e8890] rounded-2xl p-5 mb-5 text-white">
+            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-3">Total do dia</p>
+            <div class="flex items-center gap-6 flex-wrap">
+              <div>
+                <p class="text-3xl font-black">${totalGeral.toLocaleString('pt-BR')}</p>
+                <p class="text-[10px] font-bold uppercase opacity-70 mt-0.5">registros importados</p>
+              </div>
+              <div class="flex gap-4 text-xs font-bold flex-wrap">
+                ${somaDatasys > 0 ? `
+                  <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
+                    <span class="w-2 h-2 rounded-full bg-indigo-300"></span>
+                    ${somaDatasys.toLocaleString('pt-BR')} Datasys
+                  </span>` : ''}
+                ${somaGestao > 0 ? `
+                  <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
+                    <span class="w-2 h-2 rounded-full bg-amber-300"></span>
+                    ${somaGestao.toLocaleString('pt-BR')} Gestão Click
+                  </span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Blocos individuais
+        html += imports.map(i => {
           const tipoInfo = i.tipo === 'DATASYS'
             ? { label: 'Datasys', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'file-spreadsheet' }
             : { label: 'Gestão Click', cor: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'shopping-bag' };
@@ -2095,6 +2156,8 @@
                 </p>` : ''}
             </div>`;
         }).join('');
+
+        $('diaImportConteudo').innerHTML = html;
       }
 
       $('modalDiaImport').classList.remove('hidden');
