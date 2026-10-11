@@ -132,6 +132,10 @@
         <!-- 📑 ABAS -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div class="border-b border-slate-100 flex overflow-x-auto">
+            <button onclick="trocarAba('clientes')" data-tab="clientes"
+  class="tab-btn flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500">
+  <i data-lucide="user-search" class="w-4 h-4"></i> Clientes
+</button>
             <button onclick="trocarAba('fila')" data-tab="fila"
               class="tab-btn active flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent">
               <i data-lucide="list-todo" class="w-4 h-4"></i> Fila
@@ -150,6 +154,52 @@
 </button>
           </div>
 
+<!-- ============ ABA: CLIENTES (Visão 360º) ============ -->
+<div id="tab-clientes" class="hidden p-4 md:p-6">
+
+  <!-- Busca -->
+  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-5">
+    <div class="relative">
+      <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+      <input type="text" id="buscaCliente" oninput="debounceBuscarCliente()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();buscarClientes360();}"
+        placeholder="Buscar por nome, CPF ou telefone…"
+        class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-sm font-medium focus:outline-none focus:border-[#0e8890] focus:ring-2 focus:ring-[#0e8890]/20 transition-all"
+        autocomplete="off">
+    </div>
+    <div class="flex justify-between items-center mt-3 text-xs text-slate-500 flex-wrap gap-2">
+      <span id="clientes360Contador" class="font-medium">Digite ao menos 2 caracteres para buscar</span>
+      <span class="text-slate-400 flex items-center gap-1">
+        <i data-lucide="info" class="w-3 h-3"></i>
+        Busca em toda a base histórica
+      </span>
+    </div>
+  </div>
+
+  <!-- Layout de 2 colunas: lista + detalhes -->
+  <div class="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-5">
+
+    <!-- COLUNA 1: Lista de resultados -->
+    <div id="clientes360Lista" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden max-h-[calc(100vh-320px)] overflow-y-auto">
+      <div class="p-8 text-center text-slate-400">
+        <i data-lucide="search" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+        <p class="text-sm font-medium">Use a busca acima para começar</p>
+      </div>
+    </div>
+
+    <!-- COLUNA 2: Detalhes do cliente -->
+    <div id="clientes360Detalhes" class="bg-white rounded-2xl border border-slate-200 shadow-sm min-h-[400px]">
+      <div class="p-12 text-center text-slate-400">
+        <i data-lucide="user-circle" class="w-16 h-16 mx-auto mb-4 text-slate-300"></i>
+        <p class="text-base font-black text-slate-600 uppercase tracking-tight">Nenhum cliente selecionado</p>
+        <p class="text-xs text-slate-400 mt-2">Busque por nome, CPF ou telefone e clique em um resultado</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+          
           <!-- ============ ABA: FILA ============ -->
           <div id="tab-fila" class="p-4 md:p-6">
 
@@ -659,6 +709,9 @@
       leadEmOpcao: null,
       _mesCalendario: new Date(),
       _importacoesMes: [],
+      _vendasMes: {},
+      _clientes360Resultados: [],
+      _cliente360Selecionado: null,
     };
 
     /* ==========================================================
@@ -813,13 +866,14 @@
         btn.classList.toggle('active', ativo);
         btn.classList.toggle('text-slate-500', !ativo);
       });
-      ['fila', 'regras', 'relatorios', 'importacoes'].forEach(t => {
+      ['fila', 'regras', 'relatorios', 'importacoes', 'clientes'].forEach(t => {
         $(`tab-${t}`)?.classList.toggle('hidden', t !== nome);
       });
       if (nome === 'fila')        carregarFila();
       if (nome === 'regras')      carregarRegras();
       if (nome === 'relatorios')  carregarRelatorios();
       if (nome === 'importacoes') carregarCalendarioImportacoes();
+      if (nome === 'clientes')    setTimeout(() => $('buscaCliente')?.focus(), 100);
     }
 
     /* ==========================================================
@@ -2231,6 +2285,432 @@
     }
     function fecharModalDiaImport() {
       $('modalDiaImport').classList.add('hidden');
+    }
+
+        /* ==========================================================
+       VISÃO 360º DO CLIENTE
+       ========================================================== */
+    let _busca360Timer = null;
+
+    function debounceBuscarCliente() {
+      clearTimeout(_busca360Timer);
+      _busca360Timer = setTimeout(buscarClientes360, 350);
+    }
+
+    async function buscarClientes360() {
+      const termo = ($('buscaCliente')?.value || '').trim();
+      const lista = $('clientes360Lista');
+      const contador = $('clientes360Contador');
+
+      if (termo.length < 2) {
+        contador.textContent = 'Digite ao menos 2 caracteres para buscar';
+        lista.innerHTML = `
+          <div class="p-8 text-center text-slate-400">
+            <i data-lucide="search" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+            <p class="text-sm font-medium">Use a busca acima para começar</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      contador.textContent = 'Buscando...';
+      lista.innerHTML = `
+        <div class="p-8 text-center text-slate-400">
+          <i data-lucide="loader-2" class="w-6 h-6 mx-auto text-[#0e8890] animate-spin mb-2"></i>
+          <p class="text-xs">Consultando...</p>
+        </div>`;
+      lucide.createIcons();
+
+      const termoNum = termo.replace(/\D/g, '');
+      const termoSeguro = termo.replace(/[%,]/g, '');
+
+      let query = supabaseClient
+        .from('clientes')
+        .select('id, nome, cpf, telefone_principal, telefone_alt, total_compras, total_gasto, ultima_compra');
+
+      if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
+        query = query.or(`cpf.ilike.%${termoNum}%,telefone_principal.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%`);
+      } else {
+        query = query.ilike('nome', `%${termoSeguro}%`);
+      }
+
+      const { data, error } = await query
+        .order('total_gasto', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        contador.textContent = 'Erro na busca';
+        lista.innerHTML = `<div class="p-6 text-red-500 text-xs">Erro: ${escapeHTML(error.message)}</div>`;
+        return;
+      }
+
+      state._clientes360Resultados = data || [];
+      contador.textContent = `${state._clientes360Resultados.length} ${state._clientes360Resultados.length === 1 ? 'cliente' : 'clientes'} encontrados`;
+
+      if (!state._clientes360Resultados.length) {
+        lista.innerHTML = `
+          <div class="p-8 text-center text-slate-400">
+            <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+            <p class="text-sm font-medium">Nenhum cliente encontrado</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      renderLista360();
+    }
+
+    function renderLista360() {
+      const lista = $('clientes360Lista');
+      const selecionadoId = state._cliente360Selecionado?.id;
+
+      lista.innerHTML = state._clientes360Resultados.map(c => {
+        const ativo = c.id === selecionadoId;
+        const score = calcularScoreCliente(c);
+        const cor = corScore(score);
+        const tel = c.telefone_principal || '—';
+
+        return `
+          <button onclick="selecionarCliente360('${c.id}')"
+            class="w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition-colors ${ativo ? 'bg-[#0e8890]/5 border-l-4 border-l-[#0e8890]' : ''}">
+            <div class="flex justify-between items-start gap-2 mb-1">
+              <p class="font-black text-slate-800 uppercase text-xs truncate flex-1">${escapeHTML(capitalizar(c.nome))}</p>
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-black shrink-0 ${cor}">${score}</span>
+            </div>
+            <div class="flex items-center gap-3 text-[10px] text-slate-500">
+              <span class="font-mono">${escapeHTML(normalizarCPF(c.cpf))}</span>
+              <span class="opacity-40">·</span>
+              <span class="font-mono">${escapeHTML(tel)}</span>
+            </div>
+            <div class="flex items-center gap-2 mt-1.5 text-[10px]">
+              <span class="text-emerald-700 font-bold">${Number(c.total_gasto || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</span>
+              <span class="text-slate-400">·</span>
+              <span class="text-slate-500">${c.total_compras || 0} compras</span>
+            </div>
+          </button>`;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function calcularScoreCliente(cliente) {
+      const gasto = Number(cliente.total_gasto || 0);
+      const compras = Number(cliente.total_compras || 0);
+      const ultima = cliente.ultima_compra ? new Date(cliente.ultima_compra + 'T12:00:00') : null;
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const diasInativo = ultima ? Math.floor((hoje - ultima) / 86400000) : 999;
+
+      const ptsMoeda = Math.min(40, (gasto / 2000) * 40);
+      const ptsFreq = Math.min(30, compras * 3);
+      const ptsRec = Math.max(0, 30 - Math.min(30, diasInativo / 15));
+
+      return Math.round(ptsMoeda + ptsFreq + ptsRec);
+    }
+
+    async function selecionarCliente360(clienteId) {
+      const c = state._clientes360Resultados.find(x => x.id === clienteId);
+      if (!c) return;
+
+      state._cliente360Selecionado = c;
+      renderLista360();
+
+      const detalhes = $('clientes360Detalhes');
+      detalhes.innerHTML = `
+        <div class="p-12 text-center">
+          <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
+          <p class="text-sm text-slate-500">Carregando perfil completo…</p>
+        </div>`;
+      lucide.createIcons();
+
+      // Busca em paralelo: interações + leads + vouchers
+      const [interacoesRes, leadsRes, vouchersRes] = await Promise.all([
+        supabaseClient
+          .from('interacoes')
+          .select('*')
+          .eq('cliente_id', clienteId)
+          .order('data_venda', { ascending: false })
+          .limit(200),
+        supabaseClient
+          .from('prospeccao_leads')
+          .select('*')
+          .eq('cliente_id', clienteId)
+          .order('data_geracao', { ascending: false }),
+        supabaseClient
+          .from('prospeccao_vouchers')
+          .select('*')
+          .eq('cliente_id', clienteId)
+          .order('gerado_em', { ascending: false }),
+      ]);
+
+      renderPerfil360(c, {
+        interacoes: interacoesRes.data || [],
+        leads: leadsRes.data || [],
+        vouchers: vouchersRes.data || [],
+      });
+    }
+
+    function renderPerfil360(c, dados) {
+      const { interacoes, leads, vouchers } = dados;
+
+      const score = calcularScoreCliente(c);
+      const corScr = corScore(score);
+      const tel = c.telefone_principal || '—';
+      const telAlt = c.telefone_alt || null;
+
+      // Classificação RFM
+      const rfm = classificarRFM(c);
+
+      // Estatísticas
+      const totalGasto = Number(c.total_gasto || 0);
+      const totalCompras = Number(c.total_compras || 0);
+      const ticketMedio = totalCompras > 0 ? totalGasto / totalCompras : 0;
+      const ultimaCompra = c.ultima_compra ? new Date(c.ultima_compra + 'T12:00:00') : null;
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const diasInativo = ultimaCompra ? Math.floor((hoje - ultimaCompra) / 86400000) : null;
+
+      // Distribuição por categoria
+      const porCategoria = {};
+      interacoes.forEach(i => {
+        const cat = i.categoria || 'OUTROS';
+        porCategoria[cat] = (porCategoria[cat] || 0) + 1;
+      });
+
+      const html = `
+        <!-- Header do perfil -->
+        <div class="bg-gradient-to-br from-[#000033] to-[#0e8890] p-6 text-white">
+          <div class="flex justify-between items-start gap-4 flex-wrap">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-[10px] font-black uppercase tracking-widest opacity-70">${escapeHTML(rfm.grupo)}</span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/15 backdrop-blur border border-white/20 text-[10px] font-black">
+                  <i data-lucide="sparkles" class="w-3 h-3"></i> Score ${score}
+                </span>
+              </div>
+              <h2 class="text-xl md:text-2xl font-black uppercase tracking-tight">${escapeHTML(capitalizar(c.nome))}</h2>
+              <div class="flex flex-wrap items-center gap-3 mt-2 text-xs opacity-90">
+                <span class="font-mono flex items-center gap-1">
+                  <i data-lucide="id-card" class="w-3 h-3"></i> ${escapeHTML(normalizarCPF(c.cpf))}
+                </span>
+                ${tel !== '—' ? `
+                  <span class="font-mono flex items-center gap-1">
+                    <i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(tel)}
+                  </span>` : ''}
+                ${telAlt ? `
+                  <span class="font-mono flex items-center gap-1">
+                    <i data-lucide="phone-call" class="w-3 h-3"></i> ${escapeHTML(telAlt)}
+                  </span>` : ''}
+              </div>
+            </div>
+            ${tel !== '—' ? `
+              <button onclick="abrirWhatsApp360('${escapeHTML(tel)}', '${escapeHTML(capitalizar(c.nome))}')"
+                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-lg transition-colors flex items-center gap-2 shrink-0">
+                <i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp
+              </button>` : ''}
+          </div>
+        </div>
+
+        <!-- KPIs rápidos -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-0 border-b border-slate-200">
+          <div class="p-4 border-r border-b md:border-b-0 border-slate-200">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Gasto</p>
+            <p class="text-lg font-black text-emerald-600">${totalGasto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          </div>
+          <div class="p-4 border-b md:border-b-0 md:border-r border-slate-200">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Compras</p>
+            <p class="text-lg font-black text-slate-800">${totalCompras}</p>
+          </div>
+          <div class="p-4 border-r border-slate-200">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Ticket Médio</p>
+            <p class="text-lg font-black text-indigo-600">${ticketMedio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          </div>
+          <div class="p-4">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Última Compra</p>
+            <p class="text-lg font-black ${diasInativo !== null && diasInativo > 180 ? 'text-red-600' : 'text-slate-800'}">
+              ${diasInativo !== null ? `${diasInativo}d` : '—'}
+            </p>
+          </div>
+        </div>
+
+        <!-- Corpo em 2 colunas -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
+
+          <!-- Coluna esquerda: histórico -->
+          <div class="lg:col-span-2 p-5 border-b lg:border-b-0 lg:border-r border-slate-200">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-sm font-black text-[#000033] uppercase tracking-tight flex items-center gap-2">
+                <i data-lucide="history" class="w-4 h-4 text-[#0e8890]"></i>
+                Histórico de Compras
+              </h3>
+              <span class="text-[10px] font-black text-slate-400 uppercase">${interacoes.length} registros</span>
+            </div>
+
+            ${interacoes.length === 0 ? `
+              <div class="text-center py-8 text-slate-400 text-xs italic">
+                Nenhuma compra registrada
+              </div>` : `
+              <div class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                ${interacoes.map(i => {
+                  const tipoInfo = i.tipo_fonte === 'DATASYS'
+                    ? { label: 'Datasys', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+                    : { label: 'Gestão Click', cor: 'bg-amber-50 text-amber-700 border-amber-200' };
+
+                  const dataVenda = fmtBR(i.data_venda);
+
+                  return `
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 hover:border-[#0e8890] transition-colors">
+                      <div class="flex justify-between items-start gap-3">
+                        <div class="min-w-0 flex-1">
+                          <div class="flex items-center gap-2 flex-wrap mb-1">
+                            <span class="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded border ${tipoInfo.cor}">${tipoInfo.label}</span>
+                            <span class="text-[10px] font-black text-slate-500 uppercase">${escapeHTML(i.categoria || '—')}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">${dataVenda}</span>
+                          </div>
+                          <p class="text-[11px] text-slate-700 truncate">${escapeHTML(i.produto || '—')}</p>
+                          ${i.vendedor ? `<p class="text-[9px] text-slate-400 mt-1">Vendido por: <strong>${escapeHTML(i.vendedor)}</strong></p>` : ''}
+                        </div>
+                        <div class="text-right shrink-0">
+                          <p class="text-xs font-black text-emerald-600">${Number(i.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                      </div>
+                    </div>`;
+                }).join('')}
+              </div>`}
+          </div>
+
+          <!-- Coluna direita: leads, vouchers, distribuição -->
+          <div class="p-5 space-y-5">
+
+            <!-- Distribuição por categoria -->
+            <div>
+              <h3 class="text-sm font-black text-[#000033] uppercase tracking-tight flex items-center gap-2 mb-3">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-[#0e8890]"></i>
+                Perfil de Consumo
+              </h3>
+              <div class="space-y-1.5">
+                ${Object.entries(porCategoria).sort((a, b) => b[1] - a[1]).map(([cat, qtd]) => {
+                  const total = interacoes.length;
+                  const pct = total > 0 ? Math.round((qtd / total) * 100) : 0;
+                  const cores = {
+                    APARELHO: 'bg-indigo-500',
+                    PLANO: 'bg-blue-500',
+                    ACESSORIO: 'bg-amber-500',
+                    CHIP: 'bg-yellow-500',
+                    SERVICO: 'bg-emerald-500',
+                    OUTROS: 'bg-slate-400',
+                  };
+                  return `
+                    <div>
+                      <div class="flex justify-between text-[10px] font-black uppercase mb-0.5">
+                        <span class="text-slate-600">${escapeHTML(cat)}</span>
+                        <span class="text-slate-400">${qtd} · ${pct}%</span>
+                      </div>
+                      <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div class="${cores[cat] || 'bg-slate-400'} h-full" style="width:${pct}%"></div>
+                      </div>
+                    </div>`;
+                }).join('')}
+              </div>
+            </div>
+
+            <!-- Leads ativos -->
+            <div>
+              <h3 class="text-sm font-black text-[#000033] uppercase tracking-tight flex items-center gap-2 mb-3">
+                <i data-lucide="target" class="w-4 h-4 text-[#0e8890]"></i>
+                Leads de Prospecção
+              </h3>
+              ${leads.length === 0 ? `
+                <p class="text-[11px] text-slate-400 italic text-center py-4">Nenhum lead gerado</p>
+              ` : `
+                <div class="space-y-1.5">
+                  ${leads.slice(0, 5).map(l => {
+                    const tipo = tipoLeadInfo(l.tipo_lead);
+                    const statusCor = {
+                      PENDENTE: 'bg-amber-50 text-amber-700 border-amber-200',
+                      CONTATADO: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                      RETORNOU: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                      IGNORADO: 'bg-slate-100 text-slate-500 border-slate-200',
+                    }[l.status] || 'bg-slate-100 text-slate-500 border-slate-200';
+
+                    return `
+                      <div class="bg-slate-50 border border-slate-200 rounded-lg p-2">
+                        <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                          <span class="badge-tipo ${tipo.cor} text-[8px]"><i data-lucide="${tipo.icon}" class="w-2.5 h-2.5"></i> ${tipo.label}</span>
+                          <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-black uppercase ${statusCor}">${l.status}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 truncate">${escapeHTML(l.motivo || '—')}</p>
+                      </div>`;
+                  }).join('')}
+                  ${leads.length > 5 ? `<p class="text-[9px] text-slate-400 text-center">+ ${leads.length - 5} leads</p>` : ''}
+                </div>
+              `}
+            </div>
+
+            <!-- Vouchers -->
+            <div>
+              <h3 class="text-sm font-black text-[#000033] uppercase tracking-tight flex items-center gap-2 mb-3">
+                <i data-lucide="ticket" class="w-4 h-4 text-[#0e8890]"></i>
+                Vouchers Emitidos
+              </h3>
+              ${vouchers.length === 0 ? `
+                <p class="text-[11px] text-slate-400 italic text-center py-4">Nenhum voucher emitido</p>
+              ` : `
+                <div class="space-y-1.5">
+                  ${vouchers.slice(0, 5).map(v => {
+                    const cor = {
+                      ATIVO: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                      USADO: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                      EXPIRADO: 'bg-slate-100 text-slate-500 border-slate-200',
+                      CANCELADO: 'bg-red-50 text-red-700 border-red-200',
+                    }[v.status] || 'bg-slate-100 text-slate-500 border-slate-200';
+
+                    return `
+                      <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 flex justify-between items-center gap-2">
+                        <div class="min-w-0 flex-1">
+                          <p class="font-mono text-[10px] font-black text-slate-700 truncate">${escapeHTML(v.codigo)}</p>
+                          <p class="text-[9px] text-slate-400">${v.validade_ate ? `Vence ${fmtBR(v.validade_ate)}` : ''}</p>
+                        </div>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-black uppercase shrink-0 ${cor}">${v.status}</span>
+                      </div>`;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+
+          </div>
+        </div>
+      `;
+
+      $('clientes360Detalhes').innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function classificarRFM(c) {
+      const gasto = Number(c.total_gasto || 0);
+      const compras = Number(c.total_compras || 0);
+      const ultima = c.ultima_compra ? new Date(c.ultima_compra + 'T12:00:00') : null;
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const diasInativo = ultima ? Math.floor((hoje - ultima) / 86400000) : 999;
+
+      const r = diasInativo <= 60 ? 5 : diasInativo <= 120 ? 4 : diasInativo <= 240 ? 3 : diasInativo <= 365 ? 2 : 1;
+      const f = compras >= 5 ? 5 : compras >= 4 ? 4 : compras >= 3 ? 3 : compras >= 2 ? 2 : 1;
+      const m = gasto >= 2000 ? 5 : gasto >= 1000 ? 4 : gasto >= 500 ? 3 : gasto >= 200 ? 2 : 1;
+
+      const soma = r + f + m;
+
+      if (r >= 4 && f >= 4 && m >= 4) return { grupo: '🏆 Campeão', r, f, m };
+      if (r >= 3 && f >= 3 && m >= 3) return { grupo: '⭐ Cliente Fiel', r, f, m };
+      if (r <= 2 && f >= 3 && m >= 3) return { grupo: '⚠️ Em Risco', r, f, m };
+      if (r <= 2 && f <= 2) return { grupo: '💤 Hibernando', r, f, m };
+      if (r >= 4 && f <= 2) return { grupo: '🌱 Novo / Promissor', r, f, m };
+      return { grupo: '👤 Cliente Regular', r, f, m };
+    }
+
+    function abrirWhatsApp360(telefone, nome) {
+      const tel = String(telefone).replace(/\D/g, '');
+      if (!tel) { showToast('Cliente sem telefone.', 'error'); return; }
+      const msg = `Olá, ${capitalizar(nome).split(' ')[0]}! 👋`;
+      const url = `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank', 'noopener');
     }
 
     // Helper: Date → "YYYY-MM-DD" (fuso local)
