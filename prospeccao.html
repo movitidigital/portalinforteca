@@ -6,10 +6,9 @@
   <meta name="theme-color" content="#000033">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Inforteca Prospecção">
+  <meta name="apple-mobile-web-app-title" content="Prospecção Inforteca">
   <title>Prospecção — Portal Inforteca</title>
   <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
-  <link rel="manifest" href="/manifest-prospeccao.json">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -34,25 +33,28 @@
     .kpi-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
     .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); }
 
-    /* Safe area para PWA */
+    .import-log {
+      max-height: 220px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .import-log > div { padding: 2px 0; border-bottom: 1px dashed rgba(0,0,0,0.04); }
+
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
-  <!-- ============ SIDEBAR ============ -->
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
 
-  <!-- ============ MAIN ============ -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
 
     <header id="appHeader" data-title="Prospecção" data-search="true" data-notif="true"></header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
 
-      <!-- ============================================================
-           VIEW: PROSPECÇÃO
-           ============================================================ -->
       <div id="view-prospeccao" class="animate-fade-in">
 
         <!-- 🎯 CABEÇALHO -->
@@ -62,11 +64,11 @@
             <p class="text-sm text-slate-500 mt-1">Reacenda o relacionamento com quem já passou pela loja.</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="abrirImportacao('datasys')"
+            <button data-admin-only onclick="abrirImportacao('datasys')"
               class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
               <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Datasys
             </button>
-            <button onclick="abrirImportacao('gestaoclick')"
+            <button data-admin-only onclick="abrirImportacao('gestaoclick')"
               class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
               <i data-lucide="shopping-bag" class="w-4 h-4"></i> Gestão Click
             </button>
@@ -77,7 +79,7 @@
           </div>
         </div>
 
-        <!-- 📊 KPIs (4 cards) -->
+        <!-- 📊 KPIs -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <div class="flex items-start justify-between">
@@ -124,7 +126,7 @@
           </div>
         </div>
 
-        <!-- 🎯 PROGRESSO DA SEMANA -->
+        <!-- 🎯 PROGRESSO -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
           <div class="flex justify-between items-end mb-3">
             <div>
@@ -155,9 +157,8 @@
             </button>
           </div>
 
-          <!-- ========= ABA: FILA DE TRABALHO ========= -->
+          <!-- FILA -->
           <div id="tab-fila" class="p-4 md:p-6">
-            <!-- Filtros -->
             <div class="flex flex-col md:flex-row gap-3 mb-5">
               <div class="relative flex-1">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
@@ -178,11 +179,11 @@
                 <option value="PENDENTE">Pendentes</option>
                 <option value="CONTATADO">Contatados</option>
                 <option value="IGNORADO">Ignorados</option>
+                <option value="RETORNOU">Voltaram 🎉</option>
                 <option value="">Todos</option>
               </select>
             </div>
 
-            <!-- Desktop: Tabela -->
             <div class="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
               <table class="w-full text-left text-sm">
                 <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -196,20 +197,17 @@
                   </tr>
                 </thead>
                 <tbody id="tabelaFila" class="divide-y divide-slate-100">
-                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
-                    Aguardando carregamento…
-                  </td></tr>
+                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">Aguardando carregamento…</td></tr>
                 </tbody>
               </table>
             </div>
 
-            <!-- Mobile: Cards -->
             <div id="cardsFila" class="md:hidden space-y-3">
               <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
             </div>
           </div>
 
-          <!-- ========= ABA: REGRAS ========= -->
+          <!-- REGRAS -->
           <div id="tab-regras" class="hidden p-4 md:p-6">
             <div class="flex justify-between items-center mb-5">
               <div>
@@ -226,33 +224,26 @@
             </div>
           </div>
 
-          <!-- ========= ABA: RELATÓRIOS ========= -->
+          <!-- RELATÓRIOS -->
           <div id="tab-relatorios" class="hidden p-4 md:p-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Contatos por Semana</h4>
-                <div id="graficoContatos" class="h-48 flex items-end justify-around gap-2">
-                  <!-- Barras via JS -->
-                </div>
+                <div id="graficoContatos" class="h-48 flex items-end justify-around gap-2"></div>
               </div>
               <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
                 <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Tipos de Lead Mais Eficazes</h4>
-                <div id="rankingTipos" class="space-y-2">
-                  <!-- Ranking via JS -->
-                </div>
+                <div id="rankingTipos" class="space-y-2"></div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Rodapé de créditos -->
         <p class="text-[10px] text-slate-400 text-center mt-8 mb-4 uppercase tracking-widest font-bold">
           Central de Prospecção · Portal Inforteca © <span id="anoRodape"></span>
         </p>
 
       </div>
-      <!-- /VIEW: PROSPECÇÃO -->
-
     </div>
   </main>
 
@@ -268,16 +259,23 @@
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
+
       <div class="p-6">
-        <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-[#0e8890] hover:bg-slate-50 transition-colors cursor-pointer relative">
+        <!-- Upload -->
+        <div id="importUploadBox" class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-[#0e8890] hover:bg-slate-50 transition-colors cursor-pointer relative">
           <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="onArquivoSelecionado(this)">
           <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
           <p class="text-sm font-black text-slate-700" id="importNomeArquivo">Clique ou arraste o arquivo aqui</p>
           <p class="text-[10px] text-slate-400 mt-1">Formatos aceitos: .xlsx, .xls, .csv</p>
         </div>
-        <div id="importPreview" class="hidden mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs"></div>
+
+        <!-- Log de progresso -->
+        <div id="importPreview" class="hidden mt-4 p-3 bg-slate-900 text-slate-100 rounded-xl import-log"></div>
+
+        <!-- Alerta -->
         <div id="importAlerta" class="hidden text-xs p-3 rounded-xl border font-medium mt-4"></div>
       </div>
+
       <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
         <button onclick="fecharImportacao()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Cancelar</button>
         <button id="btnProcessarImport" onclick="processarImportacao()" disabled
@@ -293,7 +291,7 @@
 
   <script>
     /* ==========================================================
-       CONFIG & CLIENT
+       CONFIG
        ========================================================== */
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
@@ -307,8 +305,9 @@
     const state = {
       user: null,
       perfil: null,
-      leads: [],           // Todos os leads carregados
-      leadsFiltrados: [],  // Após filtros
+      _isAdmin: false,
+      leads: [],
+      leadsFiltrados: [],
       regras: [],
       filtros: { texto: '', tipo: '', status: 'PENDENTE' },
       arquivoSelecionado: null,
@@ -316,7 +315,7 @@
     };
 
     /* ==========================================================
-       UTILITÁRIOS
+       HELPERS
        ========================================================== */
     const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
       m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -345,31 +344,47 @@
       return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function diasDesde(dataStr) {
-      if (!dataStr) return 9999;
-      const d = new Date(dataStr);
-      if (isNaN(d.getTime())) return 9999;
-      const hoje = new Date(); hoje.setHours(0,0,0,0);
-      d.setHours(0,0,0,0);
-      return Math.floor((hoje - d) / 86400000);
+    function parseMoedaBR(v) {
+      if (v === null || v === undefined || v === '') return null;
+      if (typeof v === 'number' && isFinite(v)) return v;
+      let s = String(v).trim().replace(/[R$\s]/g, '');
+      if (!s) return null;
+      const temVirgula = s.includes(',');
+      const temPonto = s.includes('.');
+      if (temVirgula && temPonto) s = s.replace(/\./g, '').replace(',', '.');
+      else if (temVirgula) s = s.replace(',', '.');
+      const n = parseFloat(s);
+      return isNaN(n) ? null : n;
+    }
+
+    // Aceita Date, "dd/mm/aaaa" ou ISO "yyyy-mm-dd" → devolve ISO ou null
+    function parseDataISO(v) {
+      if (!v) return null;
+      if (v instanceof Date && !isNaN(v.getTime())) {
+        const y = v.getFullYear();
+        const m = String(v.getMonth() + 1).padStart(2, '0');
+        const d = String(v.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      const s = String(v).trim();
+      // dd/mm/aaaa
+      let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      if (m) {
+        const ano = m[3].length === 2 ? 2000 + +m[3] : +m[3];
+        return `${ano}-${String(+m[2]).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`;
+      }
+      // yyyy-mm-dd
+      m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
+      return null;
     }
 
     /* ==========================================================
        TOAST
        ========================================================== */
     function showToast(msg, tipo = 'success') {
-      const cores = {
-        success: 'bg-emerald-600',
-        error:   'bg-red-600',
-        info:    'bg-slate-800',
-        warning: 'bg-amber-500',
-      };
-      const icons = {
-        success: 'check-circle-2',
-        error:   'alert-triangle',
-        info:    'info',
-        warning: 'alert-circle',
-      };
+      const cores = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-slate-800', warning: 'bg-amber-500' };
+      const icons = { success: 'check-circle-2', error: 'alert-triangle', info: 'info', warning: 'alert-circle' };
       const toast = document.createElement('div');
       toast.className = `${cores[tipo] || cores.info} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-sm font-bold mb-2`;
       toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -401,7 +416,16 @@
         .from('perfis').select('*').eq('id', session.user.id).single();
       state.perfil = perfil || { nome_completo: session.user.email, permissao: 'Operador' };
 
-      // Popula rodapé
+      // ─── Checa se é admin ───
+      const { data: cargos } = await supabaseClient.from('cargos').select('*');
+      const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
+      state._isAdmin = meuCargo?.is_admin === true;
+
+      // Esconde botões admin-only para não-admins
+      if (!state._isAdmin) {
+        document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
+      }
+
       $('anoRodape').textContent = new Date().getFullYear();
     }
 
@@ -417,32 +441,27 @@
       ['fila', 'regras', 'relatorios'].forEach(t => {
         $(`tab-${t}`)?.classList.toggle('hidden', t !== nome);
       });
-
-      if (nome === 'fila')        carregarFila();
-      if (nome === 'regras')      carregarRegras();
-      if (nome === 'relatorios')  carregarRelatorios();
+      if (nome === 'fila')       carregarFila();
+      if (nome === 'regras')     carregarRegras();
+      if (nome === 'relatorios') carregarRelatorios();
     }
 
     /* ==========================================================
-       FILA DE TRABALHO
+       FILA DE TRABALHO (placeholder — Fase 5)
        ========================================================== */
     async function carregarFila() {
-      const tbody = $('tabelaFila');
-      const cards = $('cardsFila');
-      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
+      $('tabelaFila').innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
         <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2 text-[#0e8890]"></i> Carregando leads…
       </td></tr>`;
       lucide.createIcons();
 
-      // ⚠️ Placeholder — será implementado na Fase 5
-      // Por enquanto, apenas KPIs zerados
       state.leads = [];
       aplicarFiltro();
       atualizarKPIs();
     }
 
     function aplicarFiltro() {
-      state.filtros.texto  = $('filtroTexto').value.trim().toLowerCase();
+      state.filtros.texto  = ($('filtroTexto').value || '').trim().toLowerCase();
       state.filtros.tipo   = $('filtroTipo').value;
       state.filtros.status = $('filtroStatus').value;
 
@@ -471,39 +490,56 @@
       const cards = $('cardsFila');
 
       if (!state.leadsFiltrados.length) {
-        const vazio = `
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum lead encontrado.</td></tr>`;
+        cards.innerHTML = `
           <div class="text-center py-12">
             <i data-lucide="check-circle-2" class="w-10 h-10 mx-auto text-emerald-300 mb-3"></i>
             <p class="text-slate-500 font-bold text-sm">Nenhum lead nesta categoria 🎉</p>
             <p class="text-[11px] text-slate-400 mt-1">Importe uma planilha ou ajuste os filtros.</p>
           </div>`;
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum lead encontrado.</td></tr>`;
-        cards.innerHTML = vazio;
         lucide.createIcons();
         return;
       }
 
-      // Placeholder — será preenchido na Fase 5
       tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">
-        Fase 5 — Renderização será implementada aqui.
+        Renderização — Fase 5
       </td></tr>`;
     }
 
     async function atualizarKPIs() {
-      // Placeholder — Fase 5
-      $('kpiPendentes').textContent = '—';
-      $('kpiContatados').textContent = '—';
-      $('kpiVoltaram').textContent = '—';
-      $('kpiBase').textContent = '—';
+      // Conta base total de clientes
+      const { count: totalClientes } = await supabaseClient
+        .from('clientes').select('*', { count: 'exact', head: true });
+      $('kpiBase').textContent = (totalClientes || 0).toLocaleString('pt-BR');
 
-      // Barra de progresso
-      $('barraProgresso').style.width = '0%';
-      $('porcentagemProgresso').textContent = '0%';
-      $('textoProgresso').textContent = 'Aguardando primeiros leads';
+      // Conta leads
+      const { count: pendentes } = await supabaseClient
+        .from('prospeccao_leads').select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDENTE');
+      $('kpiPendentes').textContent = (pendentes || 0).toLocaleString('pt-BR');
+
+      const { count: contatados } = await supabaseClient
+        .from('prospeccao_leads').select('*', { count: 'exact', head: true })
+        .eq('status', 'CONTATADO');
+      $('kpiContatados').textContent = (contatados || 0).toLocaleString('pt-BR');
+
+      const { count: voltaram } = await supabaseClient
+        .from('prospeccao_leads').select('*', { count: 'exact', head: true })
+        .eq('status', 'RETORNOU');
+      $('kpiVoltaram').textContent = (voltaram || 0).toLocaleString('pt-BR');
+
+      // Barra de progresso (baseada em contatados / (pendentes+contatados))
+      const total = (pendentes || 0) + (contatados || 0);
+      const pct = total > 0 ? Math.min(100, Math.round(((contatados || 0) / total) * 100)) : 0;
+      $('barraProgresso').style.width = pct + '%';
+      $('porcentagemProgresso').textContent = pct + '%';
+      $('textoProgresso').textContent = total > 0
+        ? `${contatados || 0} contatados de ${total} leads ativos`
+        : 'Aguardando primeiros leads';
     }
 
     /* ==========================================================
-       REGRAS
+       REGRAS (placeholder — Fase 4)
        ========================================================== */
     async function carregarRegras() {
       const box = $('listaRegras');
@@ -513,22 +549,17 @@
       lucide.createIcons();
 
       const { data, error } = await supabaseClient
-        .from('prospeccao_regras')
-        .select('*')
+        .from('prospeccao_regras').select('*')
         .order('prioridade_base', { ascending: false });
 
       if (error) {
         box.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(error.message)}</div>`;
         return;
       }
-
       if (!data?.length) {
-        box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">
-          Nenhuma regra configurada. Rode o SQL inicial no Supabase.
-        </div>`;
+        box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">Nenhuma regra configurada.</div>`;
         return;
       }
-
       state.regras = data;
       box.innerHTML = data.map(r => regraHTML(r)).join('');
       lucide.createIcons();
@@ -539,9 +570,7 @@
       const linhas = Object.entries(cond).map(([k, v]) =>
         `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
           <strong class="text-slate-800">${escapeHTML(k)}:</strong> ${escapeHTML(String(v))}
-        </span>`
-      ).join(' ');
-
+        </span>`).join(' ');
       return `
         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-[#0e8890] transition-colors">
           <div class="flex justify-between items-start mb-2 gap-3">
@@ -562,25 +591,19 @@
     }
 
     async function recalcularBase() {
-      showToast('Motor de regras — em construção (Fase 4)', 'info');
+      showToast('Motor de regras — Fase 4', 'info');
     }
 
     /* ==========================================================
-       RELATÓRIOS
+       RELATÓRIOS (placeholder — Fase 6)
        ========================================================== */
     async function carregarRelatorios() {
-      $('graficoContatos').innerHTML = `
-        <div class="w-full text-center text-slate-400 text-sm italic py-12">
-          Fase 6 — Relatórios serão implementados aqui.
-        </div>`;
-      $('rankingTipos').innerHTML = `
-        <div class="text-center text-slate-400 text-xs italic py-8">
-          Aguardando dados suficientes…
-        </div>`;
+      $('graficoContatos').innerHTML = `<div class="w-full text-center text-slate-400 text-sm italic py-12">Fase 6</div>`;
+      $('rankingTipos').innerHTML = `<div class="text-center text-slate-400 text-xs italic py-8">Aguardando dados…</div>`;
     }
 
     /* ==========================================================
-       IMPORTAÇÃO
+       FASE 3 — IMPORTAÇÃO REAL
        ========================================================== */
     function abrirImportacao(tipo) {
       state.tipoImportacao = tipo;
@@ -596,8 +619,11 @@
       $('importFileInput').value = '';
       $('importNomeArquivo').textContent = 'Clique ou arraste o arquivo aqui';
       $('importPreview').classList.add('hidden');
+      $('importPreview').innerHTML = '';
       $('importAlerta').classList.add('hidden');
+      $('importUploadBox').style.display = '';
       $('btnProcessarImport').disabled = true;
+      $('btnProcessarImport').innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> Processar';
 
       $('modalImport').classList.remove('hidden');
       lucide.createIcons();
@@ -617,10 +643,330 @@
       $('btnProcessarImport').disabled = false;
     }
 
+    // ─── Normaliza nomes de coluna ───
+    function normCol(s) {
+      return String(s || '').toUpperCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[.\-_]/g, '')
+        .replace(/\s+/g, ' ');
+    }
+
+    // ─── Procura valor por nomes possíveis ───
+    function findCol(row, ...nomes) {
+      const map = {};
+      Object.keys(row).forEach(k => { map[normCol(k)] = row[k]; });
+      for (const n of nomes) {
+        const v = map[normCol(n)];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return undefined;
+    }
+
+    // ─── Lê arquivo XLSX/CSV ───
+    async function lerPlanilha(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'csv') {
+        return new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: 'greedy',
+            transformHeader: h => h.trim(),
+            complete: ({ data }) => resolve(data),
+            error: reject,
+          });
+        });
+      }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      return XLSX.utils.sheet_to_json(ws, { defval: '' });
+    }
+
+    // ─── Classifica categoria (Datasys) ───
+    function classificarCategoriaDatasys(modalidade, produto) {
+      const m = String(modalidade || '').toUpperCase();
+      const p = String(produto || '').toUpperCase();
+      if (/CHIP|E-?SIM/.test(m)) return 'CHIP';
+      if (/APARELHO/.test(m) || /APARELHO/.test(p)) return 'APARELHO';
+      if (/CONTROLE|POS|PÓS|MIGRA|PORTAB|ATIVA|PLANO/.test(m)) return 'PLANO';
+      if (/ACESSORIO|ACESSÓRIO/.test(m) || /ACESSORIO|ACESSÓRIO/.test(p)) return 'ACESSORIO';
+      return 'OUTROS';
+    }
+
+    // ─── Classifica categoria (Gestão Click) ───
+    function classificarCategoriaGestaoClick(produto) {
+      const p = String(produto || '').toUpperCase();
+      if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
+      if (/FONE|CAPA|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET/.test(p)) return 'ACESSORIO';
+      if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA/.test(p)) return 'APARELHO';
+      return 'OUTROS';
+    }
+
+    // ─── Mapeia Datasys ───
+    function mapearDatasys(linhas) {
+      const registros = [];
+      const ignorados = { semCpf: 0, semNome: 0, semData: 0 };
+      for (const row of linhas) {
+        const cpfRaw = findCol(row, 'CPF');
+        const cpf = normalizarCPF(cpfRaw);
+        if (cpf === '00000000000' || cpf.length !== 11) { ignorados.semCpf++; continue; }
+
+        const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
+        if (!nome) { ignorados.semNome++; continue; }
+
+        const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
+        if (!dataVendaISO) { ignorados.semData++; continue; }
+
+        const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
+        const gsm = normalizarTelefone(findCol(row, 'GSM'));
+        const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
+        const produto = String(findCol(row, 'Produto') || '').trim();
+        const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
+        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+        const imei = String(findCol(row, 'IMEI') || '').trim();
+        const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
+        const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
+
+        registros.push({
+          cpf,
+          nome: capitalizar(nome),
+          telefone: celular || gsm,
+          dataVenda: dataVendaISO,
+          modalidade,
+          categoria: classificarCategoriaDatasys(modalidade, produto),
+          produto: produto || plano || modalidade || 'Venda Datasys',
+          plano,
+          vendedor,
+          imei,
+          fidelizacao,
+          valorTotal: valorReceita || 0,
+          dadosOriginais: row,
+        });
+      }
+      return { registros, ignorados };
+    }
+
+    // ─── Mapeia Gestão Click ───
+    function mapearGestaoClick(linhas) {
+      const registros = [];
+      const ignorados = { semCpf: 0, semNome: 0, semData: 0 };
+      for (const row of linhas) {
+        const cpfRaw = findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF');
+        const cpf = normalizarCPF(cpfRaw);
+        if (cpf === '00000000000' || cpf.length !== 11) { ignorados.semCpf++; continue; }
+
+        const nome = String(findCol(row, 'Cliente') || '').trim();
+        if (!nome) { ignorados.semNome++; continue; }
+
+        const dataVendaISO = parseDataISO(findCol(row, 'Data'));
+        if (!dataVendaISO) { ignorados.semData++; continue; }
+
+        const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
+        const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
+        const produto = String(findCol(row, 'Produto') || '').trim();
+        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+        const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
+
+        registros.push({
+          cpf,
+          nome: capitalizar(nome),
+          telefone: celular || tel,
+          dataVenda: dataVendaISO,
+          modalidade: 'VENDA GESTAO CLICK',
+          categoria: classificarCategoriaGestaoClick(produto),
+          produto: produto || 'Venda Gestão Click',
+          plano: null,
+          vendedor,
+          imei: null,
+          fidelizacao: null,
+          valorTotal: valorTotal || 0,
+          dadosOriginais: row,
+        });
+      }
+      return { registros, ignorados };
+    }
+
+    // ─── Log na UI do modal ───
+    function importLog(msg, nivel = 'info') {
+      const cores = {
+        info:    'text-slate-300',
+        success: 'text-emerald-400',
+        error:   'text-red-400',
+        warn:    'text-amber-400',
+      };
+      const box = $('importPreview');
+      box.classList.remove('hidden');
+      const linha = document.createElement('div');
+      linha.className = cores[nivel] || cores.info;
+      linha.textContent = msg;
+      box.appendChild(linha);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ─── Processa a importação ───
     async function processarImportacao() {
-      // Fase 3 — será implementada aqui
-      showToast('Processamento será implementado na Fase 3', 'info');
-      fecharImportacao();
+      const arquivo = state.arquivoSelecionado;
+      const tipo = state.tipoImportacao;
+      if (!arquivo || !tipo) return;
+
+      const btn = $('btnProcessarImport');
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processando…';
+      $('importAlerta').classList.add('hidden');
+      $('importPreview').innerHTML = '';
+      $('importPreview').classList.remove('hidden');
+      lucide.createIcons();
+
+      try {
+        // 1) Ler arquivo
+        importLog(`📖 Lendo arquivo "${arquivo.name}"...`);
+        const linhas = await lerPlanilha(arquivo);
+        if (!linhas?.length) throw new Error('Arquivo vazio ou sem dados.');
+        importLog(`✅ ${linhas.length} linhas lidas`, 'success');
+
+        // 2) Mapear
+        const { registros, ignorados } = tipo === 'datasys'
+          ? mapearDatasys(linhas)
+          : mapearGestaoClick(linhas);
+
+        if (!registros.length) {
+          throw new Error(`Nenhum registro válido. Ignorados: ${
+            Object.entries(ignorados).filter(([,v]) => v).map(([k,v]) => `${v} ${k}`).join(', ') || 'sem dados'
+          }`);
+        }
+
+        const partes = [`✅ ${registros.length} registros válidos`];
+        if (ignorados.semCpf)  partes.push(`${ignorados.semCpf} sem CPF`);
+        if (ignorados.semNome) partes.push(`${ignorados.semNome} sem nome`);
+        if (ignorados.semData) partes.push(`${ignorados.semData} sem data`);
+        importLog(partes.join(' · '), 'success');
+
+        // 3) Deduplica CPFs
+        const cpfsUnicos = [...new Set(registros.map(r => r.cpf))];
+        importLog(`👥 ${cpfsUnicos.length} clientes únicos (por CPF)`);
+
+        // 4) Buscar clientes existentes
+        importLog(`🔎 Consultando clientes na base...`);
+        const existentes = {};
+        const TAM_LOTE = 400;
+        for (let i = 0; i < cpfsUnicos.length; i += TAM_LOTE) {
+          const lote = cpfsUnicos.slice(i, i + TAM_LOTE);
+          const { data, error } = await supabaseClient
+            .from('clientes')
+            .select('id, cpf, ultima_compra, total_compras, total_gasto, telefone_principal')
+            .in('cpf', lote);
+          if (error) throw error;
+          (data || []).forEach(c => { existentes[c.cpf] = c; });
+        }
+        const novos = cpfsUnicos.filter(c => !existentes[c]);
+        importLog(`📊 ${Object.keys(existentes).length} clientes existentes · ${novos.length} novos`, 'success');
+
+        // 5) Monta payload de clientes (upsert por CPF)
+        const clientesMap = new Map();
+        const interacoesTemp = [];
+
+        for (const r of registros) {
+          const atual = clientesMap.get(r.cpf) || existentes[r.cpf] || {};
+          const ultimaCompraAtual = atual.ultima_compra || '';
+          const novaUltima = r.dataVenda > ultimaCompraAtual ? r.dataVenda : ultimaCompraAtual;
+
+          clientesMap.set(r.cpf, {
+            ...(atual.id ? { id: atual.id } : {}),
+            cpf: r.cpf,
+            nome: r.nome,
+            telefone_principal: r.telefone || atual.telefone_principal || null,
+            ultima_compra: novaUltima || null,
+            total_compras: (atual.total_compras || 0) + 1,
+            total_gasto: (atual.total_gasto || 0) + (r.valorTotal || 0),
+            updated_at: new Date().toISOString(),
+          });
+
+          interacoesTemp.push({
+            _cpf: r.cpf,
+            tipo_fonte: tipo === 'datasys' ? 'DATASYS' : 'GESTAO_CLICK',
+            data_venda: r.dataVenda,
+            produto: r.produto,
+            categoria: r.categoria,
+            modalidade: r.modalidade,
+            valor_total: r.valorTotal,
+            vendedor: r.vendedor,
+            status_contrato: null,
+            imei: r.imei,
+            plano: r.plano,
+            fidelizacao: r.fidelizacao,
+            dados_originais: r.dadosOriginais,
+          });
+        }
+
+        // 6) Upsert clientes em lotes
+        const clientesArr = Array.from(clientesMap.values());
+        importLog(`💾 Salvando ${clientesArr.length} clientes...`);
+        const cpfParaId = {};
+        for (let i = 0; i < clientesArr.length; i += TAM_LOTE) {
+          const lote = clientesArr.slice(i, i + TAM_LOTE);
+          const { data, error } = await supabaseClient
+            .from('clientes')
+            .upsert(lote, { onConflict: 'cpf' })
+            .select('id, cpf');
+          if (error) throw new Error('Erro ao salvar clientes: ' + error.message);
+          (data || []).forEach(c => { cpfParaId[c.cpf] = c.id; });
+          importLog(`   → ${Object.keys(cpfParaId).length}/${clientesArr.length}`);
+        }
+        importLog(`✅ ${Object.keys(cpfParaId).length} clientes salvos`, 'success');
+
+        // 7) Inserir interações em lotes
+        const interacoesFinal = interacoesTemp
+          .filter(i => cpfParaId[i._cpf])
+          .map(({ _cpf, ...resto }) => ({ ...resto, cliente_id: cpfParaId[_cpf] }));
+
+        importLog(`📝 Inserindo ${interacoesFinal.length} interações...`);
+        let inseridas = 0;
+        for (let i = 0; i < interacoesFinal.length; i += TAM_LOTE) {
+          const lote = interacoesFinal.slice(i, i + TAM_LOTE);
+          const { error } = await supabaseClient.from('interacoes').insert(lote);
+          if (error) importLog(`   ⚠️ Lote ${i}: ${error.message}`, 'warn');
+          else inseridas += lote.length;
+          importLog(`   → ${inseridas}/${interacoesFinal.length}`);
+        }
+        importLog(`✅ ${inseridas} interações registradas`, 'success');
+
+        // 8) Marcar leads RETORNOU
+        const clienteIds = Object.values(cpfParaId);
+        if (clienteIds.length) {
+          const { data: atualizados, error } = await supabaseClient
+            .from('prospeccao_leads')
+            .update({
+              status: 'RETORNOU',
+              data_retorno_cliente: new Date().toISOString(),
+            })
+            .in('cliente_id', clienteIds)
+            .in('status', ['PENDENTE', 'CONTATADO'])
+            .select('id');
+          if (!error && atualizados?.length) {
+            importLog(`🎉 ${atualizados.length} cliente(s) voltaram — leads marcados como RETORNOU`, 'success');
+          }
+        }
+
+        // 9) Finalizar
+        importLog(`🎉 Importação concluída com sucesso!`, 'success');
+        showToast(`${inseridas} interações importadas`, 'success');
+
+        setTimeout(() => {
+          fecharImportacao();
+          recarregarTudo();
+        }, 2200);
+
+      } catch (err) {
+        console.error('[Import]', err);
+        importLog(`❌ ${err.message}`, 'error');
+        const alertBox = $('importAlerta');
+        alertBox.textContent = err.message;
+        alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600 mt-4';
+        alertBox.classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> Processar';
+        lucide.createIcons();
+      }
     }
 
     /* ==========================================================
@@ -641,7 +987,6 @@
       carregarFila();
     });
 
-    // Fecha modal com ESC
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !$('modalImport')?.classList.contains('hidden')) {
         fecharImportacao();
