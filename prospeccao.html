@@ -1016,16 +1016,16 @@ function mapearGestaoClick(linhas) {
           const ultimaCompraAtual = atual.ultima_compra || '';
           const novaUltima = r.dataVenda > ultimaCompraAtual ? r.dataVenda : ultimaCompraAtual;
 
-          clientesMap.set(r.cpf, {
-            ...(atual.id ? { id: atual.id } : {}),
-            cpf: r.cpf,
-            nome: r.nome,
-            telefone_principal: r.telefone || atual.telefone_principal || null,
-            ultima_compra: novaUltima || null,
-            total_compras: (atual.total_compras || 0) + 1,
-            total_gasto: (atual.total_gasto || 0) + (r.valorTotal || 0),
-            updated_at: new Date().toISOString(),
-          });
+      clientesMap.set(r.cpf, {
+        // ⚠️ NUNCA mandar 'id' — o Supabase resolve via CPF (onConflict)
+        cpf: r.cpf,
+        nome: r.nome,
+        telefone_principal: r.telefone || atual.telefone_principal || null,
+        ultima_compra: novaUltima || null,
+        total_compras: (atual.total_compras || 0) + 1,
+        total_gasto: (atual.total_gasto || 0) + (r.valorTotal || 0),
+        updated_at: new Date().toISOString(),
+      });
 
           interacoesTemp.push({
             _cpf: r.cpf,
