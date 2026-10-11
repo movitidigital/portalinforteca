@@ -636,15 +636,15 @@
       const botoes = (retornou || ignorado)
         ? `<span class="text-[10px] text-slate-400 italic">—</span>`
         : (contatado
-            ? `<button onclick="enviarNovamente(${l.id})" class="text-[10px] font-black text-slate-500 hover:text-[#0e8890] underline">Reenviar</button>`
-            : `<div class="flex flex-col md:flex-row gap-2 items-center justify-center">
-                <button onclick="abrirOpcoesLead(${l.id})" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase shadow-sm flex items-center gap-1.5 transition-colors">
-                  <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Enviar
-                </button>
-                <button onclick="ignorarLead(${l.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Ignorar lead">
-                  <i data-lucide="eye-off" class="w-4 h-4"></i>
-                </button>
-              </div>`);
+            ? `<button onclick="enviarNovamente('${l.id}')" class="text-[10px] font-black text-slate-500 hover:text-[#0e8890] underline">Reenviar</button>`
+: `<div class="flex flex-col md:flex-row gap-2 items-center justify-center">
+    <button onclick="abrirOpcoesLead('${l.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase shadow-sm flex items-center gap-1.5 transition-colors">
+      <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Enviar
+    </button>
+    <button onclick="ignorarLead('${l.id}')" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Ignorar lead">
+      <i data-lucide="eye-off" class="w-4 h-4"></i>
+    </button>
+  </div>`);
 
       return `
         <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 text-xs">
@@ -692,16 +692,16 @@
 
       const botoes = (retornou || ignorado)
         ? `<span class="text-[10px] text-slate-400 italic">Sem ações</span>`
-        : (contatado
-            ? `<button onclick="enviarNovamente(${l.id})" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-black uppercase">Reenviar</button>`
-            : `<div class="flex gap-2">
-                <button onclick="abrirOpcoesLead(${l.id})" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-xs font-black uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95">
-                  <i data-lucide="message-circle" class="w-4 h-4"></i> Enviar WhatsApp
-                </button>
-                <button onclick="ignorarLead(${l.id})" class="bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 px-3 rounded-xl transition-colors" title="Ignorar">
-                  <i data-lucide="eye-off" class="w-4 h-4"></i>
-                </button>
-              </div>`);
+: (contatado
+    ? `<button onclick="enviarNovamente('${l.id}')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-black uppercase">Reenviar</button>`
+    : `<div class="flex gap-2">
+        <button onclick="abrirOpcoesLead('${l.id}')" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-xs font-black uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95">
+          <i data-lucide="message-circle" class="w-4 h-4"></i> Enviar WhatsApp
+        </button>
+        <button onclick="ignorarLead('${l.id}')" class="bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 px-3 rounded-xl transition-colors" title="Ignorar">
+          <i data-lucide="eye-off" class="w-4 h-4"></i>
+        </button>
+      </div>`);
 
       return `
         <div class="lead-card bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
