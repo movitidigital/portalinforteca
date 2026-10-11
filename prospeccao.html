@@ -242,43 +242,43 @@
 <div id="tab-importacoes" class="hidden p-4 md:p-6">
 
   <!-- Stats -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="calendar-check" class="w-4 h-4 text-[#0e8890]"></i>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dias Importados</p>
-      </div>
-      <h3 id="impStatDias" class="text-2xl font-black text-slate-800">—</h3>
-      <p class="text-[10px] text-slate-400 mt-1">neste mês</p>
-    </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="calendar-check" class="w-4 h-4 text-[#0e8890]"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dias com Venda</p>
+          </div>
+          <h3 id="impStatDias" class="text-2xl font-black text-slate-800">—</h3>
+          <p class="text-[10px] text-slate-400 mt-1">no mês</p>
+        </div>
 
-    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dias em Falta</p>
-      </div>
-      <h3 id="impStatFaltas" class="text-2xl font-black text-red-600">—</h3>
-      <p class="text-[10px] text-slate-400 mt-1">dias úteis sem importar</p>
-    </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="trending-up" class="w-4 h-4 text-red-500"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Maior Dia</p>
+          </div>
+          <h3 id="impStatFaltas" class="text-2xl font-black text-red-600">—</h3>
+          <p class="text-[10px] text-slate-400 mt-1">vendas em 1 dia</p>
+        </div>
 
-    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="flame" class="w-4 h-4 text-amber-500"></i>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sequência</p>
-      </div>
-      <h3 id="impStatStreak" class="text-2xl font-black text-amber-600">—</h3>
-      <p class="text-[10px] text-slate-400 mt-1">dias consecutivos</p>
-    </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-indigo-500"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Datasys</p>
+          </div>
+          <h3 id="impStatStreak" class="text-2xl font-black text-indigo-600">—</h3>
+          <p class="text-[10px] text-slate-400 mt-1">registros no mês</p>
+        </div>
 
-    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-      <div class="flex items-center gap-2 mb-1">
-        <i data-lucide="file-stack" class="w-4 h-4 text-indigo-500"></i>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Registros</p>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="shopping-bag" class="w-4 h-4 text-amber-500"></i>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gestão Click</p>
+          </div>
+          <h3 id="impStatRegistros" class="text-2xl font-black text-amber-600">—</h3>
+          <p class="text-[10px] text-slate-400 mt-1">registros no mês</p>
+        </div>
       </div>
-      <h3 id="impStatRegistros" class="text-2xl font-black text-indigo-600">—</h3>
-      <p class="text-[10px] text-slate-400 mt-1">no mês atual</p>
-    </div>
-  </div>
 
   <!-- Navegação do calendário -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mb-4 flex items-center justify-between">
@@ -1853,20 +1853,41 @@
       const inicioISO = toISO(inicio);
       const fimISO = toISO(fim);
 
-      // Busca imports do mês
+      // 📅 Busca VENDAS agrupadas por DATA DE VENDA (não por data de importação)
       const { data, error } = await supabaseClient
-        .from('importacoes_log')
-        .select('*')
-        .gte('data_importacao', inicioISO)
-        .lte('data_importacao', fimISO)
-        .order('data_importacao', { ascending: true });
+        .from('interacoes')
+        .select('data_venda, tipo_fonte, cliente_id')
+        .gte('data_venda', inicioISO)
+        .lte('data_venda', fimISO)
+        .order('data_venda', { ascending: true });
 
       if (error) {
-        showToast('Erro ao carregar importações: ' + error.message, 'error');
+        showToast('Erro ao carregar vendas: ' + error.message, 'error');
         return;
       }
 
-      state._importacoesMes = data || [];
+      // Agrupa por dia + tipo, contando CLIENTES ÚNICOS
+      const porDia = {};
+      (data || []).forEach(i => {
+        const dia = i.data_venda;
+        if (!porDia[dia]) porDia[dia] = { datasys: 0, gestao: 0, total: 0, clientes: new Set() };
+
+        if (i.tipo_fonte === 'DATASYS') porDia[dia].datasys++;
+        else porDia[dia].gestao++;
+        porDia[dia].total++;
+        porDia[dia].clientes.add(i.cliente_id);
+      });
+
+      // Converte Sets em contagem
+      state._vendasMes = {};
+      Object.keys(porDia).forEach(dia => {
+        state._vendasMes[dia] = {
+          datasys: porDia[dia].datasys,
+          gestao: porDia[dia].gestao,
+          total: porDia[dia].total,
+          clientesUnicos: porDia[dia].clientes.size,
+        };
+      });
 
       renderCalendarioImportacoes();
       atualizarStatsImportacoes();
@@ -1877,25 +1898,11 @@
       const ano = d.getFullYear();
       const mes = d.getMonth();
 
-      // Nomes dos meses
       const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
       $('impMesAtual').textContent = `${MESES[mes]} / ${ano}`;
 
-      // Agrupa imports por dia (com somatório de registros por tipo)
-      const porDia = {};
-      state._importacoesMes.forEach(imp => {
-        if (!porDia[imp.data_importacao]) {
-          porDia[imp.data_importacao] = { datasys: 0, gestao: 0, total: 0 };
-        }
-        if (imp.tipo === 'DATASYS') {
-          porDia[imp.data_importacao].datasys += (imp.total_registros || 0);
-        } else {
-          porDia[imp.data_importacao].gestao += (imp.total_registros || 0);
-        }
-        porDia[imp.data_importacao].total += (imp.total_registros || 0);
-      });
+      const vendasMes = state._vendasMes || {};
 
-      // Descobre o primeiro dia da semana do dia 1
       const primeiroDia = new Date(ano, mes, 1).getDay();
       const diasNoMes = new Date(ano, mes + 1, 0).getDate();
 
@@ -1915,11 +1922,9 @@
         const dataISO = toISO(dataAtual);
         const diaSemana = dataAtual.getDay();
         const ehFimDeSemana = diaSemana === 0 || diaSemana === 6;
-        const ehFuturo = dataAtual > hoje;
-        const ehHoje = dataAtual.getTime() === hoje.getTime();
 
-        const info = porDia[dataISO];
-        const temImport = info && info.total > 0;
+        const info = vendasMes[dataISO];
+        const temVenda = info && info.total > 0;
         const qtdDatasys = info?.datasys || 0;
         const qtdGestao = info?.gestao || 0;
 
@@ -1927,27 +1932,32 @@
         let bgClass = 'bg-slate-50 hover:bg-slate-100';
         let borderClass = 'border-slate-200';
 
-        if (ehFimDeSemana) {
+        if (ehFimDeSemana && !temVenda) {
           bgClass = 'bg-slate-50/40';
-        } else if (ehFuturo) {
-          bgClass = 'bg-slate-50/50';
-        } else if (temImport) {
-          bgClass = 'bg-emerald-50/60 hover:bg-emerald-100/60';
-          borderClass = 'border-emerald-300';
+        } else if (temVenda) {
+          // 🔥 Dia com venda → verde
+          const total = info.total;
+          if (total >= 30) {
+            bgClass = 'bg-emerald-100 hover:bg-emerald-200';
+            borderClass = 'border-emerald-400';
+          } else if (total >= 10) {
+            bgClass = 'bg-emerald-50 hover:bg-emerald-100';
+            borderClass = 'border-emerald-300';
+          } else {
+            bgClass = 'bg-emerald-50/60 hover:bg-emerald-100';
+            borderClass = 'border-emerald-200';
+          }
         } else {
-          // Dia útil no passado sem importar
-          bgClass = 'bg-red-50/60 hover:bg-red-100';
-          borderClass = 'border-red-300';
+          // Dia sem venda
+          bgClass = 'bg-slate-50/60';
+          borderClass = 'border-slate-200';
         }
 
-        if (ehHoje) borderClass = 'border-[#0e8890] border-2';
+        if (dataAtual.getTime() === hoje.getTime()) {
+          borderClass = 'border-[#0e8890] border-2';
+        }
 
-        // Alerta de dia útil sem importar
-        const alerta = (!ehFimDeSemana && !ehFuturo && !temImport)
-          ? '<i data-lucide="alert-triangle" class="w-3 h-3 text-red-500 absolute top-1 right-1"></i>'
-          : '';
-
-        // NOVO: contagens por tipo
+        // Contagens
         let contagens = '';
         if (qtdDatasys > 0 || qtdGestao > 0) {
           contagens = '<div class="flex flex-col gap-0.5 mt-1">';
@@ -1968,13 +1978,12 @@
           contagens += '</div>';
         }
 
-        const clickable = temImport || (!ehFimDeSemana && !ehFuturo);
+        const clickable = temVenda;
         const onclick = clickable ? `onclick="abrirDetalhesDia('${dataISO}')"` : '';
 
         html += `
           <div ${onclick} class="aspect-square relative rounded-lg border ${borderClass} ${bgClass} p-1.5 md:p-2 flex flex-col ${clickable ? 'cursor-pointer' : ''} transition-all overflow-hidden">
-            ${alerta}
-            <span class="text-xs md:text-sm font-black ${ehHoje ? 'text-[#0e8890]' : 'text-slate-700'}">${dia}</span>
+            <span class="text-xs md:text-sm font-black ${dataAtual.getTime() === hoje.getTime() ? 'text-[#0e8890]' : 'text-slate-700'}">${dia}</span>
             ${contagens}
           </div>`;
       }
@@ -1984,45 +1993,24 @@
     }
 
     function atualizarStatsImportacoes() {
-      const d = state._mesCalendario;
-      const ano = d.getFullYear();
-      const mes = d.getMonth();
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
+      const vendasMes = state._vendasMes || {};
+      const dias = Object.keys(vendasMes);
 
-      // Conta dias úteis no mês
-      const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-      let diasUteis = 0;
-      let diasImportados = new Set();
+      // Conta dias úteis que tiveram venda vs. dias sem venda
+      const diasComVenda = dias.length;
+      const totalDatasys = dias.reduce((s, d) => s + vendasMes[d].datasys, 0);
+      const totalGestao = dias.reduce((s, d) => s + vendasMes[d].gestao, 0);
+      const totalGeral = totalDatasys + totalGestao;
 
-      for (let dia = 1; dia <= diasNoMes; dia++) {
-        const dataAtual = new Date(ano, mes, dia);
-        const diaSemana = dataAtual.getDay();
+      // Maior valor do mês (para escala)
+      const maiorDia = dias.reduce((max, d) => Math.max(max, vendasMes[d].total), 0);
 
-        // Só conta até hoje
-        if (dataAtual > hoje) continue;
+      $('impStatDias').textContent = diasComVenda;
+      $('impStatFaltas').textContent = maiorDia > 0 ? `Máx: ${maiorDia}` : '—';
+      $('impStatStreak').textContent = totalDatasys.toLocaleString('pt-BR');
+      $('impStatRegistros').textContent = totalGestao.toLocaleString('pt-BR');
 
-        // Só dias úteis
-        if (diaSemana === 0 || diaSemana === 6) continue;
-
-        diasUteis++;
-      }
-
-      // Conta dias com imports
-      state._importacoesMes.forEach(i => diasImportados.add(i.data_importacao));
-
-      const faltas = Math.max(0, diasUteis - diasImportados.size);
-      const totalRegistros = state._importacoesMes.reduce((s, i) => s + (i.total_registros || 0), 0);
-
-      $('impStatDias').textContent = diasImportados.size;
-      $('impStatFaltas').textContent = faltas;
-      $('impStatRegistros').textContent = totalRegistros.toLocaleString('pt-BR');
-
-      // Resumo do mês
-      $('impMesResumo').textContent = `${diasImportados.size} de ${diasUteis} dias úteis importados`;
-
-      // Streak (dias consecutivos até hoje)
-      calcularStreak();
+      $('impMesResumo').textContent = `${totalGeral} vendas · ${diasComVenda} dias com movimento`;
     }
 
     function calcularStreak() {
@@ -2067,100 +2055,116 @@
       carregarCalendarioImportacoes();
     }
 
-    function abrirDetalhesDia(dataISO) {
-      const imports = state._importacoesMes.filter(i => i.data_importacao === dataISO);
+    async function abrirDetalhesDia(dataISO) {
       const d = new Date(dataISO + 'T12:00:00');
       const dataFmt = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
       $('diaImportData').textContent = dataFmt;
+      $('diaImportConteudo').innerHTML = `
+        <div class="text-center py-8">
+          <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
+          <p class="text-slate-500 text-sm">Carregando vendas do dia…</p>
+        </div>`;
+      $('modalDiaImport').classList.remove('hidden');
+      lucide.createIcons();
 
-      if (!imports.length) {
-        $('diaImportConteudo').innerHTML = `
-          <div class="text-center py-8">
-            <i data-lucide="inbox" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-            <p class="text-slate-500 font-bold text-sm">Nenhuma importação neste dia</p>
-            <p class="text-[11px] text-slate-400 mt-1">Se foi um dia útil, considere importar as planilhas pendentes.</p>
-          </div>`;
-      } else {
-        // Consolida por tipo
-        const datasys = imports.filter(i => i.tipo === 'DATASYS');
-        const gestao = imports.filter(i => i.tipo === 'GESTAO_CLICK');
+      // Busca todas as vendas do dia
+      const { data, error } = await supabaseClient
+        .from('interacoes')
+        .select(`
+          id, tipo_fonte, produto, categoria, modalidade, valor_total,
+          vendedor, plano,
+          cliente:clientes(nome, cpf, telefone_principal)
+        `)
+        .eq('data_venda', dataISO)
+        .order('tipo_fonte', { ascending: true })
+        .order('valor_total', { ascending: false });
 
-        const somaDatasys = datasys.reduce((s, i) => s + (i.total_registros || 0), 0);
-        const somaGestao = gestao.reduce((s, i) => s + (i.total_registros || 0), 0);
-        const totalGeral = somaDatasys + somaGestao;
-
-        // Bloco de resumo
-        let html = `
-          <div class="bg-gradient-to-br from-[#000033] to-[#0e8890] rounded-2xl p-5 mb-5 text-white">
-            <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-3">Total do dia</p>
-            <div class="flex items-center gap-6 flex-wrap">
-              <div>
-                <p class="text-3xl font-black">${totalGeral.toLocaleString('pt-BR')}</p>
-                <p class="text-[10px] font-bold uppercase opacity-70 mt-0.5">registros importados</p>
-              </div>
-              <div class="flex gap-4 text-xs font-bold flex-wrap">
-                ${somaDatasys > 0 ? `
-                  <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
-                    <span class="w-2 h-2 rounded-full bg-indigo-300"></span>
-                    ${somaDatasys.toLocaleString('pt-BR')} Datasys
-                  </span>` : ''}
-                ${somaGestao > 0 ? `
-                  <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
-                    <span class="w-2 h-2 rounded-full bg-amber-300"></span>
-                    ${somaGestao.toLocaleString('pt-BR')} Gestão Click
-                  </span>` : ''}
-              </div>
-            </div>
-          </div>
-        `;
-
-        // Blocos individuais
-        html += imports.map(i => {
-          const tipoInfo = i.tipo === 'DATASYS'
-            ? { label: 'Datasys', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'file-spreadsheet' }
-            : { label: 'Gestão Click', cor: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'shopping-bag' };
-
-          const hora = new Date(i.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-          return `
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3">
-              <div class="flex justify-between items-start mb-3">
-                <div class="flex items-center gap-2">
-                  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md ${tipoInfo.cor} border text-[10px] font-black uppercase">
-                    <i data-lucide="${tipoInfo.icon}" class="w-3 h-3"></i> ${tipoInfo.label}
-                  </span>
-                  <span class="text-[10px] font-mono text-slate-400">${hora}</span>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-3 gap-2 text-center">
-                <div class="bg-white rounded-lg p-2 border border-slate-200">
-                  <p class="text-[9px] font-black text-slate-400 uppercase">Registros</p>
-                  <p class="text-sm font-black text-slate-800">${(i.total_registros || 0).toLocaleString('pt-BR')}</p>
-                </div>
-                <div class="bg-white rounded-lg p-2 border border-emerald-200">
-                  <p class="text-[9px] font-black text-emerald-500 uppercase">Novos</p>
-                  <p class="text-sm font-black text-emerald-600">${(i.total_clientes_novos || 0).toLocaleString('pt-BR')}</p>
-                </div>
-                <div class="bg-white rounded-lg p-2 border border-indigo-200">
-                  <p class="text-[9px] font-black text-indigo-500 uppercase">Atualizados</p>
-                  <p class="text-sm font-black text-indigo-600">${(i.total_clientes_atualizados || 0).toLocaleString('pt-BR')}</p>
-                </div>
-              </div>
-
-              ${i.arquivo_nome ? `
-                <p class="text-[10px] text-slate-400 mt-3 truncate">
-                  <i data-lucide="file" class="w-3 h-3 inline mr-1"></i>
-                  ${escapeHTML(i.arquivo_nome)}
-                </p>` : ''}
-            </div>`;
-        }).join('');
-
-        $('diaImportConteudo').innerHTML = html;
+      if (error) {
+        $('diaImportConteudo').innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(error.message)}</div>`;
+        return;
       }
 
-      $('modalDiaImport').classList.remove('hidden');
+      const vendas = data || [];
+      const totalDatasys = vendas.filter(v => v.tipo_fonte === 'DATASYS').length;
+      const totalGestao = vendas.filter(v => v.tipo_fonte === 'GESTAO_CLICK').length;
+
+      // Clientes únicos
+      const clientesUnicos = new Set(vendas.map(v => v.cliente?.cpf).filter(Boolean)).size;
+
+      // Valor total
+      const valorTotal = vendas.reduce((s, v) => s + (Number(v.valor_total) || 0), 0);
+
+      let html = `
+        <div class="bg-gradient-to-br from-[#000033] to-[#0e8890] rounded-2xl p-5 mb-5 text-white">
+          <p class="text-[10px] font-black uppercase tracking-widest opacity-80 mb-3">Resumo do dia</p>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <p class="text-2xl font-black">${vendas.length}</p>
+              <p class="text-[9px] font-bold uppercase opacity-70">Vendas</p>
+            </div>
+            <div>
+              <p class="text-2xl font-black">${clientesUnicos}</p>
+              <p class="text-[9px] font-bold uppercase opacity-70">Clientes</p>
+            </div>
+            <div>
+              <p class="text-2xl font-black">${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</p>
+              <p class="text-[9px] font-bold uppercase opacity-70">Valor</p>
+            </div>
+          </div>
+          <div class="flex gap-4 mt-4 text-xs font-bold flex-wrap">
+            ${totalDatasys > 0 ? `
+              <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
+                <span class="w-2 h-2 rounded-full bg-indigo-300"></span>
+                ${totalDatasys} Datasys
+              </span>` : ''}
+            ${totalGestao > 0 ? `
+              <span class="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-lg">
+                <span class="w-2 h-2 rounded-full bg-amber-300"></span>
+                ${totalGestao} Gestão Click
+              </span>` : ''}
+          </div>
+        </div>`;
+
+      if (!vendas.length) {
+        html += `
+          <div class="text-center py-8">
+            <i data-lucide="inbox" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+            <p class="text-slate-500 font-bold text-sm">Nenhuma venda neste dia</p>
+          </div>`;
+      } else {
+        // Lista de vendas
+        html += `
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Vendas do dia</p>
+          <div class="space-y-2">
+            ${vendas.map(v => {
+              const tipo = v.tipo_fonte === 'DATASYS'
+                ? { label: 'DATASYS', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200' }
+                : { label: 'GESTÃO CLICK', cor: 'bg-amber-50 text-amber-700 border-amber-200' };
+
+              const nomeCliente = capitalizar(v.cliente?.nome || 'Cliente');
+              const tel = v.cliente?.telefone_principal || '—';
+
+              return `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-start gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <span class="badge-tipo ${tipo.cor} text-[8px]">${tipo.label}</span>
+                      <span class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(v.categoria || '—')}</span>
+                    </div>
+                    <p class="font-bold text-slate-800 text-sm uppercase truncate">${escapeHTML(nomeCliente)}</p>
+                    <p class="text-[10px] text-slate-500 truncate mt-0.5">${escapeHTML(v.produto || '—')}</p>
+                    ${v.vendedor ? `<p class="text-[9px] text-slate-400 mt-1">Vendido por: <strong>${escapeHTML(v.vendedor)}</strong></p>` : ''}
+                  </div>
+                  <div class="text-right shrink-0">
+                    <p class="text-sm font-black text-emerald-600">${Number(v.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>`;
+      }
+
+      $('diaImportConteudo').innerHTML = html;
       lucide.createIcons();
     }
 
