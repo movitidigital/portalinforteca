@@ -95,6 +95,30 @@
         </div>
       </div>
 
+            <!-- Card do Painel da Equipe (só admin) -->
+      <div id="cardAdmin" style="display: none;" class="mb-6 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-5 shadow-lg shadow-indigo-500/20">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div class="flex items-center gap-4">
+            <div class="p-3 bg-white/15 backdrop-blur rounded-xl shrink-0">
+              <i data-lucide="shield-check" class="w-7 h-7 text-white"></i>
+            </div>
+            <div>
+              <p class="text-[10px] font-black text-white/70 uppercase tracking-widest">Painel do Administrador</p>
+              <h3 class="text-white font-black text-lg uppercase tracking-tight mt-0.5">Progresso da Equipe</h3>
+              <p class="text-xs text-white/85 mt-1">Veja quem já concluiu o treinamento de Prospecção e quem ainda está pendente.</p>
+            </div>
+          </div>
+          <button onclick="abrirPainelEquipe()"
+            class="bg-white hover:bg-slate-100 text-indigo-700 px-6 py-3 rounded-xl text-sm font-black uppercase shadow-sm transition-colors flex items-center gap-2 shrink-0">
+            <i data-lucide="users" class="w-4 h-4"></i> Ver Progresso
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="flex flex-wrap items-center gap-2 mb-6">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtrar:</span>
+        
       <!-- Filtros -->
       <div class="flex flex-wrap items-center gap-2 mb-6">
         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtrar:</span>
@@ -687,11 +711,15 @@
       $('eqStatPendentes').textContent = pendentes;
     }
 
-    /* Mostra/oculta botão do painel conforme perfil */
+    /* Mostra/oculta card do painel conforme perfil */
     function atualizarBotaoPainel() {
-      const btn = $('btnPainelEquipe');
-      if (!btn) return;
-      btn.classList.toggle('hidden', !state.isAdmin);
+      const card = $('cardAdmin');
+      if (!card) return;
+      
+      // 🛡️ Inline style força o display (elimina conflito de classes)
+      card.style.display = state.isAdmin ? 'block' : 'none';
+      
+      console.log('[Painel Admin] isAdmin:', state.isAdmin, '| Card visível:', state.isAdmin);
     }
 
     /* ==========================================================
