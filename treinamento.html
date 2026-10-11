@@ -338,17 +338,52 @@
        AUTH
        ========================================================== */
     async function verificarAuth() {
+      // 1) Força refresh da sessão (renova o token se estiver perto de expirar)
+      try {
+        await supabaseClient.auth.refreshSession();
+      } catch (e) {
+        console.warn('[Auth] Refresh falhou:', e);
+      }
+
+      // 2) Pega a sessão atualizada
       const { data: { session } } = await supabaseClient.auth.getSession();
       if (!session) { window.location.href = 'index.html'; return; }
 
       state.user = session.user;
-      const { data: perfil } = await supabaseClient
-        .from('perfis').select('*').eq('id', session.user.id).single();
+
+      // 3) Busca perfil com retry
+      let perfil = null;
+      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+        const { data, error } = await supabaseClient
+          .from('perfis')
+          .select('*')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (!error && data) { perfil = data; break; }
+        console.warn(`[Auth] Tentativa ${tentativa} falhou:`, error?.message);
+        await new Promise(r => setTimeout(r, 500)); // espera 500ms e tenta de novo
+      }
+
       state.perfil = perfil || {};
 
-      const { data: cargos } = await supabaseClient.from('cargos').select('*');
-      const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+      // 4) Busca cargos com retry
+      let cargos = [];
+      for (let tentativa = 1; tentativa <= 3; tentativa++) {
+        const { data, error } = await supabaseClient.from('cargos').select('*');
+        if (!error && data) { cargos = data; break; }
+        console.warn(`[Auth] Cargos tentativa ${tentativa} falhou:`, error?.message);
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      const meuCargo = cargos.find(c => c.id === perfil?.cargo_id);
       state.isAdmin = meuCargo?.is_admin === true;
+
+      console.log('[Auth] ✅ Sessão validada:', {
+        user: session.user.email,
+        perfil: state.perfil.nome_completo,
+        isAdmin: state.isAdmin,
+      });
     }
 
     /* ==========================================================
