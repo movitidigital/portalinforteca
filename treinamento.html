@@ -114,6 +114,10 @@
           class="filtro-btn bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-black uppercase transition-colors">
           Em breve
         </button>
+        <button id="btnPainelEquipe" onclick="abrirPainelEquipe()"
+          class="hidden ml-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-colors flex items-center gap-2">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i> Ver Progresso da Equipe
+        </button>
       </div>
 
       <!-- Grid de Módulos -->
@@ -131,6 +135,68 @@
     </div>
   </main>
 
+  <!-- ============================================================
+       MODAL: PROGRESSO DA EQUIPE (ADMIN)
+       ============================================================ -->
+  <div id="modalEquipe" class="fixed inset-0 z-[80] hidden bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col">
+
+      <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-4 flex justify-between items-center shrink-0">
+        <div>
+          <h3 class="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+            <i data-lucide="users" class="w-4 h-4"></i>
+            Progresso da Equipe
+          </h3>
+          <p class="text-[10px] text-white/80 font-bold mt-0.5">Quem já concluiu o treinamento de Prospecção</p>
+        </div>
+        <button onclick="fecharPainelEquipe()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-0 border-b border-slate-200 shrink-0">
+        <div class="p-4 border-r border-slate-200">
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total de Usuários</p>
+          <p id="eqStatTotal" class="text-2xl font-black text-slate-800">—</p>
+        </div>
+        <div class="p-4 border-r border-slate-200">
+          <p class="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Concluíram</p>
+          <p id="eqStatConcluidos" class="text-2xl font-black text-emerald-600">—</p>
+        </div>
+        <div class="p-4">
+          <p class="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">Pendentes</p>
+          <p id="eqStatPendentes" class="text-2xl font-black text-red-600">—</p>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
+        <button onclick="filtrarEquipe('todos')" data-eq-filtro="todos"
+          class="eq-filtro active bg-[#0e8890] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors">
+          Todos
+        </button>
+        <button onclick="filtrarEquipe('concluidos')" data-eq-filtro="concluidos"
+          class="eq-filtro bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors">
+          ✓ Concluíram
+        </button>
+        <button onclick="filtrarEquipe('pendentes')" data-eq-filtro="pendentes"
+          class="eq-filtro bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors">
+          ⏳ Pendentes
+        </button>
+      </div>
+
+      <!-- Lista -->
+      <div id="equipeLista" class="p-4 overflow-y-auto flex-1">
+        <div class="text-center py-12 text-slate-400 text-sm italic">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block mr-2 text-[#0e8890]"></i>
+          Carregando…
+        </div>
+      </div>
+
+    </div>
+  </div>
+  
   <script>
     /* ==========================================================
        CONFIG
@@ -449,6 +515,150 @@
       }, 3000);
     }
 
+        /* ==========================================================
+       PAINEL DE PROGRESSO DA EQUIPE (ADMIN)
+       ========================================================== */
+    let _stateEquipe = { todos: [], filtro: 'todos' };
+
+    function abrirPainelEquipe() {
+      if (!state.isAdmin) { showToastEmBreve(); return; }
+      $('modalEquipe').classList.remove('hidden');
+      carregarProgressoEquipe();
+    }
+
+    function fecharPainelEquipe() {
+      $('modalEquipe').classList.add('hidden');
+    }
+
+    async function carregarProgressoEquipe() {
+      const lista = $('equipeLista');
+      lista.innerHTML = `
+        <div class="text-center py-12 text-slate-400 text-sm italic">
+          <i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block mr-2 text-[#0e8890]"></i>
+          Carregando…
+        </div>`;
+      lucide.createIcons();
+
+      // Busca todos os perfis
+      const { data: perfis, error: errPerfis } = await supabaseClient
+        .from('perfis')
+        .select('id, nome_completo, permissao, avatar_url')
+        .order('nome_completo');
+
+      if (errPerfis) {
+        lista.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(errPerfis.message)}</div>`;
+        return;
+      }
+
+      // Busca conclusões do módulo 'prospeccao'
+      const { data: conclusoes, error: errConc } = await supabaseClient
+        .from('treinamentos_concluidos')
+        .select('user_id, concluido_em')
+        .eq('modulo', 'prospeccao');
+
+      if (errConc) {
+        lista.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(errConc.message)}</div>`;
+        return;
+      }
+
+      const mapaConclusoes = {};
+      (conclusoes || []).forEach(c => { mapaConclusoes[c.user_id] = c.concluido_em; });
+
+      // Monta lista
+      _stateEquipe.todos = (perfis || []).map(p => ({
+        ...p,
+        concluido: !!mapaConclusoes[p.id],
+        concluidoEm: mapaConclusoes[p.id] || null,
+      }));
+
+      renderEquipe();
+      atualizarStatsEquipe();
+    }
+
+    function renderEquipe() {
+      const lista = $('equipeLista');
+      const f = _stateEquipe.filtro;
+
+      let arr = _stateEquipe.todos;
+      if (f === 'concluidos') arr = arr.filter(u => u.concluido);
+      if (f === 'pendentes') arr = arr.filter(u => !u.concluido);
+
+      if (!arr.length) {
+        lista.innerHTML = `
+          <div class="text-center py-12 text-slate-400 text-sm italic">
+            <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 text-slate-300"></i>
+            Nenhum usuário nesta categoria
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      lista.innerHTML = arr.map(u => {
+        const inicial = (u.nome_completo || '?').charAt(0).toUpperCase();
+        const iniciais = (u.nome_completo || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+        const avatarHTML = u.avatar_url
+          ? `<img src="${escapeHTML(u.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0">`
+          : `<div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#0e8890] to-[#0b6c72] text-white flex items-center justify-center font-black text-sm shrink-0">${iniciais}</div>`;
+
+        const dataFmt = u.concluidoEm
+          ? new Date(u.concluidoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '';
+
+        return `
+          <div class="flex items-center gap-3 p-3 rounded-xl border ${u.concluido ? 'bg-emerald-50/50 border-emerald-200' : 'bg-red-50/40 border-red-200'} mb-2">
+            ${avatarHTML}
+            <div class="min-w-0 flex-1">
+              <p class="font-black text-slate-800 text-sm uppercase truncate">${escapeHTML(u.nome_completo || '—')}</p>
+              <p class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(u.permissao || 'Operador')}</p>
+            </div>
+            ${u.concluido ? `
+              <div class="text-right shrink-0">
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
+                  <i data-lucide="check-circle-2" class="w-3 h-3"></i> Concluído
+                </span>
+                <p class="text-[9px] text-slate-500 mt-0.5">${dataFmt}</p>
+              </div>
+            ` : `
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 border border-red-200 text-[10px] font-black uppercase shrink-0">
+                <i data-lucide="clock" class="w-3 h-3"></i> Pendente
+              </span>
+            `}
+          </div>`;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function filtrarEquipe(filtro) {
+      _stateEquipe.filtro = filtro;
+      document.querySelectorAll('.eq-filtro').forEach(btn => {
+        const ativo = btn.dataset.eqFiltro === filtro;
+        if (ativo) {
+          btn.className = 'eq-filtro active bg-[#0e8890] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors';
+        } else {
+          btn.className = 'eq-filtro bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors';
+        }
+      });
+      renderEquipe();
+    }
+
+    function atualizarStatsEquipe() {
+      const total = _stateEquipe.todos.length;
+      const concluidos = _stateEquipe.todos.filter(u => u.concluido).length;
+      const pendentes = total - concluidos;
+
+      $('eqStatTotal').textContent = total;
+      $('eqStatConcluidos').textContent = concluidos;
+      $('eqStatPendentes').textContent = pendentes;
+    }
+
+    /* Mostra/oculta botão do painel conforme perfil */
+    function atualizarBotaoPainel() {
+      const btn = $('btnPainelEquipe');
+      if (!btn) return;
+      btn.classList.toggle('hidden', !state.isAdmin);
+    }
+
     /* ==========================================================
        HELPERS
        ========================================================== */
@@ -463,6 +673,14 @@
       await verificarAuth();
       carregarProgresso();
       renderModulos();
+      atualizarBotaoPainel();
+
+      // Fecha modal com ESC
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !$('modalEquipe')?.classList.contains('hidden')) {
+          fecharPainelEquipe();
+        }
+      });
     });
   </script>
 </body>
