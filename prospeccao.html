@@ -23,26 +23,17 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
     .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
     .tab-btn { transition: all 0.15s ease; }
     .tab-btn.active { border-color: #0e8890; color: #0e8890; background: rgba(14,136,144,0.06); }
-
     .kpi-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
     .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); }
-
-    .import-log {
-      max-height: 220px;
-      overflow-y: auto;
-      font-family: 'SF Mono', Menlo, Consolas, monospace;
-      font-size: 11px;
-      line-height: 1.6;
-    }
-    .import-log > div { padding: 2px 0; border-bottom: 1px dashed rgba(0,0,0,0.04); }
-
-    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+    .import-log { max-height: 220px; overflow-y: auto; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px; line-height: 1.6; }
+    .import-log > div { padding: 2px 0; border-bottom: 1px dashed rgba(255,255,255,0.05); }
+    .lead-card { transition: all 0.15s ease; }
+    .lead-card:hover { transform: translateY(-1px); box-shadow: 0 8px 20px -8px rgba(0,0,0,0.12); }
+    .badge-tipo { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; }
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -50,11 +41,9 @@
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
 
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
-
     <header id="appHeader" data-title="Prospecção" data-search="true" data-notif="true"></header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
-
       <div id="view-prospeccao" class="animate-fade-in">
 
         <!-- 🎯 CABEÇALHO -->
@@ -130,7 +119,7 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
           <div class="flex justify-between items-end mb-3">
             <div>
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta da Semana</p>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progresso</p>
               <p id="textoProgresso" class="text-base font-black text-slate-700 mt-1">Calculando…</p>
             </div>
             <span id="porcentagemProgresso" class="text-2xl font-black text-[#0e8890]">0%</span>
@@ -145,7 +134,7 @@
           <div class="border-b border-slate-100 flex overflow-x-auto">
             <button onclick="trocarAba('fila')" data-tab="fila"
               class="tab-btn active flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent">
-              <i data-lucide="list-todo" class="w-4 h-4"></i> Fila de Trabalho
+              <i data-lucide="list-todo" class="w-4 h-4"></i> Fila
             </button>
             <button onclick="trocarAba('regras')" data-tab="regras"
               class="tab-btn flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500">
@@ -157,8 +146,10 @@
             </button>
           </div>
 
-          <!-- FILA -->
+          <!-- ============ ABA: FILA ============ -->
           <div id="tab-fila" class="p-4 md:p-6">
+
+            <!-- Filtros -->
             <div class="flex flex-col md:flex-row gap-3 mb-5">
               <div class="relative flex-1">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
@@ -169,10 +160,11 @@
               <select id="filtroTipo" onchange="aplicarFiltro()"
                 class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
                 <option value="">Todos os tipos</option>
-                <option value="UPGRADE_TIM">Upgrade TIM</option>
-                <option value="REATIVACAO_ACESSORIO">Reativação Acessório</option>
-                <option value="REATIVACAO_CHIP">Reativação Chip</option>
-                <option value="CROSS_SELL_TI">Cross-sell TI</option>
+                <option value="UPGRADE_TIM">📱 Upgrade TIM</option>
+                <option value="REATIVACAO_ACESSORIO">🎁 Acessório</option>
+                <option value="REATIVACAO_CHIP_PRE">⚡ Chip Pré</option>
+                <option value="REATIVACAO_CHIP_POS">⚡ Chip Pós</option>
+                <option value="REATIVACAO_SERVICO_TI">💻 Serviço TI</option>
               </select>
               <select id="filtroStatus" onchange="aplicarFiltro()"
                 class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
@@ -184,6 +176,7 @@
               </select>
             </div>
 
+            <!-- Desktop: Tabela -->
             <div class="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
               <table class="w-full text-left text-sm">
                 <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -192,48 +185,51 @@
                     <th class="px-4 py-3">Contato</th>
                     <th class="px-4 py-3">Última Compra</th>
                     <th class="px-4 py-3">Oferta</th>
-                    <th class="px-4 py-3 text-center">Prioridade</th>
+                    <th class="px-4 py-3 text-center">Status / Atribuição</th>
                     <th class="px-4 py-3 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaFila" class="divide-y divide-slate-100">
-                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">Aguardando carregamento…</td></tr>
+                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
+                    <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2 text-[#0e8890]"></i> Carregando leads…
+                  </td></tr>
                 </tbody>
               </table>
             </div>
 
+            <!-- Mobile: Cards -->
             <div id="cardsFila" class="md:hidden space-y-3">
-              <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
+              <div class="text-center py-12 text-slate-400 text-sm italic">Carregando…</div>
             </div>
           </div>
 
-          <!-- REGRAS -->
+          <!-- ============ ABA: REGRAS ============ -->
           <div id="tab-regras" class="hidden p-4 md:p-6">
             <div class="flex justify-between items-center mb-5">
               <div>
                 <h3 class="text-base font-black text-[#000033] uppercase tracking-tight">Regras de Geração de Leads</h3>
                 <p class="text-xs text-slate-500 mt-1">Ajuste os critérios que disparam cada tipo de abordagem.</p>
               </div>
-              <button onclick="recalcularBase(event)"
-  class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
-  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
-</button>
+              <button data-admin-only onclick="recalcularBase(event)"
+                class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
+              </button>
             </div>
             <div id="listaRegras" class="space-y-3">
-              <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
+              <div class="text-center py-12 text-slate-400 text-sm italic">Carregando…</div>
             </div>
           </div>
 
-          <!-- RELATÓRIOS -->
+          <!-- ============ ABA: RELATÓRIOS ============ -->
           <div id="tab-relatorios" class="hidden p-4 md:p-6">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Contatos por Semana</h4>
-                <div id="graficoContatos" class="h-48 flex items-end justify-around gap-2"></div>
+                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Vouchers Emitidos</h4>
+                <div id="relVouchers" class="text-center py-8 text-slate-400 text-xs italic">Carregando…</div>
               </div>
               <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Tipos de Lead Mais Eficazes</h4>
-                <div id="rankingTipos" class="space-y-2"></div>
+                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Leads por Tipo</h4>
+                <div id="relLeads" class="text-center py-8 text-slate-400 text-xs italic">Carregando…</div>
               </div>
             </div>
           </div>
@@ -242,7 +238,6 @@
         <p class="text-[10px] text-slate-400 text-center mt-8 mb-4 uppercase tracking-widest font-bold">
           Central de Prospecção · Portal Inforteca © <span id="anoRodape"></span>
         </p>
-
       </div>
     </div>
   </main>
@@ -253,35 +248,54 @@
       <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-4 flex justify-between items-center">
         <div>
           <h3 class="text-white font-black text-sm uppercase tracking-widest" id="importTitulo">Importar Planilha</h3>
-          <p class="text-[10px] text-white/70 font-bold mt-0.5" id="importSubtitulo">Selecione o arquivo Excel ou CSV</p>
+          <p class="text-[10px] text-white/70 font-bold mt-0.5" id="importSubtitulo">Selecione o arquivo</p>
         </div>
-        <button onclick="fecharImportacao()" class="text-white/70 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+        <button onclick="fecharImportacao()" class="text-white/70 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
       </div>
-
       <div class="p-6">
-        <!-- Upload -->
         <div id="importUploadBox" class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-[#0e8890] hover:bg-slate-50 transition-colors cursor-pointer relative">
           <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="onArquivoSelecionado(this)">
           <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
           <p class="text-sm font-black text-slate-700" id="importNomeArquivo">Clique ou arraste o arquivo aqui</p>
-          <p class="text-[10px] text-slate-400 mt-1">Formatos aceitos: .xlsx, .xls, .csv</p>
+          <p class="text-[10px] text-slate-400 mt-1">Formatos: .xlsx, .xls, .csv</p>
         </div>
-
-        <!-- Log de progresso -->
         <div id="importPreview" class="hidden mt-4 p-3 bg-slate-900 text-slate-100 rounded-xl import-log"></div>
-
-        <!-- Alerta -->
         <div id="importAlerta" class="hidden text-xs p-3 rounded-xl border font-medium mt-4"></div>
       </div>
-
       <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-        <button onclick="fecharImportacao()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Cancelar</button>
+        <button onclick="fecharImportacao()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancelar</button>
         <button id="btnProcessarImport" onclick="processarImportacao()" disabled
           class="bg-[#0e8890] hover:bg-[#0b6c72] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition-colors">
           <i data-lucide="zap" class="w-4 h-4"></i> Processar
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: OPÇÕES DE OFERTA ============ -->
+  <div id="modalOpcoes" class="fixed inset-0 z-[60] hidden bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-gradient-to-r from-[#0e8890] to-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
+        <div>
+          <h3 class="text-white font-black text-sm uppercase tracking-widest" id="opcoesTitulo">Escolher Oferta</h3>
+          <p class="text-[10px] text-white/80 font-bold mt-0.5" id="opcoesSubtitulo">Selecione a melhor abordagem</p>
+        </div>
+        <button onclick="fecharModalOpcoes()" class="text-white/70 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="p-6 overflow-y-auto">
+        <div class="bg-slate-50 rounded-2xl p-4 mb-5 border border-slate-100">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
+          <p class="font-black text-slate-800 uppercase" id="opcoesClienteNome">—</p>
+          <p class="text-xs text-slate-500 mt-1 font-mono" id="opcoesClienteTel">—</p>
+        </div>
+
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Escolha a oferta</p>
+        <div id="opcoesLista" class="space-y-2"></div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+        <button onclick="fecharModalOpcoes()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancelar</button>
       </div>
     </div>
   </div>
@@ -296,8 +310,14 @@
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const $ = (id) => document.getElementById(id);
+
+    const EMOJI = {
+      sparkles: '✨', wave: '👋', ticket: '🎟️', gift: '🎁',
+      rocket: '🚀', fire: '🔥', money: '💰', phone: '📱',
+      black: '⚫', chip: '⚡', tool: '🛠️', star: '⭐',
+      heart: '💙', party: '🎉', check: '✅',
+    };
 
     /* ==========================================================
        STATE
@@ -312,6 +332,7 @@
       filtros: { texto: '', tipo: '', status: 'PENDENTE' },
       arquivoSelecionado: null,
       tipoImportacao: null,
+      leadEmOpcao: null,
     };
 
     /* ==========================================================
@@ -323,7 +344,7 @@
     const capitalizar = (s) => String(s || '').toLowerCase()
       .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-    const normalizarCPF = (v) => String(v || '').replace(/\D/g, '').padStart(11, '0');
+    const normalizarCPF = (v) => String(v || '').replace(/\D/g, '');
     const normalizarTelefone = (v) => String(v || '').replace(/\D/g, '');
 
     function fmtBR(date) {
@@ -357,7 +378,6 @@
       return isNaN(n) ? null : n;
     }
 
-    // Aceita Date, "dd/mm/aaaa" ou ISO "yyyy-mm-dd" → devolve ISO ou null
     function parseDataISO(v) {
       if (!v) return null;
       if (v instanceof Date && !isNaN(v.getTime())) {
@@ -367,16 +387,47 @@
         return `${y}-${m}-${d}`;
       }
       const s = String(v).trim();
-      // dd/mm/aaaa
       let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
       if (m) {
         const ano = m[3].length === 2 ? 2000 + +m[3] : +m[3];
         return `${ano}-${String(+m[2]).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`;
       }
-      // yyyy-mm-dd
       m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
       if (m) return `${m[1]}-${String(+m[2]).padStart(2,'0')}-${String(+m[3]).padStart(2,'0')}`;
       return null;
+    }
+
+    function gerarCodigoVoucher() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      return `VCH40-${code}`;
+    }
+
+    function primeiroNome(nomeCompleto) {
+      return String(nomeCompleto || '').trim().split(/\s+/)[0] || 'Cliente';
+    }
+
+    function nomeConsultorLogado() {
+      return primeiroNome(state.perfil?.nome_completo || 'Consultor');
+    }
+
+    // ─── Lead Scoring RFM simplificado ───
+    // Retorna 0-100. Combina valor gasto, frequência e recência.
+    function calcularScoreLead(lead) {
+      const cliente = lead.cliente || {};
+      const gasto = Number(cliente.total_gasto || 0);
+      const compras = Number(cliente.total_compras || 0);
+      const diasInativo = Number((lead.motivo || '').match(/há (\d+) dias/)?.[1] || 300);
+
+      // Monetário (0-40): até R$ 2.000 = 40pts
+      const ptsMoeda = Math.min(40, (gasto / 2000) * 40);
+      // Frequência (0-30): 10 compras = 30pts
+      const ptsFreq = Math.min(30, compras * 3);
+      // Recência (0-30): quanto mais recente, mais pontos
+      const ptsRec = Math.max(0, 30 - Math.min(30, diasInativo / 15));
+
+      return Math.round(ptsMoeda + ptsFreq + ptsRec);
     }
 
     /* ==========================================================
@@ -401,7 +452,7 @@
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(20px)';
         setTimeout(() => toast.remove(), 400);
-      }, 3200);
+      }, 3500);
     }
 
     /* ==========================================================
@@ -416,12 +467,10 @@
         .from('perfis').select('*').eq('id', session.user.id).single();
       state.perfil = perfil || { nome_completo: session.user.email, permissao: 'Operador' };
 
-      // ─── Checa se é admin ───
       const { data: cargos } = await supabaseClient.from('cargos').select('*');
       const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
       state._isAdmin = meuCargo?.is_admin === true;
 
-      // Esconde botões admin-only para não-admins
       if (!state._isAdmin) {
         document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
       }
@@ -447,15 +496,34 @@
     }
 
     /* ==========================================================
-       FILA DE TRABALHO (placeholder — Fase 5)
+       FILA DE TRABALHO
        ========================================================== */
     async function carregarFila() {
-      $('tabelaFila').innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
+      const tbody = $('tabelaFila');
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
         <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2 text-[#0e8890]"></i> Carregando leads…
       </td></tr>`;
       lucide.createIcons();
 
-      state.leads = [];
+      const { data, error } = await supabaseClient
+        .from('prospeccao_leads')
+        .select(`
+          *,
+          cliente:clientes(
+            id, nome, cpf, telefone_principal, telefone_alt,
+            total_gasto, total_compras, ultima_compra
+          )
+        `)
+        .order('prioridade', { ascending: false })
+        .order('data_geracao', { ascending: false })
+        .limit(500);
+
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">Erro: ${escapeHTML(error.message)}</td></tr>`;
+        return;
+      }
+
+      state.leads = data || [];
       aplicarFiltro();
       atualizarKPIs();
     }
@@ -490,29 +558,169 @@
       const cards = $('cardsFila');
 
       if (!state.leadsFiltrados.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum lead encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum lead nesta categoria.</td></tr>`;
         cards.innerHTML = `
           <div class="text-center py-12">
             <i data-lucide="check-circle-2" class="w-10 h-10 mx-auto text-emerald-300 mb-3"></i>
-            <p class="text-slate-500 font-bold text-sm">Nenhum lead nesta categoria 🎉</p>
-            <p class="text-[11px] text-slate-400 mt-1">Importe uma planilha ou ajuste os filtros.</p>
+            <p class="text-slate-500 font-bold text-sm">Nada por aqui 🎉</p>
+            <p class="text-[11px] text-slate-400 mt-1">Ajuste os filtros ou importe uma nova planilha.</p>
           </div>`;
         lucide.createIcons();
         return;
       }
 
-      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">
-        Renderização — Fase 5
-      </td></tr>`;
+      tbody.innerHTML = state.leadsFiltrados.map(l => linhaLeadHTML(l)).join('');
+      cards.innerHTML = state.leadsFiltrados.map(l => cardLeadHTML(l)).join('');
+      lucide.createIcons();
+    }
+
+    // ─── Helpers visuais ───
+    function tipoLeadInfo(tipo) {
+      const mapa = {
+        'UPGRADE_TIM':           { label: 'Upgrade TIM', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'smartphone' },
+        'REATIVACAO_ACESSORIO':  { label: 'Acessório',   cor: 'bg-amber-50 text-amber-700 border-amber-200',   icon: 'gift' },
+        'REATIVACAO_CHIP_PRE':   { label: 'Chip Pré',    cor: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: 'zap' },
+        'REATIVACAO_CHIP_POS':   { label: 'Chip Pós',    cor: 'bg-blue-50 text-blue-700 border-blue-200',       icon: 'zap' },
+        'REATIVACAO_SERVICO_TI': { label: 'Serviço TI',  cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
+      };
+      return mapa[tipo] || { label: tipo, cor: 'bg-slate-100 text-slate-600 border-slate-200', icon: 'tag' };
+    }
+
+    function corScore(score) {
+      if (score >= 70) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
+      if (score >= 40) return 'text-amber-600 bg-amber-50 border-amber-200';
+      return 'text-slate-600 bg-slate-100 border-slate-200';
+    }
+
+    function linhaLeadHTML(l) {
+      const c = l.cliente || {};
+      const tipo = tipoLeadInfo(l.tipo_lead);
+      const score = calcularScoreLead(l);
+      const contatado = l.status === 'CONTATADO';
+      const retornou = l.status === 'RETORNOU';
+      const ignorado = l.status === 'IGNORADO';
+
+      const atribuicao = l.consultor_atual_id
+        ? `<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">👤 Atribuído</span>`
+        : (l.status === 'PENDENTE' ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">🔓 Livre</span>` : '');
+
+      const statusBadge = retornou
+        ? `<span class="text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">🎉 VOLTOU</span>`
+        : (contatado
+            ? `<span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">✓ CONTATADO</span>`
+            : (ignorado
+                ? `<span class="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">IGNORADO</span>`
+                : ''));
+
+      const botoes = (retornou || ignorado)
+        ? `<span class="text-[10px] text-slate-400 italic">—</span>`
+        : (contatado
+            ? `<button onclick="enviarNovamente(${l.id})" class="text-[10px] font-black text-slate-500 hover:text-[#0e8890] underline">Reenviar</button>`
+            : `<div class="flex flex-col md:flex-row gap-2 items-center justify-center">
+                <button onclick="abrirOpcoesLead(${l.id})" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-[10px] font-black uppercase shadow-sm flex items-center gap-1.5 transition-colors">
+                  <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Enviar
+                </button>
+                <button onclick="ignorarLead(${l.id})" class="text-slate-400 hover:text-red-500 transition-colors p-1" title="Ignorar lead">
+                  <i data-lucide="eye-off" class="w-4 h-4"></i>
+                </button>
+              </div>`);
+
+      return `
+        <tr class="hover:bg-slate-50 transition-colors border-b border-slate-100 text-xs">
+          <td class="px-4 py-4">
+            <div class="flex flex-col gap-1">
+              <span class="font-black text-slate-800 uppercase text-sm tracking-tight">${escapeHTML(capitalizar(c.nome) || '—')}</span>
+              <span class="badge-tipo ${tipo.cor}"><i data-lucide="${tipo.icon}" class="w-3 h-3"></i> ${tipo.label}</span>
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex flex-col gap-0.5">
+              <span class="font-mono text-slate-700">${escapeHTML(c.telefone_principal || '—')}</span>
+              ${c.telefone_alt ? `<span class="font-mono text-[10px] text-slate-400">alt: ${escapeHTML(c.telefone_alt)}</span>` : ''}
+            </div>
+          </td>
+          <td class="px-4 py-4">
+            <span class="font-bold text-slate-700">${fmtBR(c.ultima_compra)}</span>
+            <p class="text-[10px] text-slate-400 mt-0.5">${escapeHTML(l.motivo || '')}</p>
+          </td>
+          <td class="px-4 py-4">
+            <span class="text-[11px] text-slate-600 italic">${escapeHTML(l.oferta_sugerida || '—')}</span>
+            ${l.campanha ? `<p class="text-[9px] font-black text-[#0e8890] mt-1 uppercase">${escapeHTML(l.campanha)}</p>` : ''}
+          </td>
+          <td class="px-4 py-4 text-center">
+            <div class="flex flex-col gap-1 items-center">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-black ${corScore(score)}">
+                ${score}
+              </span>
+              ${atribuicao}
+              ${statusBadge}
+            </div>
+          </td>
+          <td class="px-4 py-4 text-center">${botoes}</td>
+        </tr>
+      `;
+    }
+
+    function cardLeadHTML(l) {
+      const c = l.cliente || {};
+      const tipo = tipoLeadInfo(l.tipo_lead);
+      const score = calcularScoreLead(l);
+      const contatado = l.status === 'CONTATADO';
+      const retornou = l.status === 'RETORNOU';
+      const ignorado = l.status === 'IGNORADO';
+
+      const botoes = (retornou || ignorado)
+        ? `<span class="text-[10px] text-slate-400 italic">Sem ações</span>`
+        : (contatado
+            ? `<button onclick="enviarNovamente(${l.id})" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 rounded-xl text-xs font-black uppercase">Reenviar</button>`
+            : `<div class="flex gap-2">
+                <button onclick="abrirOpcoesLead(${l.id})" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-xs font-black uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95">
+                  <i data-lucide="message-circle" class="w-4 h-4"></i> Enviar WhatsApp
+                </button>
+                <button onclick="ignorarLead(${l.id})" class="bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 px-3 rounded-xl transition-colors" title="Ignorar">
+                  <i data-lucide="eye-off" class="w-4 h-4"></i>
+                </button>
+              </div>`);
+
+      return `
+        <div class="lead-card bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+          <div class="flex justify-between items-start gap-3 mb-3">
+            <div class="min-w-0 flex-1">
+              <p class="font-black text-slate-800 uppercase text-sm tracking-tight truncate">${escapeHTML(capitalizar(c.nome) || '—')}</p>
+              <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                <span class="badge-tipo ${tipo.cor}"><i data-lucide="${tipo.icon}" class="w-3 h-3"></i> ${tipo.label}</span>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-black ${corScore(score)}">Score ${score}</span>
+              </div>
+            </div>
+            ${retornou ? `<span class="text-[10px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">🎉 VOLTOU</span>` : ''}
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+            <div>
+              <p class="text-[9px] font-black text-slate-400 uppercase">Telefone</p>
+              <p class="font-mono text-slate-700">${escapeHTML(c.telefone_principal || '—')}</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black text-slate-400 uppercase">Última compra</p>
+              <p class="font-bold text-slate-700">${fmtBR(c.ultima_compra)}</p>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 rounded-lg p-2 mb-3 border border-slate-100">
+            <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5">Oferta sugerida</p>
+            <p class="text-[11px] text-slate-600 italic">${escapeHTML(l.oferta_sugerida || '—')}</p>
+          </div>
+
+          ${botoes}
+        </div>
+      `;
     }
 
     async function atualizarKPIs() {
-      // Conta base total de clientes
       const { count: totalClientes } = await supabaseClient
         .from('clientes').select('*', { count: 'exact', head: true });
       $('kpiBase').textContent = (totalClientes || 0).toLocaleString('pt-BR');
 
-      // Conta leads
       const { count: pendentes } = await supabaseClient
         .from('prospeccao_leads').select('*', { count: 'exact', head: true })
         .eq('status', 'PENDENTE');
@@ -528,18 +736,314 @@
         .eq('status', 'RETORNOU');
       $('kpiVoltaram').textContent = (voltaram || 0).toLocaleString('pt-BR');
 
-      // Barra de progresso (baseada em contatados / (pendentes+contatados))
-      const total = (pendentes || 0) + (contatados || 0);
-      const pct = total > 0 ? Math.min(100, Math.round(((contatados || 0) / total) * 100)) : 0;
+      const total = (pendentes || 0) + (contatados || 0) + (voltaram || 0);
+      const pct = total > 0 ? Math.min(100, Math.round((((contatados || 0) + (voltaram || 0)) / total) * 100)) : 0;
       $('barraProgresso').style.width = pct + '%';
       $('porcentagemProgresso').textContent = pct + '%';
       $('textoProgresso').textContent = total > 0
-        ? `${contatados || 0} contatados de ${total} leads ativos`
+        ? `${contatados || 0} contatados · ${voltaram || 0} voltaram · ${pendentes || 0} na fila`
         : 'Aguardando primeiros leads';
     }
 
     /* ==========================================================
-       REGRAS (placeholder — Fase 4)
+       MODAL DE OPÇÕES + ENVIO
+       ========================================================== */
+    function opcoesParaLead(l) {
+      const tipo = l.tipo_lead;
+      const c = l.cliente || {};
+      const gasto = Number(c.total_gasto || 0);
+      const compras = Number(c.total_compras || 0);
+      const highValue = gasto >= 300 || compras >= 3;
+
+      if (tipo === 'REATIVACAO_ACESSORIO') {
+        return [{ id: 'voucher', label: '🎁 Enviar Voucher R$ 40', desc: 'Gera código exclusivo e envia' }];
+      }
+      if (tipo === 'REATIVACAO_CHIP_PRE') {
+        return [
+          { id: 'controle', label: '🟢 Oferecer TIM Controle', desc: 'Plano acessível pós-pago' },
+          { id: 'black', label: '⚫ Oferecer TIM Black', desc: highValue ? 'Cliente com bom histórico' : 'Plano premium' },
+          { id: 'ja_cliente', label: '🔓 Já é cliente TIM', desc: 'Ignorar este lead' },
+        ];
+      }
+      if (tipo === 'REATIVACAO_CHIP_POS') {
+        return [
+          { id: 'upgrade', label: '🚀 Oferecer upgrade de plano', desc: 'Plano com mais franquia' },
+          { id: 'aparelho', label: '📱 Oferecer aparelho com desconto', desc: 'Modelos selecionados' },
+          { id: 'servico', label: '🛠️ Oferecer serviço TIM', desc: 'Seguro, TIM Black, etc.' },
+        ];
+      }
+      if (tipo === 'UPGRADE_TIM') {
+        return [
+          { id: 'upgrade', label: '🚀 Upgrade de plano', desc: 'Controle → Black, mais internet' },
+          { id: 'aparelho', label: '📱 Aparelho com desconto', desc: 'Modelos com condição especial' },
+          { id: 'combo', label: '🎁 Combo plano + aparelho', desc: 'Melhor dos dois mundos' },
+        ];
+      }
+      if (tipo === 'REATIVACAO_SERVICO_TI') {
+        return [{ id: 'servico_ti', label: '🛠️ Oferecer nova formatação/limpeza', desc: 'Serviço com desconto de aniversário' }];
+      }
+      return [];
+    }
+
+    function abrirOpcoesLead(leadId) {
+      const l = state.leads.find(x => x.id === leadId);
+      if (!l) return;
+      state.leadEmOpcao = l;
+
+      const tipo = tipoLeadInfo(l.tipo_lead);
+      $('opcoesTitulo').textContent = tipo.label;
+      $('opcoesSubtitulo').textContent = 'Selecione a melhor oferta';
+      $('opcoesClienteNome').textContent = capitalizar(l.cliente?.nome) || '—';
+      $('opcoesClienteTel').textContent = l.cliente?.telefone_principal || '—';
+
+      const opcoes = opcoesParaLead(l);
+      $('opcoesLista').innerHTML = opcoes.map(o => `
+        <button onclick="confirmarOferta('${o.id}')"
+          class="w-full text-left bg-slate-50 hover:bg-[#0e8890]/10 border-2 border-slate-200 hover:border-[#0e8890] rounded-2xl p-4 transition-all group">
+          <p class="font-black text-slate-800 text-sm group-hover:text-[#0e8890]">${escapeHTML(o.label)}</p>
+          <p class="text-[11px] text-slate-500 mt-1">${escapeHTML(o.desc)}</p>
+        </button>
+      `).join('');
+
+      $('modalOpcoes').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function fecharModalOpcoes() {
+      $('modalOpcoes').classList.add('hidden');
+      state.leadEmOpcao = null;
+    }
+
+    // ─── Gera mensagem conforme tipo + opção escolhida ───
+    function montarMensagem(l, opcaoId, voucher) {
+      const consultor = nomeConsultorLogado();
+      const nome = capitalizar(primeiroNome(l.cliente?.nome));
+      const E = EMOJI;
+
+      if (opcaoId === 'voucher' && voucher) {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Faz um tempinho que você não passa por aqui e *sentimos sua falta*! Como você é especial pra gente, separei um presente:\n\n` +
+               `${E.ticket} *VOUCHER DE R$ 40,00*\n` +
+               `🔖 *Código:* ${voucher.codigo}\n` +
+               `🛍️ Válido em qualquer acessório da loja\n` +
+               `⏰ Válido até *${fmtBR(voucher.validade_ate)}*\n\n` +
+               `📌 *Apresente este código de voucher na loja para usar seu desconto!*\n\n` +
+               `Estamos te esperando! ${E.rocket}`;
+      }
+
+      if (opcaoId === 'controle') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Vi que você fez uma troca de chip com a gente outro dia — que tal *ativar um plano Controle* com uma condição especial que só temos aqui?\n\n` +
+               `${E.phone} *TIM Controle* com internet turbinada\n` +
+               `${E.money} *Valor promocional exclusivo*\n` +
+               `${E.gift} *Bônus de boas-vindas*\n\n` +
+               `Me responde aqui que já te explico como ativar! ${E.rocket}`;
+      }
+
+      if (opcaoId === 'black') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Como você fez uma troca de chip com a gente, separei uma oferta *especial* pra você:\n\n` +
+               `${E.black} *TIM BLACK* — o plano premium da TIM\n` +
+               `${E.rocket} Internet que não acaba\n` +
+               `🎬 Streaming incluso\n` +
+               `${E.gift} Bônus de ativação\n\n` +
+               `Bora dar esse upgrade? Me chama aqui! ${E.phone}`;
+      }
+
+      if (opcaoId === 'upgrade') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Como você já é nosso cliente, temos uma *novidade exclusiva* pra você:\n\n` +
+               `${E.rocket} *Upgrade do seu plano atual*\n` +
+               `${E.check} Mais internet\n` +
+               `${E.check} Mais benefícios\n` +
+               `${E.check} Por um valor que cabe no bolso\n\n` +
+               `Me responde aqui que te mostro as opções! ${E.phone}`;
+      }
+
+      if (opcaoId === 'aparelho') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Bora dar aquele *upgrade no aparelho*? ${E.phone}\n\n` +
+               `${E.gift} *Modelos selecionados com desconto*\n` +
+               `💳 *Parcelamento especial*\n` +
+               `${E.rocket} *Troca com avaliação do seu usado*\n\n` +
+               `Me chama aqui que já te mostro os modelos! ${E.rocket}`;
+      }
+
+      if (opcaoId === 'combo') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Separei uma oferta *exclusiva* que combina tudo o que você precisa:\n\n` +
+               `🎁 *COMBO PLANO + APARELHO*\n` +
+               `${E.phone} Plano turbinado com mais internet\n` +
+               `📱 Aparelho novo com desconto especial\n` +
+               `${E.money} Uma única parcela que cabe no bolso\n\n` +
+               `Bora dar esse upgrade completo? Me responde aqui! ${E.rocket}`;
+      }
+
+      if (opcaoId === 'servico') {
+        return `Olá, *${nome}*! ${E.sparkles}\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
+               `Como você já é nosso cliente, quero te apresentar serviços exclusivos da TIM que podem te interessar:\n\n` +
+               `${E.tool} *Seguro Celular* — proteção completa\n` +
+               `${E.black} *TIM Black* — plano premium\n` +
+               `🎁 *Bônus exclusivos* pra clientes fiéis\n\n` +
+               `Me responde aqui que já te explico melhor! ${E.rocket}`;
+      }
+
+      if (opcaoId === 'servico_ti') {
+        return `Olá, *${nome}*! 💻\n\n` +
+               `Aqui é o *${consultor}*, da *Inforteca TI* ${E.wave}\n\n` +
+               `Já faz um ano desde o último serviço que fizemos no seu equipamento! *Bora dar aquele trato?*\n\n` +
+               `${E.tool} *Nova formatação + limpeza completa*\n` +
+               `${E.gift} *Desconto especial de aniversário*\n` +
+               `${E.check} Entrega rápida\n\n` +
+               `Passa aqui na loja que fazemos um diagnóstico gratuito! ${E.rocket}`;
+      }
+
+      return '';
+    }
+
+    async function confirmarOferta(opcaoId) {
+      const l = state.leadEmOpcao;
+      if (!l) return;
+
+      if (opcaoId === 'ja_cliente') {
+        await ignorarLead(l.id, 'Já é cliente TIM');
+        fecharModalOpcoes();
+        return;
+      }
+
+      let voucher = null;
+      if (opcaoId === 'voucher') {
+        voucher = await obterOuGerarVoucher(l);
+        if (!voucher) {
+          showToast('Erro ao gerar voucher.', 'error');
+          return;
+        }
+      }
+
+      const msg = montarMensagem(l, opcaoId, voucher);
+      if (!msg) {
+        showToast('Erro ao montar mensagem.', 'error');
+        return;
+      }
+
+      // Atribuição + status
+      await marcarComoContatado(l.id, opcaoId);
+
+      // Abre WhatsApp
+      abrirWhatsApp(l.cliente?.telefone_principal || l.cliente?.telefone_alt, msg);
+
+      fecharModalOpcoes();
+      showToast('WhatsApp aberto!', 'success');
+      carregarFila();
+    }
+
+    async function obterOuGerarVoucher(lead) {
+      // Verifica se já existe voucher ATIVO pro cliente
+      const { data: ativos } = await supabaseClient
+        .from('prospeccao_vouchers')
+        .select('*')
+        .eq('cliente_id', lead.cliente_id)
+        .eq('status', 'ATIVO')
+        .gte('validade_ate', new Date().toISOString().slice(0, 10))
+        .order('gerado_em', { ascending: false })
+        .limit(1);
+
+      if (ativos?.length) return ativos[0];
+
+      // Cria novo
+      const codigo = gerarCodigoVoucher();
+      const validade = new Date();
+      validade.setDate(validade.getDate() + 10);
+
+      const { data, error } = await supabaseClient
+        .from('prospeccao_vouchers')
+        .insert({
+          codigo,
+          cliente_id: lead.cliente_id,
+          lead_id: lead.id,
+          valor: 40,
+          campanha: 'VOUCHER40',
+          status: 'ATIVO',
+          validade_ate: validade.toISOString().slice(0, 10),
+          consultor_gerou_id: state.user.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[Voucher]', error);
+        return null;
+      }
+      return data;
+    }
+
+    async function marcarComoContatado(leadId, opcaoId) {
+      const { error } = await supabaseClient
+        .from('prospeccao_leads')
+        .update({
+          status: 'CONTATADO',
+          data_contato: new Date().toISOString(),
+          consultor_atual_id: state.user.id,
+          data_atribuicao: new Date().toISOString(),
+          oferta_escolhida: opcaoId,
+        })
+        .eq('id', leadId);
+
+      if (error) console.error('[Contato]', error);
+    }
+
+    async function enviarNovamente(leadId) {
+      const l = state.leads.find(x => x.id === leadId);
+      if (!l) return;
+      abrirOpcoesLead(leadId);
+    }
+
+    async function ignorarLead(leadId, motivoExtra) {
+      if (!motivoExtra && !confirm('Ignorar este lead?\n\nEle sairá da fila principal.')) return;
+
+      const { error } = await supabaseClient
+        .from('prospeccao_leads')
+        .update({
+          status: 'IGNORADO',
+          consultor_atual_id: state.user.id,
+          data_atribuicao: new Date().toISOString(),
+          observacao: motivoExtra || 'Ignorado pelo consultor',
+        })
+        .eq('id', leadId);
+
+      if (error) {
+        showToast('Erro: ' + error.message, 'error');
+        return;
+      }
+      showToast('Lead ignorado.', 'info');
+      carregarFila();
+    }
+
+    function abrirWhatsApp(telefone, mensagem) {
+      const tel = normalizarTelefone(telefone);
+      if (!tel) { showToast('Cliente sem telefone.', 'error'); return; }
+      const msg = encodeURIComponent(mensagem);
+      const appUrl = `whatsapp://send?phone=55${tel}&text=${msg}`;
+      const webUrl = `https://wa.me/55${tel}?text=${msg}`;
+      let abriu = false;
+      const h = () => { abriu = true; };
+      window.addEventListener('blur', h, { once: true });
+      try { window.location.href = appUrl; } catch (_) {}
+      setTimeout(() => {
+        window.removeEventListener('blur', h);
+        if (!abriu) window.open(webUrl, '_blank', 'noopener');
+      }, 900);
+    }
+
+    /* ==========================================================
+       REGRAS
        ========================================================== */
     async function carregarRegras() {
       const box = $('listaRegras');
@@ -552,14 +1056,8 @@
         .from('prospeccao_regras').select('*')
         .order('prioridade_base', { ascending: false });
 
-      if (error) {
-        box.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(error.message)}</div>`;
-        return;
-      }
-      if (!data?.length) {
-        box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">Nenhuma regra configurada.</div>`;
-        return;
-      }
+      if (error) { box.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(error.message)}</div>`; return; }
+      if (!data?.length) { box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">Nenhuma regra configurada.</div>`; return; }
       state.regras = data;
       box.innerHTML = data.map(r => regraHTML(r)).join('');
       lucide.createIcons();
@@ -590,75 +1088,133 @@
         </div>`;
     }
 
-async function recalcularBase(event) {
-  if (!state._isAdmin) {
-    showToast('Só administradores podem recalcular a base.', 'warning');
-    return;
-  }
+    async function recalcularBase(event) {
+      if (!state._isAdmin) { showToast('Só administradores.', 'warning'); return; }
+      const btn = event?.currentTarget;
+      const htmlOriginal = btn?.innerHTML || 'Recalcular';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Processando…';
+        lucide.createIcons();
+      }
 
-  const btn = event?.currentTarget || document.querySelector('[onclick*="recalcularBase"]');
-  const htmlOriginal = btn?.innerHTML || 'Recalcular Base';
-  
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Processando…';
-    lucide.createIcons();
-  }
+      try {
+        const { data, error } = await supabaseClient.rpc('processar_regras_prospeccao');
+        if (error) throw error;
+        if (!data?.success) throw new Error(data?.erro || 'Erro.');
 
-  try {
-    const { data, error } = await supabaseClient.rpc('processar_regras_prospeccao');
-    if (error) throw error;
-    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido ao processar regras.');
+        const partes = [];
+        if (data.leads_gerados > 0)      partes.push(`✨ ${data.leads_gerados} leads`);
+        if (data.clientes_retornaram > 0) partes.push(`🎉 ${data.clientes_retornaram} voltaram`);
+        if (data.leads_liberados > 0)    partes.push(`🔓 ${data.leads_liberados} liberados`);
+        if (data.leads_reciclados > 0)   partes.push(`♻️ ${data.leads_reciclados} reciclados`);
+        if (data.vouchers_expirados > 0) partes.push(`⏰ ${data.vouchers_expirados} vouchers expirados`);
 
-    const gerados = data.leads_gerados || 0;
-    const voltaram = data.clientes_retornaram || 0;
+        showToast(partes.length ? partes.join(' · ') : 'Nada novo para processar.', partes.length ? 'success' : 'info');
 
-    if (gerados === 0 && voltaram === 0) {
-      showToast('Nenhum lead novo gerado. Base já atualizada.', 'info');
-    } else {
-      const partes = [];
-      if (gerados > 0)   partes.push(`✨ ${gerados} leads gerados`);
-      if (voltaram > 0)  partes.push(`🎉 ${voltaram} clientes voltaram`);
-      showToast(partes.join(' · '), 'success');
+        await carregarFila();
+        await carregarRegras();
+        await atualizarKPIs();
+      } catch (err) {
+        showToast('Erro: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = htmlOriginal;
+          lucide.createIcons();
+        }
+      }
     }
-
-    console.log('[Regras] Detalhes:', data.detalhes);
-
-    // Recarrega tudo
-    await carregarFila();
-    await carregarRegras();
-    await atualizarKPIs();
-
-  } catch (err) {
-    console.error('[Recalcular]', err);
-    showToast('Erro: ' + err.message, 'error');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = htmlOriginal;
-      lucide.createIcons();
-    }
-  }
-}
 
     /* ==========================================================
-       RELATÓRIOS (placeholder — Fase 6)
+       RELATÓRIOS
        ========================================================== */
     async function carregarRelatorios() {
-      $('graficoContatos').innerHTML = `<div class="w-full text-center text-slate-400 text-sm italic py-12">Fase 6</div>`;
-      $('rankingTipos').innerHTML = `<div class="text-center text-slate-400 text-xs italic py-8">Aguardando dados…</div>`;
+      // Vouchers
+      const { data: vouchers } = await supabaseClient
+        .from('prospeccao_vouchers')
+        .select('status')
+        .limit(2000);
+
+      if (vouchers?.length) {
+        const total = vouchers.length;
+        const ativos = vouchers.filter(v => v.status === 'ATIVO').length;
+        const usados = vouchers.filter(v => v.status === 'USADO').length;
+        const expirados = vouchers.filter(v => v.status === 'EXPIRADO').length;
+
+        $('relVouchers').innerHTML = `
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white rounded-xl p-3 border border-slate-200">
+              <p class="text-[9px] font-black text-slate-400 uppercase">Total Emitidos</p>
+              <p class="text-2xl font-black text-slate-800">${total}</p>
+            </div>
+            <div class="bg-white rounded-xl p-3 border border-emerald-200">
+              <p class="text-[9px] font-black text-emerald-500 uppercase">Ativos</p>
+              <p class="text-2xl font-black text-emerald-600">${ativos}</p>
+            </div>
+            <div class="bg-white rounded-xl p-3 border border-indigo-200">
+              <p class="text-[9px] font-black text-indigo-500 uppercase">Usados</p>
+              <p class="text-2xl font-black text-indigo-600">${usados}</p>
+            </div>
+            <div class="bg-white rounded-xl p-3 border border-slate-200">
+              <p class="text-[9px] font-black text-slate-400 uppercase">Expirados</p>
+              <p class="text-2xl font-black text-slate-500">${expirados}</p>
+            </div>
+          </div>`;
+      } else {
+        $('relVouchers').innerHTML = `<p class="text-center py-8 text-slate-400 text-xs italic">Nenhum voucher emitido ainda.</p>`;
+      }
+
+      // Leads por tipo
+      const { data: leads } = await supabaseClient
+        .from('prospeccao_leads')
+        .select('tipo_lead, status')
+        .limit(5000);
+
+      if (leads?.length) {
+        const agrupado = {};
+        leads.forEach(l => {
+          agrupado[l.tipo_lead] = agrupado[l.tipo_lead] || { total: 0, pend: 0, cont: 0, ret: 0 };
+          agrupado[l.tipo_lead].total++;
+          if (l.status === 'PENDENTE') agrupado[l.tipo_lead].pend++;
+          if (l.status === 'CONTATADO') agrupado[l.tipo_lead].cont++;
+          if (l.status === 'RETORNOU') agrupado[l.tipo_lead].ret++;
+        });
+
+        $('relLeads').innerHTML = Object.entries(agrupado)
+          .sort((a, b) => b[1].total - a[1].total)
+          .map(([tipo, x]) => {
+            const info = tipoLeadInfo(tipo);
+            const pct = x.total > 0 ? Math.round((x.ret / x.total) * 100) : 0;
+            return `
+              <div class="bg-white rounded-xl p-3 border border-slate-200 mb-2">
+                <div class="flex justify-between items-center mb-1">
+                  <span class="badge-tipo ${info.cor}"><i data-lucide="${info.icon}" class="w-3 h-3"></i> ${info.label}</span>
+                  <span class="text-[10px] font-black text-slate-400">${x.total} leads</span>
+                </div>
+                <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                  <span>📋 ${x.pend} fila · ✓ ${x.cont} contatados</span>
+                  <span class="font-black ${pct > 0 ? 'text-emerald-600' : 'text-slate-400'}">${pct}% voltaram</span>
+                </div>
+              </div>`;
+          }).join('');
+      } else {
+        $('relLeads').innerHTML = `<p class="text-center py-8 text-slate-400 text-xs italic">Sem dados.</p>`;
+      }
+      lucide.createIcons();
     }
 
     /* ==========================================================
-       FASE 3 — IMPORTAÇÃO REAL
+       IMPORTAÇÃO (mantida — Fase 3)
        ========================================================== */
     function abrirImportacao(tipo) {
+      if (!state._isAdmin) { showToast('Só administradores.', 'warning'); return; }
       state.tipoImportacao = tipo;
       state.arquivoSelecionado = null;
 
       const titulos = {
-        datasys:     { t: 'Importar Datasys',     s: 'Vendas TIM (planos, aparelhos, chips)' },
-        gestaoclick: { t: 'Importar Gestão Click', s: 'Acessórios e serviços de TI' },
+        datasys:     { t: 'Importar Datasys',     s: 'Vendas TIM' },
+        gestaoclick: { t: 'Importar Gestão Click', s: 'Acessórios e serviços' },
       };
       $('importTitulo').textContent = titulos[tipo].t;
       $('importSubtitulo').textContent = titulos[tipo].s;
@@ -668,7 +1224,6 @@ async function recalcularBase(event) {
       $('importPreview').classList.add('hidden');
       $('importPreview').innerHTML = '';
       $('importAlerta').classList.add('hidden');
-      $('importUploadBox').style.display = '';
       $('btnProcessarImport').disabled = true;
       $('btnProcessarImport').innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> Processar';
 
@@ -690,15 +1245,17 @@ async function recalcularBase(event) {
       $('btnProcessarImport').disabled = false;
     }
 
-    // ─── Normaliza nomes de coluna ───
     function normCol(s) {
       return String(s || '').toUpperCase().trim()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[.\-_]/g, '')
-        .replace(/\s+/g, ' ');
+        .replace(/[›>»]/g, ' ')
+        .replace(/[\/\\]/g, ' ')
+        .replace(/[()]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     }
 
-    // ─── Procura valor por nomes possíveis ───
     function findCol(row, ...nomes) {
       const map = {};
       Object.keys(row).forEach(k => { map[normCol(k)] = row[k]; });
@@ -706,74 +1263,56 @@ async function recalcularBase(event) {
         const v = map[normCol(n)];
         if (v !== undefined && v !== null && String(v).trim() !== '') return v;
       }
+      for (const n of nomes) {
+        const alvo = normCol(n);
+        for (const chave of Object.keys(map)) {
+          if (chave.includes(alvo) || alvo.includes(chave)) {
+            const v = map[chave];
+            if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+          }
+        }
+      }
       return undefined;
     }
 
-// ─── Lê arquivo XLSX/CSV com detecção automática de cabeçalho ───
-async function lerPlanilha(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  
-  // Para CSV: usa PapaParse (mais simples)
-  if (ext === 'csv') {
-    return new Promise((resolve, reject) => {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: 'greedy',
-        transformHeader: h => h.trim(),
-        complete: ({ data }) => resolve(data),
-        error: reject,
-      });
-    });
-  }
+    async function lerPlanilha(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'csv') {
+        return new Promise((resolve, reject) => {
+          Papa.parse(file, {
+            header: true, skipEmptyLines: 'greedy', transformHeader: h => h.trim(),
+            complete: ({ data }) => resolve(data), error: reject,
+          });
+        });
+      }
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const linhasArray = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+      if (!linhasArray.length) return [];
+      const PALAVRAS = ['DATA', 'CPF', 'CNPJ', 'PRODUTO', 'VENDEDOR', 'CLIENTE', 'VALOR'];
+      let idx = 0, melhor = 0;
+      for (let i = 0; i < Math.min(10, linhasArray.length); i++) {
+        const txt = (linhasArray[i] || []).map(c => String(c || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')).join(' ');
+        let s = 0;
+        for (const p of PALAVRAS) if (txt.includes(p)) s++;
+        if (s > melhor) { melhor = s; idx = i; }
+      }
+      const cabecalhos = (linhasArray[idx] || []).map(c => String(c || '').trim());
+      const objetos = [];
+      for (let i = idx + 1; i < linhasArray.length; i++) {
+        const linha = linhasArray[i];
+        if (!linha || !linha.length) continue;
+        const prim = String(linha[0] || '').toUpperCase().trim();
+        if (!prim) continue;
+        if (['TOTAIS', 'LINHAS:', 'QUANTIDADE:', 'VALOR TOTAL:'].some(x => prim.startsWith(x))) continue;
+        const obj = {};
+        cabecalhos.forEach((cab, ix) => { if (cab) obj[cab] = linha[ix]; });
+        objetos.push(obj);
+      }
+      return objetos;
+    }
 
-  // Para XLSX: lê como array, detecta cabeçalho, converte para objetos
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const linhasArray = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
-
-  if (!linhasArray.length) return [];
-
-  // Detecção: procura a linha que contém as palavras-chave do cabeçalho real
-  const PALAVRAS_CABECALHO = ['DATA', 'CPF', 'CNPJ', 'PRODUTO', 'VENDEDOR', 'CLIENTE', 'VALOR'];
-  let idxCabecalho = 0;
-  let melhorScore = 0;
-
-  for (let i = 0; i < Math.min(10, linhasArray.length); i++) {
-    const textoLinha = (linhasArray[i] || [])
-      .map(c => String(c || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
-      .join(' ');
-    let score = 0;
-    for (const p of PALAVRAS_CABECALHO) if (textoLinha.includes(p)) score++;
-    if (score > melhorScore) { melhorScore = score; idxCabecalho = i; }
-  }
-
-  console.log(`[Planilha] Cabeçalho detectado na linha ${idxCabecalho + 1} (score: ${melhorScore})`);
-
-  // Extrai cabeçalhos e converte linhas em objetos
-  const cabecalhos = (linhasArray[idxCabecalho] || []).map(c => String(c || '').trim());
-  const objetos = [];
-
-  for (let i = idxCabecalho + 1; i < linhasArray.length; i++) {
-    const linha = linhasArray[i];
-    if (!linha || !linha.length) continue;
-
-    // Ignora linhas de totais/rodapé
-    const primeiraCelula = String(linha[0] || '').toUpperCase().trim();
-    if (!primeiraCelula) continue;
-    if (['TOTAIS', 'LINHAS:', 'QUANTIDADE:', 'VALOR TOTAL:'].some(x => primeiraCelula.startsWith(x))) continue;
-
-    const obj = {};
-    cabecalhos.forEach((cab, idx) => {
-      if (cab) obj[cab] = linha[idx];
-    });
-    objetos.push(obj);
-  }
-
-  return objetos;
-}
-
-    // ─── Classifica categoria (Datasys) ───
     function classificarCategoriaDatasys(modalidade, produto) {
       const m = String(modalidade || '').toUpperCase();
       const p = String(produto || '').toUpperCase();
@@ -784,162 +1323,86 @@ async function lerPlanilha(file) {
       return 'OUTROS';
     }
 
-// ─── Classifica categoria (Gestão Click) ───
-function classificarCategoriaGestaoClick(produto) {
-  const p = String(produto || '').toUpperCase();
+    function classificarCategoriaGestaoClick(produto) {
+      const p = String(produto || '').toUpperCase();
+      if (/CHIP|E-?SIM/.test(p)) return 'CHIP';
+      if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
+      if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA|PROJETOR|IPAD/.test(p)) return 'APARELHO';
+      if (/FONE|CAPA|CASE|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET|FONTE|SMARTWATCH|PULSEIRA|CANETA|TRIP|MOUSEPAD|CAIXA DE SOM|BAST|LIMPA|CÂMERA|CAMERA|HD|SSD/.test(p)) return 'ACESSORIO';
+      return 'OUTROS';
+    }
 
-  // CHIP (vem do Gestão Click também)
-  if (/CHIP|E-?SIM/.test(p)) return 'CHIP';
+    function mapearDatasys(linhas) {
+      const registros = [];
+      const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
+      if (linhas.length > 0) {
+        console.log('[Datasys] Colunas:', Object.keys(linhas[0]));
+      }
+      for (const row of linhas) {
+        const cpfRaw = String(findCol(row, 'CPF') || '').replace(/\D/g, '');
+        if (!cpfRaw) { ignorados.semCpf++; continue; }
+        if (cpfRaw.length === 14) { ignorados.cnpj++; continue; }
+        if (cpfRaw.length !== 11 || cpfRaw === '00000000000') { ignorados.semCpf++; continue; }
+        const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
+        if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+        const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
+        if (!dataVendaISO) { ignorados.semData++; continue; }
+        const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
+        const gsm = normalizarTelefone(findCol(row, 'GSM'));
+        const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
+        const produto = String(findCol(row, 'Produto') || '').trim();
+        const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
+        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+        const imei = String(findCol(row, 'IMEI') || '').trim();
+        const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
+        const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
+        registros.push({
+          cpf: cpfRaw, nome: capitalizar(nome), telefone: celular || gsm,
+          dataVenda: dataVendaISO, modalidade,
+          categoria: classificarCategoriaDatasys(modalidade, produto),
+          produto: produto || plano || modalidade || 'Venda Datasys',
+          plano, vendedor, imei, fidelizacao,
+          valorTotal: valorReceita || 0, dadosOriginais: row,
+        });
+      }
+      return { registros, ignorados };
+    }
 
-  // SERVIÇOS (manutenção, formatação, etc.)
-  if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
+    function mapearGestaoClick(linhas) {
+      const registros = [];
+      const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
+      if (linhas.length > 0) {
+        console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
+      }
+      for (const row of linhas) {
+        const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
+        if (!cpfCnpjRaw) { ignorados.semCpf++; continue; }
+        if (cpfCnpjRaw.length === 14) { ignorados.cnpj++; continue; }
+        if (cpfCnpjRaw.length !== 11) { ignorados.semCpf++; continue; }
+        const nome = String(findCol(row, 'Cliente') || '').trim();
+        if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+        const dataVendaISO = parseDataISO(findCol(row, 'Data'));
+        if (!dataVendaISO) { ignorados.semData++; continue; }
+        const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
+        const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
+        const produto = String(findCol(row, 'Produto') || '').trim();
+        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+        const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
+        if (!produto) continue;
+        registros.push({
+          cpf: cpfCnpjRaw, nome: capitalizar(nome),
+          telefone: celular || tel, dataVenda: dataVendaISO,
+          modalidade: 'VENDA GESTAO CLICK',
+          categoria: classificarCategoriaGestaoClick(produto),
+          produto, plano: null, vendedor, imei: null, fidelizacao: null,
+          valorTotal: valorTotal || 0, dadosOriginais: row,
+        });
+      }
+      return { registros, ignorados };
+    }
 
-  // APARELHOS (dispositivos grandes)
-  if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA|PROJETOR|IPAD/.test(p)) return 'APARELHO';
-
-  // ACESSÓRIOS (a maioria da loja)
-  if (/FONE|CAPA|CASE|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET|FONTE|SMARTWATCH|PULSEIRA|CANETA|TRIP|MOUSEPAD|CAIXA DE SOM|BAST|LIMPA|CÂMERA|CAMERA|HD|SSD|CARREGADOR/.test(p)) return 'ACESSORIO';
-
-  return 'OUTROS';
-}
-
-// ─── Mapeia Datasys ───
-function mapearDatasys(linhas) {
-  const registros = [];
-  const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
-
-  // 🔍 DEBUG: mostra as colunas detectadas no console (F12)
-  if (linhas.length > 0) {
-    console.log('[Datasys] Colunas detectadas:', Object.keys(linhas[0]));
-    console.log('[Datasys] Primeira linha:', linhas[0]);
-  }
-
-  for (const row of linhas) {
-    // ─── CPF ───
-    // Limpa tudo que não é dígito, sem forçar 11 dígitos
-    const cpfRaw = String(findCol(row, 'CPF') || '').replace(/\D/g, '');
-
-    // Ignora vazio
-    if (!cpfRaw) { ignorados.semCpf++; continue; }
-
-    // Ignora CNPJ (14 dígitos)
-    if (cpfRaw.length === 14) { ignorados.cnpj++; continue; }
-
-    // Ignora tamanhos inválidos
-    if (cpfRaw.length !== 11) { ignorados.semCpf++; continue; }
-
-    // Ignora CPF zerado
-    if (cpfRaw === '00000000000') { ignorados.semCpf++; continue; }
-
-    const cpf = cpfRaw;
-
-    // ─── Nome ───
-    const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
-    if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
-
-    // ─── Data ───
-    const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
-    if (!dataVendaISO) { ignorados.semData++; continue; }
-
-    // ─── Contatos ───
-    const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
-    const gsm = normalizarTelefone(findCol(row, 'GSM'));
-
-    // ─── Dados da venda ───
-    const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
-    const produto = String(findCol(row, 'Produto') || '').trim();
-    const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
-    const vendedor = String(findCol(row, 'Vendedor') || '').trim();
-    const imei = String(findCol(row, 'IMEI') || '').trim();
-    const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
-    const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
-
-    registros.push({
-      cpf,
-      nome: capitalizar(nome),
-      telefone: celular || gsm,
-      dataVenda: dataVendaISO,
-      modalidade,
-      categoria: classificarCategoriaDatasys(modalidade, produto),
-      produto: produto || plano || modalidade || 'Venda Datasys',
-      plano,
-      vendedor,
-      imei,
-      fidelizacao,
-      valorTotal: valorReceita || 0,
-      dadosOriginais: row,
-    });
-  }
-  return { registros, ignorados };
-}
-
-// ─── Mapeia Gestão Click ───
-function mapearGestaoClick(linhas) {
-  const registros = [];
-  const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
-
-  // 🔍 DEBUG: mostra as colunas detectadas
-  if (linhas.length > 0) {
-    console.log('[Gestão Click] Colunas detectadas:', Object.keys(linhas[0]));
-    console.log('[Gestão Click] Primeira linha:', linhas[0]);
-  }
-
-  for (const row of linhas) {
-    // CPF / CNPJ — pode vir formatado, com pontos e traços
-    const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
-    if (!cpfCnpjRaw) { ignorados.semCpf++; continue; }
-    if (cpfCnpjRaw.length === 14) { ignorados.cnpj++; continue; } // É CNPJ, ignora
-    if (cpfCnpjRaw.length !== 11) { ignorados.semCpf++; continue; }
-
-    const cpf = cpfCnpjRaw;
-
-    // Nome — ignora "Consumidor" (venda sem cadastro)
-    const nome = String(findCol(row, 'Cliente') || '').trim();
-    if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
-
-    // Data
-    const dataVendaISO = parseDataISO(findCol(row, 'Data'));
-    if (!dataVendaISO) { ignorados.semData++; continue; }
-
-    // Contatos
-    const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
-    const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
-
-    // Dados do produto
-    const produto = String(findCol(row, 'Produto') || '').trim();
-    const vendedor = String(findCol(row, 'Vendedor') || '').trim();
-    const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
-
-    // Pula produtos vazios
-    if (!produto) continue;
-
-    registros.push({
-      cpf,
-      nome: capitalizar(nome),
-      telefone: celular || tel,
-      dataVenda: dataVendaISO,
-      modalidade: 'VENDA GESTAO CLICK',
-      categoria: classificarCategoriaGestaoClick(produto),
-      produto: produto,
-      plano: null,
-      vendedor,
-      imei: null,
-      fidelizacao: null,
-      valorTotal: valorTotal || 0,
-      dadosOriginais: row,
-    });
-  }
-  return { registros, ignorados };
-}
-
-    // ─── Log na UI do modal ───
     function importLog(msg, nivel = 'info') {
-      const cores = {
-        info:    'text-slate-300',
-        success: 'text-emerald-400',
-        error:   'text-red-400',
-        warn:    'text-amber-400',
-      };
+      const cores = { info: 'text-slate-300', success: 'text-emerald-400', error: 'text-red-400', warn: 'text-amber-400' };
       const box = $('importPreview');
       box.classList.remove('hidden');
       const linha = document.createElement('div');
@@ -949,7 +1412,6 @@ function mapearGestaoClick(linhas) {
       box.scrollTop = box.scrollHeight;
     }
 
-    // ─── Processa a importação ───
     async function processarImportacao() {
       const arquivo = state.arquivoSelecionado;
       const tipo = state.tipoImportacao;
@@ -964,151 +1426,106 @@ function mapearGestaoClick(linhas) {
       lucide.createIcons();
 
       try {
-        // 1) Ler arquivo
         importLog(`📖 Lendo arquivo "${arquivo.name}"...`);
         const linhas = await lerPlanilha(arquivo);
-        if (!linhas?.length) throw new Error('Arquivo vazio ou sem dados.');
+        if (!linhas?.length) throw new Error('Arquivo vazio.');
         importLog(`✅ ${linhas.length} linhas lidas`, 'success');
 
-        // 2) Mapear
-        const { registros, ignorados } = tipo === 'datasys'
-          ? mapearDatasys(linhas)
-          : mapearGestaoClick(linhas);
-
-        if (!registros.length) {
-          throw new Error(`Nenhum registro válido. Ignorados: ${
-            Object.entries(ignorados).filter(([,v]) => v).map(([k,v]) => `${v} ${k}`).join(', ') || 'sem dados'
-          }`);
-        }
+        const { registros, ignorados } = tipo === 'datasys' ? mapearDatasys(linhas) : mapearGestaoClick(linhas);
+        if (!registros.length) throw new Error(`Nenhum registro válido. Ignorados: ${Object.entries(ignorados).filter(([,v]) => v).map(([k,v]) => `${v} ${k}`).join(', ')}`);
 
         const partes = [`✅ ${registros.length} registros válidos`];
         if (ignorados.semCpf)  partes.push(`${ignorados.semCpf} sem CPF`);
+        if (ignorados.cnpj)    partes.push(`${ignorados.cnpj} CNPJ`);
         if (ignorados.semNome) partes.push(`${ignorados.semNome} sem nome`);
-        if (ignorados.semData) partes.push(`${ignorados.semData} sem data`);
         importLog(partes.join(' · '), 'success');
 
-        // 3) Deduplica CPFs
         const cpfsUnicos = [...new Set(registros.map(r => r.cpf))];
-        importLog(`👥 ${cpfsUnicos.length} clientes únicos (por CPF)`);
+        importLog(`👥 ${cpfsUnicos.length} clientes únicos`);
 
-        // 4) Buscar clientes existentes
-        importLog(`🔎 Consultando clientes na base...`);
+        importLog(`🔎 Consultando clientes...`);
         const existentes = {};
-        const TAM_LOTE = 400;
-        for (let i = 0; i < cpfsUnicos.length; i += TAM_LOTE) {
-          const lote = cpfsUnicos.slice(i, i + TAM_LOTE);
-          const { data, error } = await supabaseClient
-            .from('clientes')
+        const TAM = 400;
+        for (let i = 0; i < cpfsUnicos.length; i += TAM) {
+          const lote = cpfsUnicos.slice(i, i + TAM);
+          const { data, error } = await supabaseClient.from('clientes')
             .select('id, cpf, ultima_compra, total_compras, total_gasto, telefone_principal')
             .in('cpf', lote);
           if (error) throw error;
           (data || []).forEach(c => { existentes[c.cpf] = c; });
         }
-        const novos = cpfsUnicos.filter(c => !existentes[c]);
-        importLog(`📊 ${Object.keys(existentes).length} clientes existentes · ${novos.length} novos`, 'success');
+        importLog(`📊 ${Object.keys(existentes).length} existentes · ${cpfsUnicos.length - Object.keys(existentes).length} novos`, 'success');
 
-        // 5) Monta payload de clientes (upsert por CPF)
         const clientesMap = new Map();
         const interacoesTemp = [];
-
         for (const r of registros) {
           const atual = clientesMap.get(r.cpf) || existentes[r.cpf] || {};
-          const ultimaCompraAtual = atual.ultima_compra || '';
-          const novaUltima = r.dataVenda > ultimaCompraAtual ? r.dataVenda : ultimaCompraAtual;
-
-      clientesMap.set(r.cpf, {
-        // ⚠️ NUNCA mandar 'id' — o Supabase resolve via CPF (onConflict)
-        cpf: r.cpf,
-        nome: r.nome,
-        telefone_principal: r.telefone || atual.telefone_principal || null,
-        ultima_compra: novaUltima || null,
-        total_compras: (atual.total_compras || 0) + 1,
-        total_gasto: (atual.total_gasto || 0) + (r.valorTotal || 0),
-        updated_at: new Date().toISOString(),
-      });
-
+          const ultimaAtual = atual.ultima_compra || '';
+          const novaUltima = r.dataVenda > ultimaAtual ? r.dataVenda : ultimaAtual;
+          clientesMap.set(r.cpf, {
+            cpf: r.cpf, nome: r.nome,
+            telefone_principal: r.telefone || atual.telefone_principal || null,
+            ultima_compra: novaUltima || null,
+            total_compras: (atual.total_compras || 0) + 1,
+            total_gasto: (atual.total_gasto || 0) + (r.valorTotal || 0),
+            updated_at: new Date().toISOString(),
+          });
           interacoesTemp.push({
             _cpf: r.cpf,
             tipo_fonte: tipo === 'datasys' ? 'DATASYS' : 'GESTAO_CLICK',
-            data_venda: r.dataVenda,
-            produto: r.produto,
-            categoria: r.categoria,
-            modalidade: r.modalidade,
-            valor_total: r.valorTotal,
-            vendedor: r.vendedor,
-            status_contrato: null,
-            imei: r.imei,
-            plano: r.plano,
-            fidelizacao: r.fidelizacao,
+            data_venda: r.dataVenda, produto: r.produto, categoria: r.categoria,
+            modalidade: r.modalidade, valor_total: r.valorTotal, vendedor: r.vendedor,
+            status_contrato: null, imei: r.imei, plano: r.plano, fidelizacao: r.fidelizacao,
             dados_originais: r.dadosOriginais,
           });
         }
 
-        // 6) Upsert clientes em lotes
-        const clientesArr = Array.from(clientesMap.values());
-        importLog(`💾 Salvando ${clientesArr.length} clientes...`);
+        const arrClientes = Array.from(clientesMap.values());
+        importLog(`💾 Salvando ${arrClientes.length} clientes...`);
         const cpfParaId = {};
-        for (let i = 0; i < clientesArr.length; i += TAM_LOTE) {
-          const lote = clientesArr.slice(i, i + TAM_LOTE);
-          const { data, error } = await supabaseClient
-            .from('clientes')
-            .upsert(lote, { onConflict: 'cpf' })
-            .select('id, cpf');
-          if (error) throw new Error('Erro ao salvar clientes: ' + error.message);
+        for (let i = 0; i < arrClientes.length; i += TAM) {
+          const lote = arrClientes.slice(i, i + TAM);
+          const { data, error } = await supabaseClient.from('clientes')
+            .upsert(lote, { onConflict: 'cpf' }).select('id, cpf');
+          if (error) throw new Error('Erro clientes: ' + error.message);
           (data || []).forEach(c => { cpfParaId[c.cpf] = c.id; });
-          importLog(`   → ${Object.keys(cpfParaId).length}/${clientesArr.length}`);
         }
         importLog(`✅ ${Object.keys(cpfParaId).length} clientes salvos`, 'success');
 
-        // 7) Inserir interações em lotes
-        const interacoesFinal = interacoesTemp
-          .filter(i => cpfParaId[i._cpf])
-          .map(({ _cpf, ...resto }) => ({ ...resto, cliente_id: cpfParaId[_cpf] }));
+        const interacoes = interacoesTemp.filter(i => cpfParaId[i._cpf])
+          .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
 
-        importLog(`📝 Inserindo ${interacoesFinal.length} interações...`);
+        importLog(`📝 Inserindo ${interacoes.length} interações...`);
         let inseridas = 0;
-        for (let i = 0; i < interacoesFinal.length; i += TAM_LOTE) {
-          const lote = interacoesFinal.slice(i, i + TAM_LOTE);
+        for (let i = 0; i < interacoes.length; i += TAM) {
+          const lote = interacoes.slice(i, i + TAM);
           const { error } = await supabaseClient.from('interacoes').insert(lote);
-          if (error) importLog(`   ⚠️ Lote ${i}: ${error.message}`, 'warn');
-          else inseridas += lote.length;
-          importLog(`   → ${inseridas}/${interacoesFinal.length}`);
+          if (!error) inseridas += lote.length;
         }
-        importLog(`✅ ${inseridas} interações registradas`, 'success');
+        importLog(`✅ ${inseridas} interações`, 'success');
 
-        // 8) Marcar leads RETORNOU
-        const clienteIds = Object.values(cpfParaId);
-        if (clienteIds.length) {
-          const { data: atualizados, error } = await supabaseClient
+        // Marca RETORNOU
+        const ids = Object.values(cpfParaId);
+        if (ids.length) {
+          const { data: at, error } = await supabaseClient
             .from('prospeccao_leads')
-            .update({
-              status: 'RETORNOU',
-              data_retorno_cliente: new Date().toISOString(),
-            })
-            .in('cliente_id', clienteIds)
+            .update({ status: 'RETORNOU', data_retorno_cliente: new Date().toISOString() })
+            .in('cliente_id', ids)
             .in('status', ['PENDENTE', 'CONTATADO'])
             .select('id');
-          if (!error && atualizados?.length) {
-            importLog(`🎉 ${atualizados.length} cliente(s) voltaram — leads marcados como RETORNOU`, 'success');
-          }
+          if (!error && at?.length) importLog(`🎉 ${at.length} voltaram!`, 'success');
         }
 
-        // 9) Finalizar
-        importLog(`🎉 Importação concluída com sucesso!`, 'success');
+        importLog(`🎉 Concluído!`, 'success');
         showToast(`${inseridas} interações importadas`, 'success');
-
-        setTimeout(() => {
-          fecharImportacao();
-          recarregarTudo();
-        }, 2200);
-
+        setTimeout(() => { fecharImportacao(); recarregarTudo(); }, 2000);
       } catch (err) {
         console.error('[Import]', err);
         importLog(`❌ ${err.message}`, 'error');
-        const alertBox = $('importAlerta');
-        alertBox.textContent = err.message;
-        alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600 mt-4';
-        alertBox.classList.remove('hidden');
+        const a = $('importAlerta');
+        a.textContent = err.message;
+        a.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600 mt-4';
+        a.classList.remove('hidden');
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="zap" class="w-4 h-4"></i> Processar';
         lucide.createIcons();
@@ -1121,7 +1538,7 @@ function mapearGestaoClick(linhas) {
     function recarregarTudo() {
       carregarFila();
       if (state.regras.length) carregarRegras();
-      showToast('Atualizando dados…', 'info');
+      showToast('Atualizando…', 'info');
     }
 
     /* ==========================================================
@@ -1134,8 +1551,9 @@ function mapearGestaoClick(linhas) {
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !$('modalImport')?.classList.contains('hidden')) {
-        fecharImportacao();
+      if (e.key === 'Escape') {
+        if (!$('modalImport')?.classList.contains('hidden')) fecharImportacao();
+        if (!$('modalOpcoes')?.classList.contains('hidden')) fecharModalOpcoes();
       }
     });
   </script>
