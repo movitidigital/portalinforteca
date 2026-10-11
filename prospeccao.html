@@ -603,6 +603,9 @@
         'REATIVACAO_CHIP_PRE':   { label: 'Chip Pré',    cor: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: 'zap' },
         'REATIVACAO_CHIP_POS':   { label: 'Chip Pós',    cor: 'bg-blue-50 text-blue-700 border-blue-200',       icon: 'zap' },
         'REATIVACAO_SERVICO_TI': { label: 'Serviço TI',  cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
+        // Fallbacks para tipos antigos
+        'REATIVACAO_CHIP':       { label: 'Chip (legado)', cor: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: 'zap' },
+        'CROSS_SELL_TI':         { label: 'Serviço TI (legado)', cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
       };
       return mapa[tipo] || { label: tipo, cor: 'bg-slate-100 text-slate-600 border-slate-200', icon: 'tag' };
     }
@@ -803,6 +806,19 @@
       if (tipo === 'REATIVACAO_SERVICO_TI') {
         return [{ id: 'servico_ti', label: 'Oferecer nova formatação/limpeza', desc: 'Serviço com desconto de aniversário' }];
       }
+
+      // 🛡️ Fallbacks para tipos legados (compatibilidade)
+      if (tipo === 'REATIVACAO_CHIP') {
+        return [
+          { id: 'controle', label: 'Oferecer TIM Controle', desc: 'Plano acessível pós-pago' },
+          { id: 'black', label: 'Oferecer TIM Black', desc: highValue ? 'Cliente com bom histórico' : 'Plano premium' },
+          { id: 'ja_cliente', label: 'Já é cliente TIM', desc: 'Ignorar este lead' },
+        ];
+      }
+      if (tipo === 'CROSS_SELL_TI') {
+        return [{ id: 'servico_ti', label: 'Oferecer nova formatação/limpeza', desc: 'Serviço com desconto de aniversário' }];
+      }
+
       return [];
     }
 
