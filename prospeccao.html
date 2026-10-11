@@ -150,30 +150,39 @@
           <div id="tab-fila" class="p-4 md:p-6">
 
             <!-- Filtros -->
-            <div class="flex flex-col md:flex-row gap-3 mb-5">
-              <div class="relative flex-1">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                <input type="text" id="filtroTexto" oninput="aplicarFiltro()"
-                  placeholder="Buscar por nome, CPF ou telefone..."
-                  class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
-              </div>
-<select id="filtroTipo" onchange="aplicarFiltro()" ...>
-  <option value="">Todos os tipos</option>
-  <option value="UPGRADE_TIM">📱 Upgrade TIM</option>
-  <option value="REATIVACAO_ACESSORIO">🎁 Acessório</option>
-  <option value="REATIVACAO_CHIP_PRE">⚡ Troca de Chip Pré</option>
-  <option value="REATIVACAO_CHIP_POS">⚡ Troca de Chip Pós</option>
-  <option value="REATIVACAO_SERVICO_TI">💻 Serviço TI</option>
-</select>
-              <select id="filtroStatus" onchange="aplicarFiltro()"
-                class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
-                <option value="PENDENTE">Pendentes</option>
-                <option value="CONTATADO">Contatados</option>
-                <option value="IGNORADO">Ignorados</option>
-                <option value="RETORNOU">Voltaram 🎉</option>
-                <option value="">Todos</option>
-              </select>
-            </div>
+<div class="flex flex-col md:flex-row gap-3 mb-5 flex-wrap">
+  <div class="relative flex-1 min-w-[200px]">
+    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+    <input type="text" id="filtroTexto" oninput="aplicarFiltro()"
+      placeholder="Buscar por nome, CPF ou telefone..."
+      class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+  </div>
+  <select id="filtroTipo" onchange="aplicarFiltro()"
+    class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
+    <option value="">Todos os tipos</option>
+    <option value="UPGRADE_TIM">📱 Upgrade TIM</option>
+    <option value="REATIVACAO_ACESSORIO">🎁 Acessório</option>
+    <option value="REATIVACAO_CHIP_PRE">⚡ Troca de Chip Pré</option>
+    <option value="REATIVACAO_CHIP_POS">⚡ Troca de Chip Pós</option>
+    <option value="REATIVACAO_SERVICO_TI">💻 Serviço TI</option>
+  </select>
+  <select id="filtroVendedor" onchange="aplicarFiltro()"
+    class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890] max-w-[220px]">
+    <option value="">Todos os vendedores</option>
+  </select>
+  <select id="filtroStatus" onchange="aplicarFiltro()"
+    class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
+    <option value="PENDENTE">Pendentes</option>
+    <option value="CONTATADO">Contatados</option>
+    <option value="IGNORADO">Ignorados</option>
+    <option value="RETORNOU">Voltaram 🎉</option>
+    <option value="">Todos</option>
+  </select>
+  <button id="btnSoMeus" onclick="toggleSoMeus()"
+    class="bg-slate-100 hover:bg-[#0e8890]/10 text-slate-600 hover:text-[#0e8890] border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black uppercase transition-colors flex items-center gap-2">
+    <i data-lucide="user-check" class="w-4 h-4"></i> <span id="btnSoMeusLabel">Só meus</span>
+  </button>
+</div>
 
             <!-- Desktop: Tabela -->
             <div class="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
@@ -527,7 +536,7 @@
       leads: [],
       leadsFiltrados: [],
       regras: [],
-      filtros: { texto: '', tipo: '', status: 'PENDENTE' },
+      filtros: { texto: '', tipo: '', status: 'PENDENTE', vendedor: '', soMeus: false },
       arquivoSelecionado: null,
       tipoImportacao: null,
       leadEmOpcao: null,
@@ -722,21 +731,64 @@
       }
 
       state.leads = data || [];
+      popularFiltroVendedores(); 
       aplicarFiltro();
       atualizarKPIs();
     }
 
+        function popularFiltroVendedores() {
+      const select = $('filtroVendedor');
+      if (!select) return;
+
+      const valorAtual = select.value;
+
+      // Pega nomes únicos de vendedor_origem
+      const vendedores = [...new Set(
+        state.leads
+          .map(l => l.vendedor_origem)
+          .filter(v => v && v.trim() && v.toUpperCase() !== 'INFORTECA LTDA')
+      )].sort();
+
+      select.innerHTML = '<option value="">Todos os vendedores</option>';
+
+      vendedores.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        select.appendChild(opt);
+      });
+
+      // Restaura valor anterior se ainda existe
+      if (vendedores.includes(valorAtual)) {
+        select.value = valorAtual;
+      }
+    }
+
     function aplicarFiltro() {
-      state.filtros.texto  = ($('filtroTexto').value || '').trim().toLowerCase();
-      state.filtros.tipo   = $('filtroTipo').value;
-      state.filtros.status = $('filtroStatus').value;
+      state.filtros.texto    = ($('filtroTexto').value || '').trim().toLowerCase();
+      state.filtros.tipo     = $('filtroTipo').value;
+      state.filtros.status   = $('filtroStatus').value;
+      state.filtros.vendedor = $('filtroVendedor')?.value || '';
 
       const termo = state.filtros.texto;
       const termoNum = termo.replace(/\D/g, '');
+      const meuNome = (state.perfil?.nome_completo || '').trim().toUpperCase();
+      const meuPrimeiroNome = meuNome.split(' ')[0];
 
       state.leadsFiltrados = state.leads.filter(l => {
         if (state.filtros.tipo && l.tipo_lead !== state.filtros.tipo) return false;
         if (state.filtros.status && l.status !== state.filtros.status) return false;
+
+        // Filtro de vendedor
+        if (state.filtros.vendedor && l.vendedor_origem !== state.filtros.vendedor) return false;
+
+        // Filtro "Só meus": mostra leads vendidos por mim OU atribuídos a mim
+        if (state.filtros.soMeus) {
+          const vendidoPorMim = String(l.vendedor_origem || '').toUpperCase().includes(meuPrimeiroNome);
+          const atribuidoAMim = l.consultor_atual_id === state.user?.id;
+          if (!vendidoPorMim && !atribuidoAMim) return false;
+        }
+
         if (termo) {
           const nome = String(l.cliente?.nome || '').toLowerCase();
           const cpf = normalizarCPF(l.cliente?.cpf);
@@ -749,6 +801,25 @@
       });
 
       renderFila();
+    }
+
+
+        function toggleSoMeus() {
+      state.filtros.soMeus = !state.filtros.soMeus;
+
+      const btn = $('btnSoMeus');
+      const label = $('btnSoMeusLabel');
+      if (btn && label) {
+        if (state.filtros.soMeus) {
+          btn.className = 'bg-[#0e8890] text-white border border-[#0e8890] px-4 py-2.5 rounded-xl text-sm font-black uppercase transition-colors flex items-center gap-2 shadow-sm';
+          label.textContent = 'Só meus ✓';
+        } else {
+          btn.className = 'bg-slate-100 hover:bg-[#0e8890]/10 text-slate-600 hover:text-[#0e8890] border border-slate-200 px-4 py-2.5 rounded-xl text-sm font-black uppercase transition-colors flex items-center gap-2';
+          label.textContent = 'Só meus';
+        }
+      }
+
+      aplicarFiltro();
     }
 
     function renderFila() {
@@ -813,6 +884,16 @@
       const retornou = l.status === 'RETORNOU';
       const ignorado = l.status === 'IGNORADO';
 
+      // Vendedor original
+      const vendedorOriginal = l.vendedor_origem || 'Sem vendedor';
+      const ehMeuVendedor = String(vendedorOriginal).toUpperCase()
+        .includes(String(state.perfil?.nome_completo || '').split(' ')[0].toUpperCase());
+      const vendedorBadge = l.vendedor_origem
+        ? `<span class="text-[9px] font-bold ${ehMeuVendedor ? 'text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-slate-600 bg-slate-50 border-slate-200'} px-2 py-0.5 rounded border uppercase tracking-tight" title="Vendedor original">
+             <i data-lucide="shopping-bag" class="w-2.5 h-2.5 inline"></i> ${escapeHTML(vendedorOriginal)}
+           </span>`
+        : '';
+
       const atribuicao = l.consultor_atual_id
         ? `<span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">👤 Atribuído</span>`
         : (l.status === 'PENDENTE' ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">🔓 Livre</span>` : '');
@@ -865,6 +946,7 @@
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-black ${corScore(score)}">
                 ${score}
               </span>
+              ${vendedorBadge}
               ${atribuicao}
               ${statusBadge}
             </div>
@@ -918,6 +1000,12 @@
               <p class="font-bold text-slate-700">${fmtBR(c.ultima_compra)}</p>
             </div>
           </div>
+          
+          ${l.vendedor_origem ? `
+            <div class="bg-indigo-50/60 rounded-lg p-2 mb-3 border border-indigo-100">
+              <p class="text-[9px] font-black text-indigo-500 uppercase mb-0.5">Vendido por</p>
+              <p class="text-[11px] font-bold text-indigo-700 uppercase">${escapeHTML(l.vendedor_origem)}</p>
+            </div>` : ''}
 
           <div class="bg-slate-50 rounded-lg p-2 mb-3 border border-slate-100">
             <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5">Oferta sugerida</p>
