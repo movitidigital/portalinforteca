@@ -60,6 +60,16 @@
         </div>
       </div>
 
+      <!-- 🚨 BOTÃO DE TESTE — REMOVER DEPOIS -->
+      <div style="background: #dc2626; padding: 20px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 10px 25px rgba(220,38,38,0.3);">
+        <p style="color: white; font-weight: 900; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">🚨 Botão de Teste</p>
+        <p style="color: rgba(255,255,255,0.8); font-size: 11px; margin-bottom: 12px;">Se este botão abre o painel, o sistema funciona. Depois a gente esconde.</p>
+        <button onclick="abrirPainelEquipe()" 
+          style="background: white; color: #dc2626; padding: 14px 28px; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 1px;">
+          👥 ABRIR PAINEL DA EQUIPE
+        </button>
+      </div>
+      
       <!-- Stats de leitura -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
@@ -576,7 +586,8 @@
     let _stateEquipe = { todos: [], filtro: 'todos' };
 
     function abrirPainelEquipe() {
-      if (!state.isAdmin) { showToastEmBreve(); return; }
+      // 🔧 TEMPORÁRIO: sem checagem de admin (remover depois)
+      console.log('[Painel] Abrindo... isAdmin =', state.isAdmin);
       $('modalEquipe').classList.remove('hidden');
       carregarProgressoEquipe();
     }
@@ -710,12 +721,14 @@
     /* Mostra/oculta card do painel conforme perfil */
     function atualizarBotaoPainel() {
       const card = $('cardAdmin');
-      if (!card) { console.warn('[Painel] Card não encontrado no DOM'); return; }
+      if (!card) return;
       
-      const visivel = state.isAdmin === true;
-      card.style.display = visivel ? 'block' : 'none';
+      // 🔧 TEMPORÁRIO: força exibir sempre (remover depois)
+      card.style.display = 'block';
       
-      console.log('[Painel Admin] isAdmin:', state.isAdmin, '| Card visível:', visivel, '| Estado do perfil:', state.perfil?.nome_completo);
+      console.log('[DEBUG] isAdmin:', state.isAdmin);
+      console.log('[DEBUG] perfil:', state.perfil);
+      console.log('[DEBUG] user:', state.user?.email);
     }
 
     /* ==========================================================
