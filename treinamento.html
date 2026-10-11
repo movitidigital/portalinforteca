@@ -616,26 +616,52 @@
         return;
       }
 
-      // Busca conclusões do módulo 'prospeccao'
+      // Busca TODAS as conclusões (não filtra por módulo)
       const { data: conclusoes, error: errConc } = await supabaseClient
         .from('treinamentos_concluidos')
-        .select('user_id, concluido_em')
-        .eq('modulo', 'prospeccao');
+        .select('user_id, modulo, concluido_em');
 
       if (errConc) {
         lista.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(errConc.message)}</div>`;
         return;
       }
 
-      const mapaConclusoes = {};
-      (conclusoes || []).forEach(c => { mapaConclusoes[c.user_id] = c.concluido_em; });
+      // Monta mapa: { user_id: { prospeccao: 'data', faturas: 'data', ... } }
+      const mapaPorUser = {};
+      (conclusoes || []).forEach(c => {
+        if (!mapaPorUser[c.user_id]) mapaPorUser[c.user_id] = {};
+        mapaPorUser[c.user_id][c.modulo] = c.concluido_em;
+      });
 
-      // Monta lista
-      _stateEquipe.todos = (perfis || []).map(p => ({
-        ...p,
-        concluido: !!mapaConclusoes[p.id],
-        concluidoEm: mapaConclusoes[p.id] || null,
-      }));
+      // Monta lista de usuários com todos os módulos
+      _stateEquipe.todos = (perfis || []).map(p => {
+        const conclusoesUser = mapaPorUser[p.id] || {};
+        
+        // Para cada módulo DISPONÍVEL, verifica se concluiu
+        const modulosDisponiveis = MODULOS.filter(m => m.disponivel);
+        const porModulo = modulosDisponiveis.map(m => ({
+          id: m.id,
+          titulo: m.titulo,
+          icone: m.icone,
+          cor: m.cor,
+          concluido: !!conclusoesUser[m.id],
+          concluidoEm: conclusoesUser[m.id] || null,
+        }));
+
+        const totalDisponiveis = porModulo.length;
+        const totalConcluidos = porModulo.filter(m => m.concluido).length;
+        const pct = totalDisponiveis > 0 ? Math.round((totalConcluidos / totalDisponiveis) * 100) : 0;
+
+        return {
+          ...p,
+          modulos: porModulo,
+          totalDisponiveis,
+          totalConcluidos,
+          pct,
+          concluido: totalDisponiveis > 0 && totalConcluidos === totalDisponiveis, // 100% completo
+          concluidoEm: null,
+        };
+      });
 
       renderEquipe();
       atualizarStatsEquipe();
@@ -646,8 +672,8 @@
       const f = _stateEquipe.filtro;
 
       let arr = _stateEquipe.todos;
-      if (f === 'concluidos') arr = arr.filter(u => u.concluido);
-      if (f === 'pendentes') arr = arr.filter(u => !u.concluido);
+      if (f === 'concluidos') arr = arr.filter(u => u.pct === 100);
+      if (f === 'pendentes') arr = arr.filter(u => u.pct < 100);
 
       if (!arr.length) {
         lista.innerHTML = `
@@ -659,36 +685,74 @@
         return;
       }
 
+      const CORES_MAP = {
+        indigo:  { bg: '#eef2ff', text: '#4f46e5', border: '#c7d2fe' },
+        emerald: { bg: '#ecfdf5', text: '#059669', border: '#a7f3d0' },
+        blue:    { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+        cyan:    { bg: '#ecfeff', text: '#0891b2', border: '#a5f3fc' },
+        violet:  { bg: '#f5f3ff', text: '#7c3aed', border: '#ddd6fe' },
+        red:     { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
+        amber:   { bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
+        rose:    { bg: '#fff1f2', text: '#e11d48', border: '#fecdd3' },
+        slate:   { bg: '#f8fafc', text: '#475569', border: '#cbd5e1' },
+      };
+
       lista.innerHTML = arr.map(u => {
-        const inicial = (u.nome_completo || '?').charAt(0).toUpperCase();
         const iniciais = (u.nome_completo || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
         const avatarHTML = u.avatar_url
-          ? `<img src="${escapeHTML(u.avatar_url)}" class="w-10 h-10 rounded-full object-cover shrink-0">`
-          : `<div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#0e8890] to-[#0b6c72] text-white flex items-center justify-center font-black text-sm shrink-0">${iniciais}</div>`;
+          ? `<img src="${escapeHTML(u.avatar_url)}" class="w-12 h-12 rounded-full object-cover shrink-0">`
+          : `<div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#0e8890] to-[#0b6c72] text-white flex items-center justify-center font-black text-sm shrink-0">${iniciais}</div>`;
 
-        const dataFmt = u.concluidoEm
-          ? new Date(u.concluidoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-          : '';
+        // Cor do card baseada no % de conclusão
+        const corCard = u.pct === 100
+          ? 'bg-emerald-50/50 border-emerald-200'
+          : u.pct >= 50
+            ? 'bg-amber-50/40 border-amber-200'
+            : 'bg-red-50/40 border-red-200';
+
+        const corPct = u.pct === 100
+          ? 'text-emerald-700 bg-emerald-100 border-emerald-200'
+          : u.pct >= 50
+            ? 'text-amber-700 bg-amber-100 border-amber-200'
+            : 'text-red-700 bg-red-100 border-red-200';
+
+        // Badges de cada módulo
+        const badgesModulos = u.modulos.map(m => {
+          const c = CORES_MAP[m.cor] || CORES_MAP.slate;
+          if (m.concluido) {
+            return `
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-black uppercase"
+                style="background: ${c.bg}; color: ${c.text}; border-color: ${c.border};"
+                title="Concluído em ${m.concluidoEm ? new Date(m.concluidoEm).toLocaleDateString('pt-BR') : ''}">
+                <i data-lucide="check" class="w-3 h-3"></i>
+                ${escapeHTML(m.titulo)}
+              </span>`;
+          } else {
+            return `
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-black uppercase opacity-50"
+                style="background: #f8fafc; color: #94a3b8; border-color: #e2e8f0;"
+                title="Não concluído">
+                <i data-lucide="circle" class="w-3 h-3"></i>
+                ${escapeHTML(m.titulo)}
+              </span>`;
+          }
+        }).join('');
 
         return `
-          <div class="flex items-center gap-3 p-3 rounded-xl border ${u.concluido ? 'bg-emerald-50/50 border-emerald-200' : 'bg-red-50/40 border-red-200'} mb-2">
-            ${avatarHTML}
-            <div class="min-w-0 flex-1">
-              <p class="font-black text-slate-800 text-sm uppercase truncate">${escapeHTML(u.nome_completo || '—')}</p>
-              <p class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(u.permissao || 'Operador')}</p>
-            </div>
-            ${u.concluido ? `
-              <div class="text-right shrink-0">
-                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
-                  <i data-lucide="check-circle-2" class="w-3 h-3"></i> Concluído
-                </span>
-                <p class="text-[9px] text-slate-500 mt-0.5">${dataFmt}</p>
+          <div class="p-4 rounded-xl border ${corCard} mb-3">
+            <div class="flex items-center gap-3 mb-3">
+              ${avatarHTML}
+              <div class="min-w-0 flex-1">
+                <p class="font-black text-slate-800 text-sm uppercase truncate">${escapeHTML(u.nome_completo || '—')}</p>
+                <p class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(u.permissao || 'Operador')}</p>
               </div>
-            ` : `
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-100 text-red-700 border border-red-200 text-[10px] font-black uppercase shrink-0">
-                <i data-lucide="clock" class="w-3 h-3"></i> Pendente
+              <span class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-black ${corPct} shrink-0">
+                ${u.pct}% · ${u.totalConcluidos}/${u.totalDisponiveis}
               </span>
-            `}
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/50">
+              ${badgesModulos}
+            </div>
           </div>`;
       }).join('');
 
@@ -710,11 +774,11 @@
 
     function atualizarStatsEquipe() {
       const total = _stateEquipe.todos.length;
-      const concluidos = _stateEquipe.todos.filter(u => u.concluido).length;
-      const pendentes = total - concluidos;
+      const completos = _stateEquipe.todos.filter(u => u.pct === 100).length;
+      const pendentes = total - completos;
 
       $('eqStatTotal').textContent = total;
-      $('eqStatConcluidos').textContent = concluidos;
+      $('eqStatConcluidos').textContent = completos;
       $('eqStatPendentes').textContent = pendentes;
     }
 
