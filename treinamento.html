@@ -788,14 +788,19 @@
     /* ==========================================================
        BOOT
        ========================================================== */
-    window.addEventListener('DOMContentLoaded', async () => {
+    window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
-      await verificarAuth();
+
+      // 1) Renderiza a página IMEDIATAMENTE (não espera auth)
       carregarProgresso();
       renderModulos();
-      atualizarBotaoPainel();
 
-      // Fecha modal com ESC
+      // 2) Verifica auth em BACKGROUND — quando terminar, mostra o card admin
+      verificarAuth()
+        .then(() => atualizarBotaoPainel())
+        .catch(err => console.warn('[Auth] Falha silenciosa:', err));
+
+      // 3) ESC fecha modal
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !$('modalEquipe')?.classList.contains('hidden')) {
           fecharPainelEquipe();
