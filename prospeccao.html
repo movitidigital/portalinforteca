@@ -214,10 +214,10 @@
                 <h3 class="text-base font-black text-[#000033] uppercase tracking-tight">Regras de Geração de Leads</h3>
                 <p class="text-xs text-slate-500 mt-1">Ajuste os critérios que disparam cada tipo de abordagem.</p>
               </div>
-              <button onclick="recalcularBase()"
-                class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
-                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
-              </button>
+              <button onclick="recalcularBase(event)"
+  class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
+</button>
             </div>
             <div id="listaRegras" class="space-y-3">
               <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
@@ -590,9 +590,56 @@
         </div>`;
     }
 
-    async function recalcularBase() {
-      showToast('Motor de regras — Fase 4', 'info');
+async function recalcularBase(event) {
+  if (!state._isAdmin) {
+    showToast('Só administradores podem recalcular a base.', 'warning');
+    return;
+  }
+
+  const btn = event?.currentTarget || document.querySelector('[onclick*="recalcularBase"]');
+  const htmlOriginal = btn?.innerHTML || 'Recalcular Base';
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Processando…';
+    lucide.createIcons();
+  }
+
+  try {
+    const { data, error } = await supabaseClient.rpc('processar_regras_prospeccao');
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.erro || 'Erro desconhecido ao processar regras.');
+
+    const gerados = data.leads_gerados || 0;
+    const voltaram = data.clientes_retornaram || 0;
+
+    if (gerados === 0 && voltaram === 0) {
+      showToast('Nenhum lead novo gerado. Base já atualizada.', 'info');
+    } else {
+      const partes = [];
+      if (gerados > 0)   partes.push(`✨ ${gerados} leads gerados`);
+      if (voltaram > 0)  partes.push(`🎉 ${voltaram} clientes voltaram`);
+      showToast(partes.join(' · '), 'success');
     }
+
+    console.log('[Regras] Detalhes:', data.detalhes);
+
+    // Recarrega tudo
+    await carregarFila();
+    await carregarRegras();
+    await atualizarKPIs();
+
+  } catch (err) {
+    console.error('[Recalcular]', err);
+    showToast('Erro: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = htmlOriginal;
+      lucide.createIcons();
+    }
+  }
+}
 
     /* ==========================================================
        RELATÓRIOS (placeholder — Fase 6)
