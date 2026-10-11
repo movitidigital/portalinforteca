@@ -312,11 +312,32 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const $ = (id) => document.getElementById(id);
 
+    // Emojis em Unicode escapes — 100% à prova de corrupção
     const EMOJI = {
-      sparkles: '✨', wave: '👋', ticket: '🎟️', gift: '🎁',
-      rocket: '🚀', fire: '🔥', money: '💰', phone: '📱',
-      black: '⚫', chip: '⚡', tool: '🛠️', star: '⭐',
-      heart: '💙', party: '🎉', check: '✅',
+      sparkles:    '\u2728',
+      wave:        '\u{1F44B}',
+      ticket:      '\u{1F39F}\uFE0F',
+      gift:        '\u{1F381}',
+      rocket:      '\u{1F680}',
+      fire:        '\u{1F525}',
+      money:       '\u{1F4B0}',
+      phone:       '\u{1F4F1}',
+      black:       '\u26AB',
+      chip:        '\u26A1',
+      tool:        '\u{1F6E0}\uFE0F',
+      star:        '\u2B50',
+      heart:       '\u{1F499}',
+      party:       '\u{1F389}',
+      check:       '\u2705',
+      pin:         '\u{1F4CC}',
+      movie:       '\u{1F3AC}',
+      card:        '\u{1F4B3}',
+      bags:        '\u{1F6CD}\uFE0F',
+      bookmark:    '\u{1F516}',
+      alarm:       '\u23F0',
+      greenCircle: '\u{1F7E2}',
+      unlock:      '\u{1F513}',
+      bulb:        '\u{1F4A1}',
     };
 
     /* ==========================================================
@@ -756,31 +777,31 @@
       const highValue = gasto >= 300 || compras >= 3;
 
       if (tipo === 'REATIVACAO_ACESSORIO') {
-        return [{ id: 'voucher', label: '🎁 Enviar Voucher R$ 40', desc: 'Gera código exclusivo e envia' }];
+        return [{ id: 'voucher', label: 'Enviar Voucher R$ 40', desc: 'Gera código exclusivo e envia' }];
       }
       if (tipo === 'REATIVACAO_CHIP_PRE') {
         return [
-          { id: 'controle', label: '🟢 Oferecer TIM Controle', desc: 'Plano acessível pós-pago' },
-          { id: 'black', label: '⚫ Oferecer TIM Black', desc: highValue ? 'Cliente com bom histórico' : 'Plano premium' },
-          { id: 'ja_cliente', label: '🔓 Já é cliente TIM', desc: 'Ignorar este lead' },
+          { id: 'controle', label: 'Oferecer TIM Controle', desc: 'Plano acessível pós-pago' },
+          { id: 'black', label: 'Oferecer TIM Black', desc: highValue ? 'Cliente com bom histórico' : 'Plano premium' },
+          { id: 'ja_cliente', label: 'Já é cliente TIM', desc: 'Ignorar este lead' },
         ];
       }
       if (tipo === 'REATIVACAO_CHIP_POS') {
         return [
-          { id: 'upgrade', label: '🚀 Oferecer upgrade de plano', desc: 'Plano com mais franquia' },
-          { id: 'aparelho', label: '📱 Oferecer aparelho com desconto', desc: 'Modelos selecionados' },
-          { id: 'servico', label: '🛠️ Oferecer serviço TIM', desc: 'Seguro, TIM Black, etc.' },
+          { id: 'upgrade', label: 'Oferecer upgrade de plano', desc: 'Plano com mais franquia' },
+          { id: 'aparelho', label: 'Oferecer aparelho com desconto', desc: 'Modelos selecionados' },
+          { id: 'servico', label: 'Oferecer serviço TIM', desc: 'Seguro, TIM Black, etc.' },
         ];
       }
       if (tipo === 'UPGRADE_TIM') {
         return [
-          { id: 'upgrade', label: '🚀 Upgrade de plano', desc: 'Controle → Black, mais internet' },
-          { id: 'aparelho', label: '📱 Aparelho com desconto', desc: 'Modelos com condição especial' },
-          { id: 'combo', label: '🎁 Combo plano + aparelho', desc: 'Melhor dos dois mundos' },
+          { id: 'upgrade', label: 'Upgrade de plano', desc: 'Controle → Black, mais internet' },
+          { id: 'aparelho', label: 'Aparelho com desconto', desc: 'Modelos com condição especial' },
+          { id: 'combo', label: 'Combo plano + aparelho', desc: 'Melhor dos dois mundos' },
         ];
       }
       if (tipo === 'REATIVACAO_SERVICO_TI') {
-        return [{ id: 'servico_ti', label: '🛠️ Oferecer nova formatação/limpeza', desc: 'Serviço com desconto de aniversário' }];
+        return [{ id: 'servico_ti', label: 'Oferecer nova formatação/limpeza', desc: 'Serviço com desconto de aniversário' }];
       }
       return [];
     }
@@ -825,10 +846,10 @@
                `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
                `Faz um tempinho que você não passa por aqui e *sentimos sua falta*! Como você é especial pra gente, separei um presente:\n\n` +
                `${E.ticket} *VOUCHER DE R$ 40,00*\n` +
-               `🔖 *Código:* ${voucher.codigo}\n` +
-               `🛍️ Válido em qualquer acessório da loja\n` +
-               `⏰ Válido até *${fmtBR(voucher.validade_ate)}*\n\n` +
-               `📌 *Apresente este código de voucher na loja para usar seu desconto!*\n\n` +
+               `${E.bookmark} *Código:* ${voucher.codigo}\n` +
+               `${E.bags} Válido em qualquer acessório da loja\n` +
+               `${E.alarm} Válido até *${fmtBR(voucher.validade_ate)}*\n\n` +
+               `${E.pin} *Apresente este código de voucher na loja para usar seu desconto!*\n\n` +
                `Estamos te esperando! ${E.rocket}`;
       }
 
@@ -848,7 +869,7 @@
                `Como você fez uma troca de chip com a gente, separei uma oferta *especial* pra você:\n\n` +
                `${E.black} *TIM BLACK* — o plano premium da TIM\n` +
                `${E.rocket} Internet que não acaba\n` +
-               `🎬 Streaming incluso\n` +
+               `${E.movie} Streaming incluso\n` +
                `${E.gift} Bônus de ativação\n\n` +
                `Bora dar esse upgrade? Me chama aqui! ${E.phone}`;
       }
@@ -869,7 +890,7 @@
                `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
                `Bora dar aquele *upgrade no aparelho*? ${E.phone}\n\n` +
                `${E.gift} *Modelos selecionados com desconto*\n` +
-               `💳 *Parcelamento especial*\n` +
+               `${E.card} *Parcelamento especial*\n` +
                `${E.rocket} *Troca com avaliação do seu usado*\n\n` +
                `Me chama aqui que já te mostro os modelos! ${E.rocket}`;
       }
@@ -878,9 +899,9 @@
         return `Olá, *${nome}*! ${E.sparkles}\n\n` +
                `Aqui é o *${consultor}*, da *Inforteca TIM* ${E.wave}\n\n` +
                `Separei uma oferta *exclusiva* que combina tudo o que você precisa:\n\n` +
-               `🎁 *COMBO PLANO + APARELHO*\n` +
+               `${E.gift} *COMBO PLANO + APARELHO*\n` +
                `${E.phone} Plano turbinado com mais internet\n` +
-               `📱 Aparelho novo com desconto especial\n` +
+               `${E.phone} Aparelho novo com desconto especial\n` +
                `${E.money} Uma única parcela que cabe no bolso\n\n` +
                `Bora dar esse upgrade completo? Me responde aqui! ${E.rocket}`;
       }
@@ -891,12 +912,12 @@
                `Como você já é nosso cliente, quero te apresentar serviços exclusivos da TIM que podem te interessar:\n\n` +
                `${E.tool} *Seguro Celular* — proteção completa\n` +
                `${E.black} *TIM Black* — plano premium\n` +
-               `🎁 *Bônus exclusivos* pra clientes fiéis\n\n` +
+               `${E.gift} *Bônus exclusivos* pra clientes fiéis\n\n` +
                `Me responde aqui que já te explico melhor! ${E.rocket}`;
       }
 
       if (opcaoId === 'servico_ti') {
-        return `Olá, *${nome}*! 💻\n\n` +
+        return `Olá, *${nome}*! ${E.phone}\n\n` +
                `Aqui é o *${consultor}*, da *Inforteca TI* ${E.wave}\n\n` +
                `Já faz um ano desde o último serviço que fizemos no seu equipamento! *Bora dar aquele trato?*\n\n` +
                `${E.tool} *Nova formatação + limpeza completa*\n` +
@@ -1084,7 +1105,7 @@
             </span>
           </div>
           <div class="flex flex-wrap gap-1.5 mt-2">${linhas}</div>
-          <p class="text-[11px] text-slate-500 mt-3 italic">💡 ${escapeHTML(r.oferta_template || '')}</p>
+          <p class="text-[11px] text-slate-500 mt-3 italic">${EMOJI.bulb} ${escapeHTML(r.oferta_template || '')}</p>
         </div>`;
     }
 
