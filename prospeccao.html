@@ -709,25 +709,69 @@ async function recalcularBase(event) {
       return undefined;
     }
 
-    // ─── Lê arquivo XLSX/CSV ───
-    async function lerPlanilha(file) {
-      const ext = file.name.split('.').pop().toLowerCase();
-      if (ext === 'csv') {
-        return new Promise((resolve, reject) => {
-          Papa.parse(file, {
-            header: true,
-            skipEmptyLines: 'greedy',
-            transformHeader: h => h.trim(),
-            complete: ({ data }) => resolve(data),
-            error: reject,
-          });
-        });
-      }
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      return XLSX.utils.sheet_to_json(ws, { defval: '' });
-    }
+// ─── Lê arquivo XLSX/CSV com detecção automática de cabeçalho ───
+async function lerPlanilha(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  
+  // Para CSV: usa PapaParse (mais simples)
+  if (ext === 'csv') {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: 'greedy',
+        transformHeader: h => h.trim(),
+        complete: ({ data }) => resolve(data),
+        error: reject,
+      });
+    });
+  }
+
+  // Para XLSX: lê como array, detecta cabeçalho, converte para objetos
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const linhasArray = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+
+  if (!linhasArray.length) return [];
+
+  // Detecção: procura a linha que contém as palavras-chave do cabeçalho real
+  const PALAVRAS_CABECALHO = ['DATA', 'CPF', 'CNPJ', 'PRODUTO', 'VENDEDOR', 'CLIENTE', 'VALOR'];
+  let idxCabecalho = 0;
+  let melhorScore = 0;
+
+  for (let i = 0; i < Math.min(10, linhasArray.length); i++) {
+    const textoLinha = (linhasArray[i] || [])
+      .map(c => String(c || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+      .join(' ');
+    let score = 0;
+    for (const p of PALAVRAS_CABECALHO) if (textoLinha.includes(p)) score++;
+    if (score > melhorScore) { melhorScore = score; idxCabecalho = i; }
+  }
+
+  console.log(`[Planilha] Cabeçalho detectado na linha ${idxCabecalho + 1} (score: ${melhorScore})`);
+
+  // Extrai cabeçalhos e converte linhas em objetos
+  const cabecalhos = (linhasArray[idxCabecalho] || []).map(c => String(c || '').trim());
+  const objetos = [];
+
+  for (let i = idxCabecalho + 1; i < linhasArray.length; i++) {
+    const linha = linhasArray[i];
+    if (!linha || !linha.length) continue;
+
+    // Ignora linhas de totais/rodapé
+    const primeiraCelula = String(linha[0] || '').toUpperCase().trim();
+    if (!primeiraCelula) continue;
+    if (['TOTAIS', 'LINHAS:', 'QUANTIDADE:', 'VALOR TOTAL:'].some(x => primeiraCelula.startsWith(x))) continue;
+
+    const obj = {};
+    cabecalhos.forEach((cab, idx) => {
+      if (cab) obj[cab] = linha[idx];
+    });
+    objetos.push(obj);
+  }
+
+  return objetos;
+}
 
     // ─── Classifica categoria (Datasys) ───
     function classificarCategoriaDatasys(modalidade, produto) {
@@ -740,98 +784,153 @@ async function recalcularBase(event) {
       return 'OUTROS';
     }
 
-    // ─── Classifica categoria (Gestão Click) ───
-    function classificarCategoriaGestaoClick(produto) {
-      const p = String(produto || '').toUpperCase();
-      if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
-      if (/FONE|CAPA|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET/.test(p)) return 'ACESSORIO';
-      if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA/.test(p)) return 'APARELHO';
-      return 'OUTROS';
-    }
+// ─── Classifica categoria (Gestão Click) ───
+function classificarCategoriaGestaoClick(produto) {
+  const p = String(produto || '').toUpperCase();
 
-    // ─── Mapeia Datasys ───
-    function mapearDatasys(linhas) {
-      const registros = [];
-      const ignorados = { semCpf: 0, semNome: 0, semData: 0 };
-      for (const row of linhas) {
-        const cpfRaw = findCol(row, 'CPF');
-        const cpf = normalizarCPF(cpfRaw);
-        if (cpf === '00000000000' || cpf.length !== 11) { ignorados.semCpf++; continue; }
+  // CHIP (vem do Gestão Click também)
+  if (/CHIP|E-?SIM/.test(p)) return 'CHIP';
 
-        const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
-        if (!nome) { ignorados.semNome++; continue; }
+  // SERVIÇOS (manutenção, formatação, etc.)
+  if (/FORMATA|MANUTEN|LIMPEZA|CONSERT|REPARO|INSTALA|MONTAGEM/.test(p)) return 'SERVICO';
 
-        const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
-        if (!dataVendaISO) { ignorados.semData++; continue; }
+  // APARELHOS (dispositivos grandes)
+  if (/NOTEBOOK|COMPUTADOR|DESKTOP|MONITOR|TABLET|CELULAR|SMARTPHONE|IMPRESSORA|PROJETOR|IPAD/.test(p)) return 'APARELHO';
 
-        const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
-        const gsm = normalizarTelefone(findCol(row, 'GSM'));
-        const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
-        const produto = String(findCol(row, 'Produto') || '').trim();
-        const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
-        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
-        const imei = String(findCol(row, 'IMEI') || '').trim();
-        const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
-        const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
+  // ACESSÓRIOS (a maioria da loja)
+  if (/FONE|CAPA|CASE|PELICULA|PELÍCULA|CARREGADOR|CABO|ADAPTADOR|SUPORTE|MOUSE|TECLADO|HEADSET|FONTE|SMARTWATCH|PULSEIRA|CANETA|TRIP|MOUSEPAD|CAIXA DE SOM|BAST|LIMPA|CÂMERA|CAMERA|HD|SSD|CARREGADOR/.test(p)) return 'ACESSORIO';
 
-        registros.push({
-          cpf,
-          nome: capitalizar(nome),
-          telefone: celular || gsm,
-          dataVenda: dataVendaISO,
-          modalidade,
-          categoria: classificarCategoriaDatasys(modalidade, produto),
-          produto: produto || plano || modalidade || 'Venda Datasys',
-          plano,
-          vendedor,
-          imei,
-          fidelizacao,
-          valorTotal: valorReceita || 0,
-          dadosOriginais: row,
-        });
-      }
-      return { registros, ignorados };
-    }
+  return 'OUTROS';
+}
 
-    // ─── Mapeia Gestão Click ───
-    function mapearGestaoClick(linhas) {
-      const registros = [];
-      const ignorados = { semCpf: 0, semNome: 0, semData: 0 };
-      for (const row of linhas) {
-        const cpfRaw = findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF');
-        const cpf = normalizarCPF(cpfRaw);
-        if (cpf === '00000000000' || cpf.length !== 11) { ignorados.semCpf++; continue; }
+// ─── Mapeia Datasys ───
+function mapearDatasys(linhas) {
+  const registros = [];
+  const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
 
-        const nome = String(findCol(row, 'Cliente') || '').trim();
-        if (!nome) { ignorados.semNome++; continue; }
+  // 🔍 DEBUG: mostra as colunas detectadas no console (F12)
+  if (linhas.length > 0) {
+    console.log('[Datasys] Colunas detectadas:', Object.keys(linhas[0]));
+    console.log('[Datasys] Primeira linha:', linhas[0]);
+  }
 
-        const dataVendaISO = parseDataISO(findCol(row, 'Data'));
-        if (!dataVendaISO) { ignorados.semData++; continue; }
+  for (const row of linhas) {
+    // ─── CPF ───
+    // Limpa tudo que não é dígito, sem forçar 11 dígitos
+    const cpfRaw = String(findCol(row, 'CPF') || '').replace(/\D/g, '');
 
-        const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
-        const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
-        const produto = String(findCol(row, 'Produto') || '').trim();
-        const vendedor = String(findCol(row, 'Vendedor') || '').trim();
-        const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
+    // Ignora vazio
+    if (!cpfRaw) { ignorados.semCpf++; continue; }
 
-        registros.push({
-          cpf,
-          nome: capitalizar(nome),
-          telefone: celular || tel,
-          dataVenda: dataVendaISO,
-          modalidade: 'VENDA GESTAO CLICK',
-          categoria: classificarCategoriaGestaoClick(produto),
-          produto: produto || 'Venda Gestão Click',
-          plano: null,
-          vendedor,
-          imei: null,
-          fidelizacao: null,
-          valorTotal: valorTotal || 0,
-          dadosOriginais: row,
-        });
-      }
-      return { registros, ignorados };
-    }
+    // Ignora CNPJ (14 dígitos)
+    if (cpfRaw.length === 14) { ignorados.cnpj++; continue; }
+
+    // Ignora tamanhos inválidos
+    if (cpfRaw.length !== 11) { ignorados.semCpf++; continue; }
+
+    // Ignora CPF zerado
+    if (cpfRaw === '00000000000') { ignorados.semCpf++; continue; }
+
+    const cpf = cpfRaw;
+
+    // ─── Nome ───
+    const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
+    if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+
+    // ─── Data ───
+    const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
+    if (!dataVendaISO) { ignorados.semData++; continue; }
+
+    // ─── Contatos ───
+    const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
+    const gsm = normalizarTelefone(findCol(row, 'GSM'));
+
+    // ─── Dados da venda ───
+    const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
+    const produto = String(findCol(row, 'Produto') || '').trim();
+    const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
+    const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+    const imei = String(findCol(row, 'IMEI') || '').trim();
+    const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
+    const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
+
+    registros.push({
+      cpf,
+      nome: capitalizar(nome),
+      telefone: celular || gsm,
+      dataVenda: dataVendaISO,
+      modalidade,
+      categoria: classificarCategoriaDatasys(modalidade, produto),
+      produto: produto || plano || modalidade || 'Venda Datasys',
+      plano,
+      vendedor,
+      imei,
+      fidelizacao,
+      valorTotal: valorReceita || 0,
+      dadosOriginais: row,
+    });
+  }
+  return { registros, ignorados };
+}
+
+// ─── Mapeia Gestão Click ───
+function mapearGestaoClick(linhas) {
+  const registros = [];
+  const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
+
+  // 🔍 DEBUG: mostra as colunas detectadas
+  if (linhas.length > 0) {
+    console.log('[Gestão Click] Colunas detectadas:', Object.keys(linhas[0]));
+    console.log('[Gestão Click] Primeira linha:', linhas[0]);
+  }
+
+  for (const row of linhas) {
+    // CPF / CNPJ — pode vir formatado, com pontos e traços
+    const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
+    if (!cpfCnpjRaw) { ignorados.semCpf++; continue; }
+    if (cpfCnpjRaw.length === 14) { ignorados.cnpj++; continue; } // É CNPJ, ignora
+    if (cpfCnpjRaw.length !== 11) { ignorados.semCpf++; continue; }
+
+    const cpf = cpfCnpjRaw;
+
+    // Nome — ignora "Consumidor" (venda sem cadastro)
+    const nome = String(findCol(row, 'Cliente') || '').trim();
+    if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+
+    // Data
+    const dataVendaISO = parseDataISO(findCol(row, 'Data'));
+    if (!dataVendaISO) { ignorados.semData++; continue; }
+
+    // Contatos
+    const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
+    const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
+
+    // Dados do produto
+    const produto = String(findCol(row, 'Produto') || '').trim();
+    const vendedor = String(findCol(row, 'Vendedor') || '').trim();
+    const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
+
+    // Pula produtos vazios
+    if (!produto) continue;
+
+    registros.push({
+      cpf,
+      nome: capitalizar(nome),
+      telefone: celular || tel,
+      dataVenda: dataVendaISO,
+      modalidade: 'VENDA GESTAO CLICK',
+      categoria: classificarCategoriaGestaoClick(produto),
+      produto: produto,
+      plano: null,
+      vendedor,
+      imei: null,
+      fidelizacao: null,
+      valorTotal: valorTotal || 0,
+      dadosOriginais: row,
+    });
+  }
+  return { registros, ignorados };
+}
 
     // ─── Log na UI do modal ───
     function importLog(msg, nivel = 'info') {
