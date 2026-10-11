@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Central de Treinamento — Portal Inforteca</title>
+  <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="sidebar.js"></script>
+  <script src="header.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .doc-content h2 {
+      font-size: 1.5rem; font-weight: 900; color: #000033;
+      margin-top: 2.5rem; margin-bottom: 1rem; padding-bottom: 0.5rem;
+      border-bottom: 3px solid #0e8890; letter-spacing: -0.02em;
+      text-transform: uppercase;
+    }
+    .doc-content h2:first-child { margin-top: 0; }
+
+    .doc-content h3 {
+      font-size: 1.125rem; font-weight: 800; color: #0e8890;
+      margin-top: 1.75rem; margin-bottom: 0.75rem;
+    }
+
+    .doc-content h4 {
+      font-size: 0.95rem; font-weight: 800; color: #334155;
+      margin-top: 1.25rem; margin-bottom: 0.5rem;
+    }
+
+    .doc-content p {
+      color: #475569; line-height: 1.75; margin-bottom: 0.75rem; font-size: 0.9rem;
+    }
+
+    .doc-content ul, .doc-content ol {
+      margin-left: 1.5rem; margin-bottom: 1rem; color: #475569; font-size: 0.9rem;
+    }
+    .doc-content ul { list-style: none; }
+    .doc-content ul li { position: relative; padding-left: 1.5rem; margin-bottom: 0.5rem; line-height: 1.6; }
+    .doc-content ul li::before {
+      content: '▸'; position: absolute; left: 0; color: #0e8890; font-weight: 900;
+    }
+    .doc-content ol { list-style: decimal; }
+    .doc-content ol li { padding-left: 0.25rem; margin-bottom: 0.5rem; line-height: 1.6; }
+
+    .doc-content strong { color: #0f172a; font-weight: 800; }
+    .doc-content code {
+      background: #f1f5f9; color: #0e8890; padding: 2px 6px;
+      border-radius: 4px; font-size: 0.8rem; font-weight: 700;
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+    }
+
+    .doc-content blockquote {
+      background: #f0fdfa; border-left: 4px solid #0e8890;
+      padding: 1rem 1.25rem; border-radius: 0.75rem; margin: 1rem 0;
+      font-size: 0.875rem; color: #115e59;
+    }
+
+    .doc-content table {
+      width: 100%; border-collapse: collapse; margin: 1rem 0;
+      font-size: 0.85rem; border-radius: 0.75rem; overflow: hidden;
+      box-shadow: 0 0 0 1px #e2e8f0;
+    }
+    .doc-content th {
+      background: #f8fafc; padding: 0.75rem 1rem; text-align: left;
+      font-weight: 900; font-size: 0.7rem; text-transform: uppercase;
+      color: #64748b; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0;
+    }
+    .doc-content td {
+      padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #475569;
+    }
+    .doc-content tr:last-child td { border-bottom: none; }
+    .doc-content tbody tr:hover { background: #f8fafc; }
+
+    .doc-content .card-highlight {
+      background: linear-gradient(135deg, #f0fdfa 0%, #ecfeff 100%);
+      border: 2px solid #0e8890; border-radius: 1rem;
+      padding: 1.5rem; margin: 1.5rem 0;
+    }
+
+    .doc-content .checklist {
+      background: #fefce8; border: 2px dashed #eab308;
+      border-radius: 1rem; padding: 1.5rem; margin: 1.5rem 0;
+    }
+    .doc-content .checklist p {
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      color: #713f12; font-size: 0.85rem; margin-bottom: 0.4rem;
+    }
+
+    /* Sidebar de navegação do manual */
+    .toc-link {
+      display: block; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+      font-size: 0.75rem; font-weight: 700; color: #64748b;
+      transition: all 0.15s ease; border-left: 3px solid transparent;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .toc-link:hover { color: #0e8890; background: #f0fdfa; }
+    .toc-link.active {
+      color: #0e8890; background: #f0fdfa; border-left-color: #0e8890;
+    }
+
+    /* Estilos de impressão */
+    @media print {
+      aside, header, .no-print { display: none !important; }
+      body { background: white; }
+      main { margin: 0; }
+      .doc-content { box-shadow: none !important; border: none !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
+
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative">
+    <header id="appHeader" data-title="Central de Treinamento" data-search="false" data-notif="false"></header>
+
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+
+      <!-- Cabeçalho da página -->
+      <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 no-print">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-black text-[#000033] tracking-tighter uppercase">Central de Treinamento</h1>
+          <p class="text-sm text-slate-500 mt-1">Aprenda a usar o módulo de Prospecção corretamente.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="window.print()"
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+            <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+          </button>
+        </div>
+      </div>
+
+      <!-- Abas -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden no-print mb-6">
+        <div class="border-b border-slate-100 flex overflow-x-auto">
+          <button onclick="trocarAba('consultor')" data-aba="consultor"
+            class="tab-treino active flex-1 min-w-[180px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent">
+            <i data-lucide="user-check" class="w-4 h-4"></i> Manual do Consultor
+          </button>
+          <button id="tabAdminBtn" onclick="trocarAba('admin')" data-aba="admin"
+            class="tab-treino flex-1 min-w-[180px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500">
+            <i data-lucide="crown" class="w-4 h-4"></i> Manual do Administrador
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ ABA: MANUAL DO CONSULTOR ============ -->
+      <div id="aba-consultor" class="animate-fade-in">
+        <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+
+          <!-- TOC lateral -->
+          <nav class="hidden lg:block no-print">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sticky top-4 max-h-[calc(100vh-120px)] overflow-y-auto">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Índice</p>
+              <div id="toc-consultor" class="space-y-0.5"></div>
+            </div>
+          </nav>
+
+          <!-- Conteúdo -->
+          <article id="conteudo-consultor" class="doc-content bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10 max-w-4xl">
+            <!-- Conteúdo injetado por JS -->
+          </article>
+        </div>
+      </div>
+
+      <!-- ============ ABA: MANUAL DO ADMINISTRADOR ============ -->
+      <div id="aba-admin" class="hidden animate-fade-in">
+        <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+
+          <nav class="hidden lg:block no-print">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sticky top-4 max-h-[calc(100vh-120px)] overflow-y-auto">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-2">Índice</p>
+              <div id="toc-admin" class="space-y-0.5"></div>
+            </div>
+          </nav>
+
+          <article id="conteudo-admin" class="doc-content bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10 max-w-4xl">
+            <!-- Conteúdo injetado por JS -->
+          </article>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    /* ==========================================================
+       CONFIG
+       ========================================================== */
+    const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* ==========================================================
+       CONTEÚDO — MANUAL DO CONSULTOR
+       ========================================================== */
+    const MANUAL_CONSULTOR = `
+      <h2 id="c-intro">O Que É e Para Que Serve</h2>
+      <p>É o nosso <strong>sistema de lembrança inteligente</strong>. Ele identifica clientes que já passaram pela loja e que faz um tempinho que não voltam — e nos ajuda a <strong>reacender o contato</strong> de forma personalizada.</p>
+      <blockquote><strong>Não é sobre vender com pressão.</strong> É sobre mostrar que lembramos deles e que temos algo especial preparado.</blockquote>
+
+      <h2 id="c-acesso">Como Acessar</h2>
+      <ol>
+        <li>Faça login no <strong>Portal Inforteca</strong></li>
+        <li>No menu lateral, clique em <strong>"Prospecção"</strong></li>
+        <li>Pronto — você está na Central de Prospecção</li>
+      </ol>
+      <blockquote>💡 Se o menu mostrar um número em vermelho ao lado de "Prospecção", significa que há leads aguardando contato.</blockquote>
+
+      <h2 id="c-tela">Entendendo a Tela</h2>
+
+      <h3>Os 4 indicadores do topo</h3>
+      <table>
+        <tr><th>Card</th><th>O que mostra</th></tr>
+        <tr><td>🕐 <strong>Na Fila</strong></td><td>Quantos leads aguardam contato</td></tr>
+        <tr><td>✅ <strong>Contatados</strong></td><td>Quantos já receberam WhatsApp</td></tr>
+        <tr><td>🎉 <strong>Voltaram</strong></td><td>Clientes que voltaram após contato</td></tr>
+        <tr><td>👥 <strong>Base Total</strong></td><td>Total de clientes cadastrados</td></tr>
+      </table>
+
+      <h3>A barra de progresso</h3>
+      <p>Mostra o <strong>avanço do time</strong>: quantos leads saíram da fila vs. quantos ainda aguardam.</p>
+
+      <h3>As 3 abas</h3>
+      <table>
+        <tr><th>Aba</th><th>Para que serve</th></tr>
+        <tr><td><strong>Fila</strong></td><td>🎯 Sua ferramenta principal — onde você trabalha</td></tr>
+        <tr><td><strong>Regras</strong></td><td>⚙️ Só admin acessa</td></tr>
+        <tr><td><strong>Relatórios</strong></td><td>📊 Estatísticas de uso</td></tr>
+      </table>
+
+      <h2 id="c-fila">A Fila de Trabalho</h2>
+
+      <h3>Como cada lead aparece</h3>
+      <table>
+        <tr><th>Campo</th><th>O que é</th></tr>
+        <tr><td><strong>Cliente</strong></td><td>Nome + tipo de oferta (badge colorida)</td></tr>
+        <tr><td><strong>Contato</strong></td><td>Telefone para WhatsApp</td></tr>
+        <tr><td><strong>Última Compra</strong></td><td>Quando comprou + dias de inatividade</td></tr>
+        <tr><td><strong>Oferta</strong></td><td>O que oferecer</td></tr>
+        <tr><td><strong>Prioridade</strong></td><td>Score de 0 a 100 (maior = mais quente)</td></tr>
+        <tr><td><strong>Status</strong></td><td>🔓 Livre · 👤 Atribuído · ✓ Contatado</td></tr>
+        <tr><td><strong>Ações</strong></td><td>Botão <strong>Enviar</strong> + botão <strong>Ignorar</strong></td></tr>
+      </table>
+
+      <h3>Ordem dos leads</h3>
+      <p>A fila é ordenada automaticamente pelo <strong>score de prioridade</strong>. Os clientes com maior chance de retorno ficam no topo. <strong>Sempre pegue os de cima.</strong></p>
+
+      <h3>Os tipos de lead (badges coloridas)</h3>
+      <table>
+        <tr><th>Badge</th><th>Significado</th></tr>
+        <tr><td>📱 <strong>Upgrade TIM</strong></td><td>Comprou aparelho e é hora de oferecer upgrade</td></tr>
+        <tr><td>🎁 <strong>Acessório</strong></td><td>Inativo ganha voucher de R$ 40</td></tr>
+        <tr><td>⚡ <strong>Troca de Chip Pré</strong></td><td>Fazer upgrade para Controle ou Black</td></tr>
+        <tr><td>⚡ <strong>Troca de Chip Pós</strong></td><td>Oferecer upgrade ou serviço TIM</td></tr>
+        <tr><td>🛠️ <strong>Serviço TI</strong></td><td>Faz 1 ano, oferecer nova formatação</td></tr>
+      </table>
+
+      <h2 id="c-fluxo">Como Trabalhar um Lead (Passo a Passo)</h2>
+
+      <h3>⭐ Fluxo Padrão</h3>
+      <ol>
+        <li><strong>Olhe o tipo do lead</strong> — identifique a badge colorida</li>
+        <li><strong>Clique em "Enviar"</strong> — o botão verde abre o modal de ofertas</li>
+        <li><strong>Escolha a oferta:</strong>
+          <ul>
+            <li>🎁 <strong>Acessório</strong> → só gera voucher automaticamente</li>
+            <li>⚡ <strong>Chip Pré</strong> → <code>Controle</code> / <code>Black</code> / <code>Já é cliente TIM</code></li>
+            <li>⚡ <strong>Chip Pós</strong> → <code>Upgrade</code> / <code>Aparelho</code> / <code>Serviço</code></li>
+            <li>🛠️ <strong>Serviço TI</strong> → só confirma a formatação</li>
+            <li>📱 <strong>Upgrade TIM</strong> → <code>Upgrade</code> / <code>Aparelho</code> / <code>Combo</code></li>
+          </ul>
+        </li>
+        <li><strong>O WhatsApp abre automaticamente</strong> — com a mensagem pronta e personalizada</li>
+        <li><strong>Revise e envie</strong> — ⚠️ <strong>Você precisa apertar "Enviar" dentro do WhatsApp.</strong> O sistema <strong>não envia sozinho</strong>, é intencional para não parecer robô.</li>
+        <li><strong>Pronto!</strong> — o lead muda automaticamente para <strong>✓ Contatado</strong> e você aparece como responsável</li>
+      </ol>
+
+      <h3>🎁 Como Funciona o Voucher</h3>
+      <p>Quando o tipo é <strong>Acessório</strong>:</p>
+      <ol>
+        <li>O sistema <strong>gera um código único</strong> (ex: <code>VCH40-A7X2K9</code>)</li>
+        <li>A mensagem já vai com o código</li>
+        <li>O cliente <strong>só pode usar UMA vez</strong></li>
+        <li>Vale por <strong>10 dias</strong></li>
+        <li>Se o cliente aparecer na loja com o código, avise o admin para marcar como usado</li>
+      </ol>
+      <blockquote>⚠️ Se o cliente já tem voucher ativo, o sistema <strong>reutiliza o mesmo</strong>. Não cria duplicado.</blockquote>
+
+      <h3>🚫 Quando Ignorar um Lead</h3>
+      <p>Clique no <strong>ícone do olho</strong> ao lado do botão Enviar. Use quando:</p>
+      <ul>
+        <li>Cliente já é TIM ativo (não precisa contato)</li>
+        <li>Número inválido</li>
+        <li>Cliente pediu para não ser contatado</li>
+        <li>Você já contatou por outro canal</li>
+      </ul>
+      <p>O lead sai da fila e vai para "Ignorados".</p>
+
+      <h2 id="c-boas">Boas Práticas</h2>
+
+      <h3>✅ Faça</h3>
+      <ul>
+        <li>Revise a mensagem antes de enviar</li>
+        <li>Trabalhe os leads <strong>do topo</strong> (maior prioridade)</li>
+        <li><strong>Uma mensagem por cliente</strong> — não reenvie</li>
+        <li>Se cliente responder com interesse → <strong>passe para o consultor responsável original</strong></li>
+        <li>Reporte situações estranhas</li>
+      </ul>
+
+      <h3>❌ Não faça</h3>
+      <ul>
+        <li>Envio em massa</li>
+        <li>Reenviar para quem já respondeu</li>
+        <li>Fora do horário comercial</li>
+        <li>Marcar como "Ignorado" sem motivo</li>
+      </ul>
+
+      <h3>🕐 Melhores Horários para Enviar</h3>
+      <table>
+        <tr><th>Dia</th><th>Horário</th></tr>
+        <tr><td><strong>Segunda a sexta</strong></td><td>10h - 12h / 14h - 18h</td></tr>
+        <tr><td><strong>Sábado</strong></td><td>10h - 13h</td></tr>
+        <tr><td><strong>Evite</strong></td><td>Antes das 9h, depois das 20h, domingos e feriados</td></tr>
+      </table>
+
+      <h2 id="c-faq">Perguntas Frequentes</h2>
+
+      <h4>Enviei mensagem mas o lead continua Pendente.</h4>
+      <p>Recarregue a página. Se persistir, reporte ao admin.</p>
+
+      <h4>Cliente respondeu interessado, o que faço?</h4>
+      <p>Passe para o consultor responsável original (aparece como "Por: [nome]" no card).</p>
+
+      <h4>Posso trabalhar leads de outros consultores?</h4>
+      <p><strong>Sim!</strong> O sistema é colaborativo. Se ninguém atendeu, qualquer um pode pegar. Depois de <strong>7 dias sem ação</strong>, o lead libera sozinho.</p>
+
+      <h4>Quantos por dia?</h4>
+      <p>Meta sugerida: <strong>10-15 leads</strong> por consultor por dia.</p>
+
+      <h4>Cliente não respondeu, e agora?</h4>
+      <p>Espere. O sistema recicla automaticamente em 60 dias. Não reenvie.</p>
+
+      <h4>Como sei se o cliente voltou?</h4>
+      <p>Aparece como <strong>🎉 VOLTOU</strong> no filtro "Voltaram".</p>
+
+      <h4>Funciona no celular?</h4>
+      <p>Sim! Abra o navegador do celular e acesse o portal. Todos os botões são otimizados para toque.</p>
+
+      <h2 id="c-duvidas">Dúvidas?</h2>
+      <p>Fale com o <strong>administrador</strong>. Se der erro, mande:</p>
+      <ul>
+        <li>Print da tela</li>
+        <li>O que estava tentando fazer</li>
+      </ul>
+
+      <div class="card-highlight">
+        <p class="text-sm"><strong>🎓 Lembre-se:</strong> o sistema existe para <strong>reacender o relacionamento</strong> com quem já confia em nós — não para vender por vender. Cada mensagem enviada é uma oportunidade de mostrar que lembramos do cliente.</p>
+      </div>
+    `;
+
+    /* ==========================================================
+       CONTEÚDO — MANUAL DO ADMINISTRADOR
+       ========================================================== */
+    const MANUAL_ADMIN = `
+      <blockquote>📘 <strong>Este manual é complementar ao Manual do Consultor.</strong> Ele cobre apenas as funções administrativas. Se você ainda não leu o Manual do Consultor, volte para a primeira aba.</blockquote>
+
+      <h2 id="a-exclusivo">O Que Só o Admin Vê</h2>
+      <p>Quando um <strong>admin</strong> faz login no módulo de Prospecção, aparecem botões que <strong>não aparecem para consultores</strong>:</p>
+      <table>
+        <tr><th>Botão</th><th>Função</th></tr>
+        <tr><td>🔵 <strong>Datasys</strong></td><td>Importar planilha de vendas TIM</td></tr>
+        <tr><td>🟡 <strong>Gestão Click</strong></td><td>Importar planilha de acessórios e serviços</td></tr>
+        <tr><td>🟢 <strong>Nova Regra</strong></td><td>Criar nova regra de prospecção</td></tr>
+        <tr><td>🔄 <strong>Recalcular Base</strong></td><td>Reprocessar regras e gerar leads</td></tr>
+      </table>
+      <p>Para <strong>consultores comuns</strong>, esses botões ficam <strong>ocultos automaticamente</strong>.</p>
+
+      <h2 id="a-import">Importação de Planilhas</h2>
+
+      <h3>Quando importar</h3>
+      <ul>
+        <li><strong>Recomendado:</strong> 1x por dia pela manhã</li>
+        <li><strong>Mínimo:</strong> 2-3x por semana</li>
+        <li><strong>Nunca:</strong> Deixe acumular mais de uma semana</li>
+      </ul>
+
+      <h3>Como importar</h3>
+      <ol>
+        <li>Clique no botão da planilha (<strong>Datasys</strong> ou <strong>Gestão Click</strong>)</li>
+        <li>Selecione o arquivo <code>.xlsx</code>, <code>.xls</code> ou <code>.csv</code></li>
+        <li>Clique em <strong>Processar</strong></li>
+        <li>Acompanhe o <strong>log em preto</strong> — mostra cada etapa em tempo real</li>
+        <li>Aguarde o toast verde "<strong>X interações importadas</strong>"</li>
+      </ol>
+
+      <h3>O que o sistema faz automaticamente</h3>
+      <ul>
+        <li>✅ <strong>Une clientes por CPF</strong> — se já existe, atualiza; se é novo, cria</li>
+        <li>✅ <strong>Classifica categorias</strong> — APARELHO, PLANO, ACESSORIO, CHIP, SERVICO</li>
+        <li>✅ <strong>Ignora CNPJ</strong> (só CPF entra)</li>
+        <li>✅ <strong>Ignora registros sem nome, sem CPF ou sem data</strong></li>
+        <li>✅ <strong>Marca como RETORNOU</strong> quem voltou a comprar</li>
+      </ul>
+
+      <h3>Erros comuns</h3>
+      <table>
+        <tr><th>Erro</th><th>Causa</th><th>Solução</th></tr>
+        <tr><td>"Nenhum registro válido"</td><td>Colunas com nome diferente</td><td>Verificar cabeçalho da planilha</td></tr>
+        <tr><td>"Erro ao salvar clientes"</td><td>Constraint do banco</td><td>Reportar ao dev</td></tr>
+        <tr><td>"Erro no servidor"</td><td>Timeout</td><td>Tentar novamente</td></tr>
+      </table>
+
+      <h2 id="a-recalcular">Recalcular Base (o Motor)</h2>
+
+      <h3>O que faz</h3>
+      <p>Quando você clica em <strong>Recalcular Base</strong>, o sistema executa <strong>5 processos</strong>:</p>
+      <table>
+        <tr><th>Processo</th><th>O que faz</th></tr>
+        <tr><td>🎉 <strong>Detecta retornos</strong></td><td>Marca leads como RETORNOU quando cliente voltou a comprar</td></tr>
+        <tr><td>🔓 <strong>Libera abandonados</strong></td><td>Solta leads atribuídos sem ação há +7 dias</td></tr>
+        <tr><td>♻️ <strong>Recicla</strong></td><td>Volta leads contatados sem retorno há +60 dias para a fila</td></tr>
+        <tr><td>⏰ <strong>Expira vouchers</strong></td><td>Marca como EXPIRADO vouchers vencidos</td></tr>
+        <tr><td>✨ <strong>Gera novos leads</strong></td><td>Aplica todas as regras ativas às interações</td></tr>
+      </table>
+
+      <h3>Quando rodar</h3>
+      <ul>
+        <li>✅ <strong>Depois de cada importação</strong></li>
+        <li>✅ <strong>1x por dia</strong> (recomendado: de manhã)</li>
+        <li>❌ <strong>Não</strong> precisa rodar várias vezes seguidas</li>
+      </ul>
+
+      <h3>O toast de retorno</h3>
+      <p>Após clicar, aparece um toast com o resultado: <code>✨ 47 leads · 🎉 12 voltaram · 🔓 3 liberados</code></p>
+      <p>Se aparecer <strong>"Nada novo para processar"</strong>, significa que está tudo em ordem.</p>
+
+      <h2 id="a-regras">Gerenciar Regras de Prospecção</h2>
+
+      <h3>As 4 ações disponíveis</h3>
+      <table>
+        <tr><th>Ícone</th><th>Ação</th><th>O que faz</th></tr>
+        <tr><td>🟢</td><td><strong>Toggle</strong></td><td>Ativa/Desativa — sem editar</td></tr>
+        <tr><td>✏️</td><td><strong>Lápis</strong></td><td>Editar — abre modal completo</td></tr>
+        <tr><td>➕</td><td><strong>Nova Regra</strong></td><td>Criar — abre modal em branco</td></tr>
+        <tr><td>🗑️</td><td><strong>Excluir</strong></td><td>Remove permanentemente</td></tr>
+      </table>
+
+      <h3>Como criar uma regra</h3>
+      <table>
+        <tr><th>Campo</th><th>Exemplo</th><th>O que faz</th></tr>
+        <tr><td><strong>Nome</strong></td><td>Upgrade TIM 50 dias</td><td>Título da regra</td></tr>
+        <tr><td><strong>Tipo de Lead</strong></td><td><code>UPGRADE_TIM</code></td><td>Identificador único (sem espaços)</td></tr>
+        <tr><td><strong>Prioridade</strong></td><td>80</td><td>De 0 a 100 — ordem na fila</td></tr>
+        <tr><td><strong>Campanha</strong></td><td>UPGRADE50</td><td>Nome interno</td></tr>
+        <tr><td><strong>Validade</strong></td><td>10</td><td>Dias que a oferta vale</td></tr>
+        <tr><td><strong>Oferta Sugerida</strong></td><td>Upgrade com condições especiais</td><td>Aparece no card</td></tr>
+        <tr><td><strong>Regra Ativa</strong></td><td>✅</td><td>Só ativas geram leads</td></tr>
+      </table>
+
+      <h3>Condições de disparo (todas precisam ser verdadeiras)</h3>
+      <table>
+        <tr><th>Campo</th><th>Exemplo</th><th>O que filtra</th></tr>
+        <tr><td><strong>Categoria da Última Compra</strong></td><td><code>APARELHO</code></td><td>Por categoria</td></tr>
+        <tr><td><strong>Contém na Modalidade</strong></td><td><code>CHIP PRE</code></td><td>Filtro textual</td></tr>
+        <tr><td><strong>Contém no Nome do Produto</strong></td><td><code>NOTEBOOK</code></td><td>Filtro textual</td></tr>
+        <tr><td><strong>Sem Categoria Específica</strong></td><td><code>SERVICO</code></td><td>Ignora quem já tem</td></tr>
+        <tr><td><strong>Dias Mínimos</strong></td><td>50</td><td>Inativo há pelo menos X dias</td></tr>
+        <tr><td><strong>Dias Máximos</strong></td><td>90</td><td>Limite superior (opcional)</td></tr>
+      </table>
+
+      <h3>Regras ativas por padrão</h3>
+      <table>
+        <tr><th>Regra</th><th>Categoria</th><th>Dias</th><th>Prioridade</th></tr>
+        <tr><td>Upgrade TIM 50 dias</td><td>APARELHO</td><td>50-90</td><td>80</td></tr>
+        <tr><td>Reativação Acessório 90 dias</td><td>ACESSORIO</td><td>90+</td><td>70</td></tr>
+        <tr><td>Reativação Chip Pré</td><td>CHIP · contém "CHIP PRE"</td><td>120+</td><td>75</td></tr>
+        <tr><td>Reativação Chip Pós</td><td>CHIP · contém "CHIP POS"</td><td>120+</td><td>70</td></tr>
+        <tr><td>Reativação Serviço TI</td><td>SERVICO</td><td>365+</td><td>45</td></tr>
+      </table>
+
+      <h3>Dicas para criar boas regras</h3>
+      <p><strong>✅ Faça:</strong></p>
+      <ul>
+        <li>Use <strong>nomes claros</strong> que expliquem a intenção</li>
+        <li><strong>Priorize</strong> regras mais valiosas com score alto</li>
+        <li><strong>Desative</strong> em vez de excluir, se for testar</li>
+      </ul>
+      <p><strong>❌ Evite:</strong></p>
+      <ul>
+        <li>Regras duplicadas</li>
+        <li>Prioridade 100 em tudo (perde o sentido)</li>
+        <li>Criar sem testar — use <strong>Recalcular Base</strong> para ver o resultado</li>
+      </ul>
+
+      <h2 id="a-relatorios">Relatórios e Monitoramento</h2>
+
+      <h3>O que a aba Relatórios mostra</h3>
+      <p><strong>Vouchers:</strong> total, ativos, usados, expirados</p>
+      <p><strong>Leads por tipo:</strong> total, na fila, contatados, % que voltaram</p>
+
+      <h3>KPIs do topo</h3>
+      <table>
+        <tr><th>KPI</th><th>O que indica</th></tr>
+        <tr><td><strong>Na Fila</strong></td><td>Volume de trabalho disponível</td></tr>
+        <tr><td><strong>Contatados</strong></td><td>Ritmo do time</td></tr>
+        <tr><td><strong>Voltaram</strong></td><td>Eficácia das campanhas</td></tr>
+        <tr><td><strong>Base Total</strong></td><td>Tamanho da base</td></tr>
+      </table>
+
+      <h3>O que analisar</h3>
+      <ul>
+        <li>📈 Se <strong>Voltaram</strong> cresce semana a semana, as regras estão boas</li>
+        <li>📉 Se <strong>Contatados</strong> cresce mas <strong>Voltaram</strong> não, revise as mensagens</li>
+        <li>⚠️ Se <strong>Na Fila</strong> cresce muito, a equipe precisa de mais ritmo</li>
+        <li>🔍 Se algum <strong>tipo de lead</strong> tem taxa 0%, desative a regra</li>
+      </ul>
+
+      <h2 id="a-rotina">Rotina Ideal do Admin</h2>
+
+      <h3>📅 Diário (5-10 min)</h3>
+      <p><strong>Manhã:</strong></p>
+      <ol>
+        <li>Importar planilha do Datasys</li>
+        <li>Importar planilha do Gestão Click (se houver)</li>
+        <li>Clicar em <strong>Recalcular Base</strong></li>
+        <li>Verificar KPIs do topo</li>
+      </ol>
+      <p><strong>Ao longo do dia:</strong> monitorar se os consultores estão trabalhando a fila</p>
+
+      <h3>📅 Semanal (30 min)</h3>
+      <ol>
+        <li>Abrir <strong>Relatórios</strong> e analisar conversão por tipo</li>
+        <li>Ajustar <strong>Regras</strong> se necessário</li>
+        <li>Marcar vouchers usados</li>
+      </ol>
+
+      <h3>📅 Mensal (1 hora)</h3>
+      <ol>
+        <li>Revisar todas as regras</li>
+        <li>Analisar taxa de conversão geral</li>
+        <li>Documentar melhorias</li>
+        <li>Treinar novos consultores</li>
+      </ol>
+
+      <h2 id="a-manutencao">Manutenção Técnica</h2>
+
+      <h3>Vouchers expirados</h3>
+      <p>São expirados <strong>automaticamente</strong> ao rodar Recalcular Base.</p>
+
+      <h3>Clientes com problemas</h3>
+      <ol>
+        <li>Vá na aba <strong>Clientes TIM</strong> (módulo principal)</li>
+        <li>Busque pelo CPF</li>
+        <li>Edite manualmente</li>
+        <li>A próxima importação <strong>não vai sobrescrever</strong></li>
+      </ol>
+
+      <h3>Desfazer ações</h3>
+      <p>O módulo <strong>não tem desfazer</strong> para:</p>
+      <ul>
+        <li>Leads ignorados</li>
+        <li>Vouchers marcados como usados</li>
+        <li>Regras excluídas</li>
+      </ul>
+      <p><strong>Sempre confirme antes de executar essas ações.</strong></p>
+
+      <h3>Reportar bugs</h3>
+      <p>Sempre envie:</p>
+      <ul>
+        <li><strong>Print da tela</strong> com o erro</li>
+        <li><strong>O que estava tentando fazer</strong></li>
+        <li><strong>Se aconteceu com outros usuários</strong></li>
+      </ul>
+
+      <h2 id="a-checklist">Checklist Semanal</h2>
+      <div class="checklist">
+        <p>□ Importei Datasys na segunda-feira</p>
+        <p>□ Importei Gestão Click (se houve venda)</p>
+        <p>□ Rodei Recalcular Base todos os dias</p>
+        <p>□ Verifiquei KPIs do topo</p>
+        <p>□ Analisei Relatórios no final da semana</p>
+        <p>□ Ajustei regras conforme necessidade</p>
+        <p>□ Marquei vouchers usados (se aplicável)</p>
+        <p>□ Cobrei consultores com leads parados</p>
+        <p>□ Treinei dúvidas específicas da equipe</p>
+      </div>
+
+      <div class="card-highlight">
+        <p class="text-sm"><strong>👑 Lembre-se:</strong> como admin, você é o <strong>motor</strong> deste sistema. Sua disciplina nas importações, no Recalcular Base e na revisão de regras é o que mantém a fila sempre saudável e produtiva.</p>
+      </div>
+    `;
+
+    /* ==========================================================
+       HELPERS
+       ========================================================== */
+    const $ = (id) => document.getElementById(id);
+
+    /* ==========================================================
+       AUTH
+       ========================================================== */
+    async function verificarAuth() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'index.html'; return; }
+
+      const { data: perfil } = await supabaseClient
+        .from('perfis').select('*').eq('id', session.user.id).single();
+
+      const { data: cargos } = await supabaseClient.from('cargos').select('*');
+      const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+      const isAdmin = meuCargo?.is_admin === true;
+
+      // Se NÃO for admin, esconde a aba do manual admin
+      if (!isAdmin) {
+        $('tabAdminBtn')?.classList.add('hidden');
+      }
+    }
+
+    /* ==========================================================
+       RENDERIZAÇÃO DOS MANUAIS
+       ========================================================== */
+    function renderManual(containerId, contentHTML, tocId) {
+      const container = $(containerId);
+      if (!container) return;
+
+      container.innerHTML = contentHTML;
+
+      // Constrói o índice
+      const headers = container.querySelectorAll('h2');
+      const toc = $(tocId);
+      if (toc) {
+        toc.innerHTML = Array.from(headers).map(h => `
+          <a href="#${h.id}" data-target="${h.id}" class="toc-link">${h.textContent}</a>
+        `).join('');
+
+        // Scroll suave ao clicar
+        toc.querySelectorAll('.toc-link').forEach(link => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = document.getElementById(link.dataset.target);
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              history.replaceState(null, '', `#${link.dataset.target}`);
+            }
+          });
+        });
+
+        // Marca o link ativo conforme o scroll
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              toc.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+              const active = toc.querySelector(`[data-target="${entry.target.id}"]`);
+              active?.classList.add('active');
+            }
+          });
+        }, { rootMargin: '-100px 0px -70% 0px', threshold: 0 });
+
+        headers.forEach(h => observer.observe(h));
+      }
+    }
+
+    /* ==========================================================
+       ABAS
+       ========================================================== */
+    function trocarAba(nome) {
+      document.querySelectorAll('.tab-treino').forEach(btn => {
+        const ativo = btn.dataset.aba === nome;
+        btn.classList.toggle('active', ativo);
+        btn.classList.toggle('text-slate-500', !ativo);
+        btn.style.borderColor = ativo ? '#0e8890' : 'transparent';
+        btn.style.color = ativo ? '#0e8890' : '';
+        btn.style.background = ativo ? 'rgba(14,136,144,0.06)' : '';
+      });
+
+      $('aba-consultor')?.classList.toggle('hidden', nome !== 'consultor');
+      $('aba-admin')?.classList.toggle('hidden', nome !== 'admin');
+
+      // Aplica estilo ativo via CSS
+      document.querySelectorAll('.tab-treino').forEach(btn => {
+        if (btn.dataset.aba === nome) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // CSS para as abas
+    const style = document.createElement('style');
+    style.textContent = `
+      .tab-treino.active { border-color: #0e8890; color: #0e8890; background: rgba(14,136,144,0.06); }
+      .tab-treino:not(.active) { border-color: transparent; }
+    `;
+    document.head.appendChild(style);
+
+    /* ==========================================================
+       BOOT
+       ========================================================== */
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      await verificarAuth();
+
+      renderManual('conteudo-consultor', MANUAL_CONSULTOR, 'toc-consultor');
+      renderManual('conteudo-admin', MANUAL_ADMIN, 'toc-admin');
+
+      // Marca a aba consultor como ativa desde o início
+      trocarAba('consultor');
+
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
