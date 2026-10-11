@@ -110,6 +110,41 @@
       color: #0e8890; background: #f0fdfa; border-left-color: #0e8890;
     }
 
+    /* Card de conclusão */
+    .card-conclusao {
+      margin-top: 3rem; padding: 2rem;
+      background: linear-gradient(135deg, #f0fdfa 0%, #dbeafe 100%);
+      border: 2px solid #0e8890; border-radius: 1.25rem;
+      text-align: center;
+    }
+    .card-conclusao.concluido {
+      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+      border-color: #059669;
+    }
+    .card-conclusao h3 {
+      font-size: 1.25rem; font-weight: 900; color: #000033;
+      text-transform: uppercase; letter-spacing: -0.02em; margin-bottom: 0.5rem;
+    }
+    .card-conclusao p {
+      color: #475569; font-size: 0.875rem; margin-bottom: 1.5rem; max-width: 480px; margin-left: auto; margin-right: auto;
+    }
+    .btn-concluir {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 1rem 2rem; border-radius: 1rem; border: none;
+      background: #0e8890; color: white; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.8rem;
+      cursor: pointer; transition: all 0.2s ease;
+      box-shadow: 0 10px 20px -8px rgba(14,136,144,0.4);
+    }
+    .btn-concluir:hover { background: #0b6c72; transform: translateY(-1px); }
+    .btn-concluir:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .concluido-badge {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 1rem 2rem; border-radius: 1rem;
+      background: #059669; color: white; font-weight: 900;
+      text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.8rem;
+    }
+    
     /* Estilos de impressão */
     @media print {
       aside, header, .no-print { display: none !important; }
@@ -189,6 +224,9 @@
           <article id="conteudo-consultor" class="doc-content bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10 max-w-4xl">
             <!-- Conteúdo injetado por JS -->
           </article>
+                      <div id="conclusao-consultor" class="card-conclusao no-print">
+              <!-- Renderizado via JS -->
+            </div>
         </div>
       </div>
 
@@ -206,6 +244,9 @@
           <article id="conteudo-admin" class="doc-content bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-10 max-w-4xl">
             <!-- Conteúdo injetado por JS -->
           </article>
+                      <div id="conclusao-admin" class="card-conclusao no-print">
+              <!-- Renderizado via JS -->
+            </div>
         </div>
       </div>
 
@@ -851,6 +892,101 @@
     `;
     document.head.appendChild(style);
 
+
+    /* ==========================================================
+       CONCLUSÃO DO TREINAMENTO
+       ========================================================== */
+    let _stateConclusao = { consultor: false, admin: false, adminData: null, consultorData: null };
+
+    async function verificarConclusao() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) return;
+
+      const { data } = await supabaseClient
+        .from('treinamentos_concluidos')
+        .select('concluido_em')
+        .eq('user_id', session.user.id)
+        .eq('modulo', 'prospeccao')
+        .maybeSingle();
+
+      _stateConclusao.concluido = !!data;
+      _stateConclusao.data = data?.concluido_em || null;
+
+      renderBotoesConclusao();
+    }
+
+    function renderBotoesConclusao() {
+      const concluido = _stateConclusao.concluido;
+      const data = _stateConclusao.data;
+
+      const html = concluido
+        ? `
+          <div class="concluido-badge">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            Treinamento Concluído
+          </div>
+          <p style="margin-top: 1rem; font-size: 0.75rem; color: #065f46; font-weight: 700;">
+            ✓ Você finalizou este treinamento em ${data ? new Date(data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}
+          </p>`
+        : `
+          <h3>Finalizou o treinamento?</h3>
+          <p>Se você leu todo o conteúdo e se sente confiante para usar o módulo de Prospecção, marque como concluído. O administrador será notificado.</p>
+          <button onclick="marcarConcluido(this)" class="btn-concluir">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+            Marcar como Concluído
+          </button>`;
+
+      ['conclusao-consultor', 'conclusao-admin'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.innerHTML = html;
+          el.classList.toggle('concluido', concluido);
+        }
+      });
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function marcarConcluido(btn) {
+      if (!confirm('Confirmar conclusão do treinamento?\n\nVocê está declarando que leu todo o conteúdo e entendeu o funcionamento do módulo.')) return;
+
+      const htmlOriginal = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Salvando…';
+      lucide.createIcons();
+
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) throw new Error('Sem sessão ativa');
+
+        const { error } = await supabaseClient
+          .from('treinamentos_concluidos')
+          .insert({
+            user_id: session.user.id,
+            modulo: 'prospeccao',
+          });
+
+        if (error) {
+          // Se já existe, considera como concluído
+          if (error.code === '23505') {
+            await verificarConclusao();
+            return;
+          }
+          throw error;
+        }
+
+        _stateConclusao.concluido = true;
+        _stateConclusao.data = new Date().toISOString();
+        renderBotoesConclusao();
+
+      } catch (err) {
+        alert('Erro ao salvar: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = htmlOriginal;
+        lucide.createIcons();
+      }
+    }
+    
     /* ==========================================================
        BOOT
        ========================================================== */
@@ -863,6 +999,9 @@
 
       // Marca a aba consultor como ativa desde o início
       trocarAba('consultor');
+
+      // Verifica se já concluiu o treinamento
+      await verificarConclusao();
 
       lucide.createIcons();
     });
