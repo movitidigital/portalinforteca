@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000033">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Inforteca Prospecção">
+  <title>Prospecção — Portal Inforteca</title>
+  <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
+  <link rel="manifest" href="/manifest-prospeccao.json">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="header.js"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .tab-btn { transition: all 0.15s ease; }
+    .tab-btn.active { border-color: #0e8890; color: #0e8890; background: rgba(14,136,144,0.06); }
+
+    .kpi-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); }
+
+    /* Safe area para PWA */
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative">
+
+    <header id="appHeader" data-title="Prospecção" data-search="true" data-notif="true"></header>
+
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+
+      <!-- ============================================================
+           VIEW: PROSPECÇÃO
+           ============================================================ -->
+      <div id="view-prospeccao" class="animate-fade-in">
+
+        <!-- 🎯 CABEÇALHO -->
+        <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-black text-[#000033] tracking-tighter uppercase">Central de Prospecção</h1>
+            <p class="text-sm text-slate-500 mt-1">Reacenda o relacionamento com quem já passou pela loja.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="abrirImportacao('datasys')"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Datasys
+            </button>
+            <button onclick="abrirImportacao('gestaoclick')"
+              class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+              <i data-lucide="shopping-bag" class="w-4 h-4"></i> Gestão Click
+            </button>
+            <button onclick="recarregarTudo()"
+              class="bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-xl shadow-sm transition-colors" title="Atualizar">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 📊 KPIs (4 cards) -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Na Fila</p>
+                <h3 id="kpiPendentes" class="text-3xl font-black text-slate-800 mt-1">—</h3>
+              </div>
+              <div class="p-2 bg-amber-50 text-amber-500 rounded-xl"><i data-lucide="clock" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Aguardando contato</p>
+          </div>
+
+          <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contatados</p>
+                <h3 id="kpiContatados" class="text-3xl font-black text-emerald-600 mt-1">—</h3>
+              </div>
+              <div class="p-2 bg-emerald-50 text-emerald-500 rounded-xl"><i data-lucide="send" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Neste mês</p>
+          </div>
+
+          <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Voltaram</p>
+                <h3 id="kpiVoltaram" class="text-3xl font-black text-indigo-600 mt-1">—</h3>
+              </div>
+              <div class="p-2 bg-indigo-50 text-indigo-500 rounded-xl"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Após contato</p>
+          </div>
+
+          <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Base Total</p>
+                <h3 id="kpiBase" class="text-3xl font-black text-slate-800 mt-1">—</h3>
+              </div>
+              <div class="p-2 bg-slate-100 text-slate-500 rounded-xl"><i data-lucide="users" class="w-5 h-5"></i></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2 font-bold uppercase">Clientes mapeados</p>
+          </div>
+        </div>
+
+        <!-- 🎯 PROGRESSO DA SEMANA -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+          <div class="flex justify-between items-end mb-3">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta da Semana</p>
+              <p id="textoProgresso" class="text-base font-black text-slate-700 mt-1">Calculando…</p>
+            </div>
+            <span id="porcentagemProgresso" class="text-2xl font-black text-[#0e8890]">0%</span>
+          </div>
+          <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+            <div id="barraProgresso" class="bg-gradient-to-r from-[#0e8890] to-emerald-500 h-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- 📑 ABAS -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="border-b border-slate-100 flex overflow-x-auto">
+            <button onclick="trocarAba('fila')" data-tab="fila"
+              class="tab-btn active flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent">
+              <i data-lucide="list-todo" class="w-4 h-4"></i> Fila de Trabalho
+            </button>
+            <button onclick="trocarAba('regras')" data-tab="regras"
+              class="tab-btn flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500">
+              <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Regras
+            </button>
+            <button onclick="trocarAba('relatorios')" data-tab="relatorios"
+              class="tab-btn flex-1 min-w-[140px] px-5 py-4 text-xs font-black uppercase tracking-tight flex items-center justify-center gap-2 border-b-2 border-transparent text-slate-500">
+              <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Relatórios
+            </button>
+          </div>
+
+          <!-- ========= ABA: FILA DE TRABALHO ========= -->
+          <div id="tab-fila" class="p-4 md:p-6">
+            <!-- Filtros -->
+            <div class="flex flex-col md:flex-row gap-3 mb-5">
+              <div class="relative flex-1">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                <input type="text" id="filtroTexto" oninput="aplicarFiltro()"
+                  placeholder="Buscar por nome, CPF ou telefone..."
+                  class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+              </div>
+              <select id="filtroTipo" onchange="aplicarFiltro()"
+                class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
+                <option value="">Todos os tipos</option>
+                <option value="UPGRADE_TIM">Upgrade TIM</option>
+                <option value="REATIVACAO_ACESSORIO">Reativação Acessório</option>
+                <option value="REATIVACAO_CHIP">Reativação Chip</option>
+                <option value="CROSS_SELL_TI">Cross-sell TI</option>
+              </select>
+              <select id="filtroStatus" onchange="aplicarFiltro()"
+                class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
+                <option value="PENDENTE">Pendentes</option>
+                <option value="CONTATADO">Contatados</option>
+                <option value="IGNORADO">Ignorados</option>
+                <option value="">Todos</option>
+              </select>
+            </div>
+
+            <!-- Desktop: Tabela -->
+            <div class="hidden md:block overflow-x-auto rounded-xl border border-slate-100">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <tr>
+                    <th class="px-4 py-3">Cliente</th>
+                    <th class="px-4 py-3">Contato</th>
+                    <th class="px-4 py-3">Última Compra</th>
+                    <th class="px-4 py-3">Oferta</th>
+                    <th class="px-4 py-3 text-center">Prioridade</th>
+                    <th class="px-4 py-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaFila" class="divide-y divide-slate-100">
+                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
+                    Aguardando carregamento…
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Mobile: Cards -->
+            <div id="cardsFila" class="md:hidden space-y-3">
+              <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
+            </div>
+          </div>
+
+          <!-- ========= ABA: REGRAS ========= -->
+          <div id="tab-regras" class="hidden p-4 md:p-6">
+            <div class="flex justify-between items-center mb-5">
+              <div>
+                <h3 class="text-base font-black text-[#000033] uppercase tracking-tight">Regras de Geração de Leads</h3>
+                <p class="text-xs text-slate-500 mt-1">Ajuste os critérios que disparam cada tipo de abordagem.</p>
+              </div>
+              <button onclick="recalcularBase()"
+                class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
+              </button>
+            </div>
+            <div id="listaRegras" class="space-y-3">
+              <div class="text-center py-12 text-slate-400 text-sm italic">Aguardando carregamento…</div>
+            </div>
+          </div>
+
+          <!-- ========= ABA: RELATÓRIOS ========= -->
+          <div id="tab-relatorios" class="hidden p-4 md:p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Contatos por Semana</h4>
+                <div id="graficoContatos" class="h-48 flex items-end justify-around gap-2">
+                  <!-- Barras via JS -->
+                </div>
+              </div>
+              <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                <h4 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Tipos de Lead Mais Eficazes</h4>
+                <div id="rankingTipos" class="space-y-2">
+                  <!-- Ranking via JS -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rodapé de créditos -->
+        <p class="text-[10px] text-slate-400 text-center mt-8 mb-4 uppercase tracking-widest font-bold">
+          Central de Prospecção · Portal Inforteca © <span id="anoRodape"></span>
+        </p>
+
+      </div>
+      <!-- /VIEW: PROSPECÇÃO -->
+
+    </div>
+  </main>
+
+  <!-- ============ MODAL: IMPORTAÇÃO ============ -->
+  <div id="modalImport" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+      <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-4 flex justify-between items-center">
+        <div>
+          <h3 class="text-white font-black text-sm uppercase tracking-widest" id="importTitulo">Importar Planilha</h3>
+          <p class="text-[10px] text-white/70 font-bold mt-0.5" id="importSubtitulo">Selecione o arquivo Excel ou CSV</p>
+        </div>
+        <button onclick="fecharImportacao()" class="text-white/70 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <div class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-[#0e8890] hover:bg-slate-50 transition-colors cursor-pointer relative">
+          <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="onArquivoSelecionado(this)">
+          <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
+          <p class="text-sm font-black text-slate-700" id="importNomeArquivo">Clique ou arraste o arquivo aqui</p>
+          <p class="text-[10px] text-slate-400 mt-1">Formatos aceitos: .xlsx, .xls, .csv</p>
+        </div>
+        <div id="importPreview" class="hidden mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs"></div>
+        <div id="importAlerta" class="hidden text-xs p-3 rounded-xl border font-medium mt-4"></div>
+      </div>
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+        <button onclick="fecharImportacao()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700 transition-colors">Cancelar</button>
+        <button id="btnProcessarImport" onclick="processarImportacao()" disabled
+          class="bg-[#0e8890] hover:bg-[#0b6c72] disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-5 py-2 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition-colors">
+          <i data-lucide="zap" class="w-4 h-4"></i> Processar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div id="toastProspeccao" class="fixed bottom-6 right-6 z-[9999] pointer-events-none"></div>
+
+  <script>
+    /* ==========================================================
+       CONFIG & CLIENT
+       ========================================================== */
+    const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+
+    /* ==========================================================
+       STATE
+       ========================================================== */
+    const state = {
+      user: null,
+      perfil: null,
+      leads: [],           // Todos os leads carregados
+      leadsFiltrados: [],  // Após filtros
+      regras: [],
+      filtros: { texto: '', tipo: '', status: 'PENDENTE' },
+      arquivoSelecionado: null,
+      tipoImportacao: null,
+    };
+
+    /* ==========================================================
+       UTILITÁRIOS
+       ========================================================== */
+    const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
+      m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+    const capitalizar = (s) => String(s || '').toLowerCase()
+      .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    const normalizarCPF = (v) => String(v || '').replace(/\D/g, '').padStart(11, '0');
+    const normalizarTelefone = (v) => String(v || '').replace(/\D/g, '');
+
+    function fmtBR(date) {
+      if (!date) return '—';
+      if (typeof date === 'string') {
+        const iso = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(date)) return date.slice(0, 10);
+      }
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return '—';
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+
+    function fmtMoeda(v) {
+      const n = Number(v || 0);
+      if (!isFinite(n)) return 'R$ 0,00';
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function diasDesde(dataStr) {
+      if (!dataStr) return 9999;
+      const d = new Date(dataStr);
+      if (isNaN(d.getTime())) return 9999;
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      d.setHours(0,0,0,0);
+      return Math.floor((hoje - d) / 86400000);
+    }
+
+    /* ==========================================================
+       TOAST
+       ========================================================== */
+    function showToast(msg, tipo = 'success') {
+      const cores = {
+        success: 'bg-emerald-600',
+        error:   'bg-red-600',
+        info:    'bg-slate-800',
+        warning: 'bg-amber-500',
+      };
+      const icons = {
+        success: 'check-circle-2',
+        error:   'alert-triangle',
+        info:    'info',
+        warning: 'alert-circle',
+      };
+      const toast = document.createElement('div');
+      toast.className = `${cores[tipo] || cores.info} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-sm font-bold mb-2`;
+      toast.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(20px)';
+      toast.innerHTML = `<i data-lucide="${icons[tipo]}" class="w-4 h-4"></i><span>${escapeHTML(msg)}</span>`;
+      $('toastProspeccao').appendChild(toast);
+      lucide.createIcons();
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 400);
+      }, 3200);
+    }
+
+    /* ==========================================================
+       AUTH
+       ========================================================== */
+    async function verificarAuth() {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) { window.location.href = 'index.html'; return; }
+
+      state.user = session.user;
+      const { data: perfil } = await supabaseClient
+        .from('perfis').select('*').eq('id', session.user.id).single();
+      state.perfil = perfil || { nome_completo: session.user.email, permissao: 'Operador' };
+
+      // Popula rodapé
+      $('anoRodape').textContent = new Date().getFullYear();
+    }
+
+    /* ==========================================================
+       ABAS
+       ========================================================== */
+    function trocarAba(nome) {
+      document.querySelectorAll('[data-tab]').forEach(btn => {
+        const ativo = btn.dataset.tab === nome;
+        btn.classList.toggle('active', ativo);
+        btn.classList.toggle('text-slate-500', !ativo);
+      });
+      ['fila', 'regras', 'relatorios'].forEach(t => {
+        $(`tab-${t}`)?.classList.toggle('hidden', t !== nome);
+      });
+
+      if (nome === 'fila')        carregarFila();
+      if (nome === 'regras')      carregarRegras();
+      if (nome === 'relatorios')  carregarRelatorios();
+    }
+
+    /* ==========================================================
+       FILA DE TRABALHO
+       ========================================================== */
+    async function carregarFila() {
+      const tbody = $('tabelaFila');
+      const cards = $('cardsFila');
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 text-sm italic">
+        <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2 text-[#0e8890]"></i> Carregando leads…
+      </td></tr>`;
+      lucide.createIcons();
+
+      // ⚠️ Placeholder — será implementado na Fase 5
+      // Por enquanto, apenas KPIs zerados
+      state.leads = [];
+      aplicarFiltro();
+      atualizarKPIs();
+    }
+
+    function aplicarFiltro() {
+      state.filtros.texto  = $('filtroTexto').value.trim().toLowerCase();
+      state.filtros.tipo   = $('filtroTipo').value;
+      state.filtros.status = $('filtroStatus').value;
+
+      const termo = state.filtros.texto;
+      const termoNum = termo.replace(/\D/g, '');
+
+      state.leadsFiltrados = state.leads.filter(l => {
+        if (state.filtros.tipo && l.tipo_lead !== state.filtros.tipo) return false;
+        if (state.filtros.status && l.status !== state.filtros.status) return false;
+        if (termo) {
+          const nome = String(l.cliente?.nome || '').toLowerCase();
+          const cpf = normalizarCPF(l.cliente?.cpf);
+          const tel = normalizarTelefone(l.cliente?.telefone_principal);
+          const okTexto = nome.includes(termo);
+          const okNum = termoNum && (cpf.includes(termoNum) || tel.includes(termoNum));
+          if (!okTexto && !okNum) return false;
+        }
+        return true;
+      });
+
+      renderFila();
+    }
+
+    function renderFila() {
+      const tbody = $('tabelaFila');
+      const cards = $('cardsFila');
+
+      if (!state.leadsFiltrados.length) {
+        const vazio = `
+          <div class="text-center py-12">
+            <i data-lucide="check-circle-2" class="w-10 h-10 mx-auto text-emerald-300 mb-3"></i>
+            <p class="text-slate-500 font-bold text-sm">Nenhum lead nesta categoria 🎉</p>
+            <p class="text-[11px] text-slate-400 mt-1">Importe uma planilha ou ajuste os filtros.</p>
+          </div>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum lead encontrado.</td></tr>`;
+        cards.innerHTML = vazio;
+        lucide.createIcons();
+        return;
+      }
+
+      // Placeholder — será preenchido na Fase 5
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-400 italic text-sm">
+        Fase 5 — Renderização será implementada aqui.
+      </td></tr>`;
+    }
+
+    async function atualizarKPIs() {
+      // Placeholder — Fase 5
+      $('kpiPendentes').textContent = '—';
+      $('kpiContatados').textContent = '—';
+      $('kpiVoltaram').textContent = '—';
+      $('kpiBase').textContent = '—';
+
+      // Barra de progresso
+      $('barraProgresso').style.width = '0%';
+      $('porcentagemProgresso').textContent = '0%';
+      $('textoProgresso').textContent = 'Aguardando primeiros leads';
+    }
+
+    /* ==========================================================
+       REGRAS
+       ========================================================== */
+    async function carregarRegras() {
+      const box = $('listaRegras');
+      box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">
+        <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2 text-[#0e8890]"></i> Carregando regras…
+      </div>`;
+      lucide.createIcons();
+
+      const { data, error } = await supabaseClient
+        .from('prospeccao_regras')
+        .select('*')
+        .order('prioridade_base', { ascending: false });
+
+      if (error) {
+        box.innerHTML = `<div class="text-red-500 text-sm p-4 bg-red-50 rounded-xl">Erro: ${escapeHTML(error.message)}</div>`;
+        return;
+      }
+
+      if (!data?.length) {
+        box.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm italic">
+          Nenhuma regra configurada. Rode o SQL inicial no Supabase.
+        </div>`;
+        return;
+      }
+
+      state.regras = data;
+      box.innerHTML = data.map(r => regraHTML(r)).join('');
+      lucide.createIcons();
+    }
+
+    function regraHTML(r) {
+      const cond = r.condicoes || {};
+      const linhas = Object.entries(cond).map(([k, v]) =>
+        `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
+          <strong class="text-slate-800">${escapeHTML(k)}:</strong> ${escapeHTML(String(v))}
+        </span>`
+      ).join(' ');
+
+      return `
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-[#0e8890] transition-colors">
+          <div class="flex justify-between items-start mb-2 gap-3">
+            <div class="min-w-0">
+              <h4 class="font-black text-slate-800 uppercase text-sm tracking-tight">${escapeHTML(r.nome)}</h4>
+              <p class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                ${escapeHTML(r.tipo_lead)} · Prioridade ${r.prioridade_base} · Validade ${r.validade_dias}d
+              </p>
+            </div>
+            <span class="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border
+              ${r.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}">
+              ${r.ativo ? 'Ativa' : 'Inativa'}
+            </span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mt-2">${linhas}</div>
+          <p class="text-[11px] text-slate-500 mt-3 italic">💡 ${escapeHTML(r.oferta_template || '')}</p>
+        </div>`;
+    }
+
+    async function recalcularBase() {
+      showToast('Motor de regras — em construção (Fase 4)', 'info');
+    }
+
+    /* ==========================================================
+       RELATÓRIOS
+       ========================================================== */
+    async function carregarRelatorios() {
+      $('graficoContatos').innerHTML = `
+        <div class="w-full text-center text-slate-400 text-sm italic py-12">
+          Fase 6 — Relatórios serão implementados aqui.
+        </div>`;
+      $('rankingTipos').innerHTML = `
+        <div class="text-center text-slate-400 text-xs italic py-8">
+          Aguardando dados suficientes…
+        </div>`;
+    }
+
+    /* ==========================================================
+       IMPORTAÇÃO
+       ========================================================== */
+    function abrirImportacao(tipo) {
+      state.tipoImportacao = tipo;
+      state.arquivoSelecionado = null;
+
+      const titulos = {
+        datasys:     { t: 'Importar Datasys',     s: 'Vendas TIM (planos, aparelhos, chips)' },
+        gestaoclick: { t: 'Importar Gestão Click', s: 'Acessórios e serviços de TI' },
+      };
+      $('importTitulo').textContent = titulos[tipo].t;
+      $('importSubtitulo').textContent = titulos[tipo].s;
+
+      $('importFileInput').value = '';
+      $('importNomeArquivo').textContent = 'Clique ou arraste o arquivo aqui';
+      $('importPreview').classList.add('hidden');
+      $('importAlerta').classList.add('hidden');
+      $('btnProcessarImport').disabled = true;
+
+      $('modalImport').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function fecharImportacao() {
+      $('modalImport').classList.add('hidden');
+      state.arquivoSelecionado = null;
+      state.tipoImportacao = null;
+    }
+
+    function onArquivoSelecionado(input) {
+      const f = input.files?.[0];
+      if (!f) return;
+      state.arquivoSelecionado = f;
+      $('importNomeArquivo').textContent = f.name;
+      $('btnProcessarImport').disabled = false;
+    }
+
+    async function processarImportacao() {
+      // Fase 3 — será implementada aqui
+      showToast('Processamento será implementado na Fase 3', 'info');
+      fecharImportacao();
+    }
+
+    /* ==========================================================
+       AÇÕES GLOBAIS
+       ========================================================== */
+    function recarregarTudo() {
+      carregarFila();
+      if (state.regras.length) carregarRegras();
+      showToast('Atualizando dados…', 'info');
+    }
+
+    /* ==========================================================
+       BOOT
+       ========================================================== */
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      await verificarAuth();
+      carregarFila();
+    });
+
+    // Fecha modal com ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !$('modalImport')?.classList.contains('hidden')) {
+        fecharImportacao();
+      }
+    });
+  </script>
+</body>
+</html>
