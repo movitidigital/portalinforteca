@@ -202,22 +202,28 @@
             </div>
           </div>
 
-          <!-- ============ ABA: REGRAS ============ -->
-          <div id="tab-regras" class="hidden p-4 md:p-6">
-            <div class="flex justify-between items-center mb-5">
-              <div>
-                <h3 class="text-base font-black text-[#000033] uppercase tracking-tight">Regras de Geração de Leads</h3>
-                <p class="text-xs text-slate-500 mt-1">Ajuste os critérios que disparam cada tipo de abordagem.</p>
-              </div>
-              <button data-admin-only onclick="recalcularBase(event)"
-                class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
-                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
-              </button>
-            </div>
-            <div id="listaRegras" class="space-y-3">
-              <div class="text-center py-12 text-slate-400 text-sm italic">Carregando…</div>
-            </div>
-          </div>
+<!-- ============ ABA: REGRAS ============ -->
+<div id="tab-regras" class="hidden p-4 md:p-6">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-5">
+    <div>
+      <h3 class="text-base font-black text-[#000033] uppercase tracking-tight">Regras de Geração de Leads</h3>
+      <p class="text-xs text-slate-500 mt-1">Crie, edite e gerencie os critérios que disparam cada tipo de abordagem.</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <button data-admin-only onclick="abrirModalRegra()"
+        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova Regra
+      </button>
+      <button data-admin-only onclick="recalcularBase(event)"
+        class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase shadow-sm transition-colors flex items-center gap-2">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recalcular Base
+      </button>
+    </div>
+  </div>
+  <div id="listaRegras" class="space-y-3">
+    <div class="text-center py-12 text-slate-400 text-sm italic">Carregando…</div>
+  </div>
+</div>
 
           <!-- ============ ABA: RELATÓRIOS ============ -->
           <div id="tab-relatorios" class="hidden p-4 md:p-6">
@@ -299,6 +305,178 @@
     </div>
   </div>
 
+<!-- ============ MODAL: EDITAR/CRIAR REGRA ============ -->
+<div id="modalRegra" class="fixed inset-0 z-[70] hidden bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-4 flex justify-between items-center shrink-0">
+      <div>
+        <h3 class="text-white font-black text-sm uppercase tracking-widest" id="modalRegraTitulo">Nova Regra</h3>
+        <p class="text-[10px] text-white/80 font-bold mt-0.5" id="modalRegraSubtitulo">Configure os critérios da regra</p>
+      </div>
+      <button onclick="fecharModalRegra()" class="text-white/70 hover:text-white">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="p-6 overflow-y-auto flex-1">
+      
+      <!-- Informações Básicas -->
+      <div class="space-y-4">
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Nome da Regra *</label>
+          <input type="text" id="regraNome" placeholder="Ex: Upgrade TIM 50 dias"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Tipo de Lead *</label>
+            <input type="text" id="regraTipoLead" placeholder="Ex: UPGRADE_TIM" list="tiposLead"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+            <datalist id="tiposLead">
+              <option value="UPGRADE_TIM">
+              <option value="REATIVACAO_ACESSORIO">
+              <option value="REATIVACAO_CHIP_PRE">
+              <option value="REATIVACAO_CHIP_POS">
+              <option value="REATIVACAO_SERVICO_TI">
+            </datalist>
+            <p class="text-[10px] text-slate-400 mt-1">Use um tipo existente ou crie um novo</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Prioridade (0-100)</label>
+            <input type="number" id="regraPrioridade" min="0" max="100" value="50"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Campanha</label>
+            <input type="text" id="regraCampanha" placeholder="Ex: VOUCHER40"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Validade (dias)</label>
+            <input type="number" id="regraValidade" min="1" max="365" value="10"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Oferta Sugerida (aparece na fila)</label>
+          <input type="text" id="regraOferta" placeholder="Ex: Voucher de R$ 40,00 em acessórios"
+            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+        </div>
+
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <label class="flex items-center cursor-pointer gap-3 flex-1">
+            <input type="checkbox" id="regraAtiva" checked class="w-5 h-5 accent-emerald-600">
+            <div>
+              <span class="block text-sm font-black text-slate-800">Regra Ativa</span>
+              <span class="block text-[10px] text-slate-500">Só regras ativas geram leads no Recalcular Base</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Divisor -->
+      <div class="my-6 border-t border-slate-200"></div>
+
+      <!-- Condições -->
+      <div>
+        <div class="flex items-center gap-2 mb-4">
+          <div class="p-2 bg-[#0e8890]/10 rounded-lg">
+            <i data-lucide="filter" class="w-4 h-4 text-[#0e8890]"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-black text-slate-800 uppercase tracking-tight">Condições de Disparo</h4>
+            <p class="text-[10px] text-slate-500">A regra dispara quando TODAS as condições abaixo forem atendidas</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Categoria da Última Compra</label>
+            <select id="regraCategoria"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+              <option value="">Qualquer categoria</option>
+              <option value="APARELHO">📱 Aparelho</option>
+              <option value="PLANO">📶 Plano</option>
+              <option value="ACESSORIO">🎁 Acessório</option>
+              <option value="CHIP">💳 Chip</option>
+              <option value="SERVICO">🛠️ Serviço</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Contém na Modalidade</label>
+            <input type="text" id="regraModalidadeContem" placeholder="Ex: CHIP PRE, CHIP POS"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+            <p class="text-[10px] text-slate-400 mt-1">Opcional · usa "contém" na modalidade original</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Contém no Nome do Produto</label>
+            <input type="text" id="regraProdutoContem" placeholder="Ex: NOTEBOOK"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+            <p class="text-[10px] text-slate-400 mt-1">Opcional</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Sem Categoria Específica</label>
+            <select id="regraSemCategoria"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+              <option value="">Nenhuma restrição</option>
+              <option value="SERVICO">Cliente nunca fez Serviço</option>
+              <option value="APARELHO">Cliente nunca comprou Aparelho</option>
+              <option value="ACESSORIO">Cliente nunca comprou Acessório</option>
+              <option value="CHIP">Cliente nunca trocou Chip</option>
+              <option value="PLANO">Cliente nunca teve Plano</option>
+            </select>
+            <p class="text-[10px] text-slate-400 mt-1">Ignora leads que já têm essa categoria</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Dias Mínimos de Inatividade *</label>
+            <input type="number" id="regraDiasMin" min="1" value="50"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+            <p class="text-[10px] text-slate-400 mt-1">Cliente deve estar inativo há pelo menos X dias</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Dias Máximos (opcional)</label>
+            <input type="number" id="regraDiasMax" min="0"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+            <p class="text-[10px] text-slate-400 mt-1">Deixe vazio para não ter limite superior</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="regraAlerta" class="hidden text-xs p-3 rounded-xl border font-medium mt-4"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center shrink-0">
+      <button id="regraBtnDeletar" onclick="deletarRegraAtual()"
+        class="hidden text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-xl text-xs font-black uppercase transition-colors flex items-center gap-2">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir
+      </button>
+      <div class="flex gap-3 ml-auto">
+        <button onclick="fecharModalRegra()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancelar</button>
+        <button id="regraBtnSalvar" onclick="salvarRegra()"
+          class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition-colors">
+          <i data-lucide="save" class="w-4 h-4"></i> Salvar Regra
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+  
   <!-- ============ TOAST ============ -->
   <div id="toastProspeccao" class="fixed bottom-6 right-6 z-[9999] pointer-events-none"></div>
 
@@ -602,11 +780,23 @@
         'REATIVACAO_CHIP_PRE':   { label: 'Troca de Chip Pré',   cor: 'bg-yellow-50 text-yellow-700 border-yellow-200',   icon: 'zap' },
         'REATIVACAO_CHIP_POS':   { label: 'Troca de Chip Pós',   cor: 'bg-blue-50 text-blue-700 border-blue-200',         icon: 'zap' },
         'REATIVACAO_SERVICO_TI': { label: 'Serviço TI',          cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
-        // Fallbacks para tipos antigos
         'REATIVACAO_CHIP':       { label: 'Troca de Chip',       cor: 'bg-yellow-50 text-yellow-700 border-yellow-200',   icon: 'zap' },
         'CROSS_SELL_TI':         { label: 'Serviço TI',          cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
       };
-      return mapa[tipo] || { label: tipo, cor: 'bg-slate-100 text-slate-600 border-slate-200', icon: 'tag' };
+      
+      if (mapa[tipo]) return mapa[tipo];
+      
+      // Fallback amigável para tipos novos criados pelo admin
+      const label = String(tipo || 'Tipo')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase())
+        .slice(0, 30);
+      
+      return { 
+        label, 
+        cor: 'bg-slate-100 text-slate-700 border-slate-200', 
+        icon: 'tag' 
+      };
     }
 
     function corScore(score) {
@@ -1101,29 +1291,233 @@
 
     function regraHTML(r) {
       const cond = r.condicoes || {};
-      const linhas = Object.entries(cond).map(([k, v]) =>
-        `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
-          <strong class="text-slate-800">${escapeHTML(k)}:</strong> ${escapeHTML(String(v))}
-        </span>`).join(' ');
+      const linhas = Object.entries(cond).map(([k, v]) => {
+        const labels = {
+          categoria: 'Categoria',
+          modalidade_contem: 'Modalidade',
+          produto_contem: 'Produto',
+          dias_minimos: 'Dias mín',
+          dias_maximos: 'Dias máx',
+          sem_categoria: 'Sem categoria',
+        };
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
+          <strong class="text-slate-800">${escapeHTML(labels[k] || k)}:</strong> ${escapeHTML(String(v))}
+        </span>`;
+      }).join(' ');
+
+      const tipoInfo = tipoLeadInfo(r.tipo_lead);
+
       return `
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-[#0e8890] transition-colors">
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 hover:border-[#0e8890] transition-colors" data-regra-id="${r.id}">
           <div class="flex justify-between items-start mb-2 gap-3">
-            <div class="min-w-0">
-              <h4 class="font-black text-slate-800 uppercase text-sm tracking-tight">${escapeHTML(r.nome)}</h4>
-              <p class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h4 class="font-black text-slate-800 uppercase text-sm tracking-tight">${escapeHTML(r.nome)}</h4>
+                <span class="badge-tipo ${tipoInfo.cor}">
+                  <i data-lucide="${tipoInfo.icon}" class="w-3 h-3"></i> ${tipoInfo.label}
+                </span>
+              </div>
+              <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">
                 ${escapeHTML(r.tipo_lead)} · Prioridade ${r.prioridade_base} · Validade ${r.validade_dias}d
+                ${r.campanha ? ` · ${escapeHTML(r.campanha)}` : ''}
               </p>
             </div>
-            <span class="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border
-              ${r.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}">
-              ${r.ativo ? 'Ativa' : 'Inativa'}
-            </span>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <!-- Toggle Ativa -->
+              <button data-admin-only onclick="toggleRegraAtiva('${r.id}', ${!r.ativo})"
+                class="p-2 rounded-lg transition-colors ${r.ativo ? 'text-emerald-600 hover:bg-emerald-50' : 'text-slate-400 hover:bg-slate-100'}"
+                title="${r.ativo ? 'Desativar regra' : 'Ativar regra'}">
+                <i data-lucide="${r.ativo ? 'toggle-right' : 'toggle-left'}" class="w-6 h-6"></i>
+              </button>
+              <!-- Editar -->
+              <button data-admin-only onclick="abrirModalRegra('${r.id}')"
+                class="p-2 rounded-lg text-slate-500 hover:text-[#0e8890] hover:bg-[#0e8890]/10 transition-colors"
+                title="Editar regra">
+                <i data-lucide="pencil" class="w-4 h-4"></i>
+              </button>
+            </div>
           </div>
-          <div class="flex flex-wrap gap-1.5 mt-2">${linhas}</div>
-          <p class="text-[11px] text-slate-500 mt-3 italic">${EMOJI.bulb} ${escapeHTML(r.oferta_template || '')}</p>
+
+          <div class="flex flex-wrap gap-1.5 mt-2">${linhas || '<span class="text-[10px] italic text-slate-400">Sem condições definidas</span>'}</div>
+
+          ${r.oferta_template ? `<p class="text-[11px] text-slate-500 mt-3 italic">${EMOJI.bulb} ${escapeHTML(r.oferta_template)}</p>` : ''}
         </div>`;
     }
 
+        /* ==========================================================
+       CRUD DE REGRAS
+       ========================================================== */
+    function abrirModalRegra(id = null) {
+      if (!state._isAdmin) { showToast('Só administradores.', 'warning'); return; }
+
+      const r = id ? state.regras.find(x => x.id === id) : null;
+      
+      // Título e botão de deletar
+      $('modalRegraTitulo').textContent = r ? 'Editar Regra' : 'Nova Regra';
+      $('modalRegraSubtitulo').textContent = r ? r.tipo_lead : 'Configure os critérios';
+      $('regraBtnDeletar').classList.toggle('hidden', !r);
+
+      // Reset do formulário
+      const cond = r?.condicoes || {};
+      $('regraNome').value = r?.nome || '';
+      $('regraTipoLead').value = r?.tipo_lead || '';
+      $('regraPrioridade').value = r?.prioridade_base ?? 50;
+      $('regraCampanha').value = r?.campanha || '';
+      $('regraValidade').value = r?.validade_dias ?? 10;
+      $('regraOferta').value = r?.oferta_template || '';
+      $('regraAtiva').checked = r ? r.ativo : true;
+      $('regraCategoria').value = cond.categoria || '';
+      $('regraModalidadeContem').value = cond.modalidade_contem || '';
+      $('regraProdutoContem').value = cond.produto_contem || '';
+      $('regraSemCategoria').value = cond.sem_categoria || '';
+      $('regraDiasMin').value = cond.dias_minimos ?? 50;
+      $('regraDiasMax').value = cond.dias_maximos ?? '';
+      $('regraAlerta').classList.add('hidden');
+
+      // Guarda o id em edição
+      state._regraEmEdicao = r?.id || null;
+
+      $('modalRegra').classList.remove('hidden');
+      lucide.createIcons();
+      setTimeout(() => $('regraNome').focus(), 100);
+    }
+
+    function fecharModalRegra() {
+      $('modalRegra').classList.add('hidden');
+      state._regraEmEdicao = null;
+    }
+
+    async function salvarRegra() {
+      if (!state._isAdmin) return;
+
+      const alertBox = $('regraAlerta');
+      const mostrarAlerta = (msg, tipo = 'red') => {
+        const cores = {
+          red: 'bg-red-50 border-red-200 text-red-600',
+          emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+        };
+        alertBox.textContent = msg;
+        alertBox.className = `text-xs p-3 rounded-xl border font-medium mt-4 ${cores[tipo]}`;
+        alertBox.classList.remove('hidden');
+      };
+
+      // Validações
+      const nome = $('regraNome').value.trim();
+      const tipoLead = $('regraTipoLead').value.trim().toUpperCase().replace(/\s+/g, '_');
+      const diasMin = parseInt($('regraDiasMin').value);
+      const prioridade = parseInt($('regraPrioridade').value) || 50;
+      const validade = parseInt($('regraValidade').value) || 10;
+
+      if (!nome) return mostrarAlerta('Informe o nome da regra.');
+      if (!tipoLead) return mostrarAlerta('Informe o tipo de lead.');
+      if (!diasMin || diasMin < 1) return mostrarAlerta('Informe os dias mínimos de inatividade.');
+
+      // Monta as condições
+      const condicoes = { dias_minimos: diasMin };
+      const diasMax = parseInt($('regraDiasMax').value);
+      if (diasMax > 0) condicoes.dias_maximos = diasMax;
+
+      const cat = $('regraCategoria').value;
+      if (cat) condicoes.categoria = cat;
+
+      const modCont = $('regraModalidadeContem').value.trim();
+      if (modCont) condicoes.modalidade_contem = modCont;
+
+      const prodCont = $('regraProdutoContem').value.trim();
+      if (prodCont) condicoes.produto_contem = prodCont;
+
+      const semCat = $('regraSemCategoria').value;
+      if (semCat) condicoes.sem_categoria = semCat;
+
+      // Monta payload
+      const payload = {
+        nome,
+        tipo_lead: tipoLead,
+        prioridade_base: prioridade,
+        validade_dias: validade,
+        campanha: $('regraCampanha').value.trim() || null,
+        oferta_template: $('regraOferta').value.trim() || null,
+        ativo: $('regraAtiva').checked,
+        condicoes,
+        updated_at: new Date().toISOString(),
+      };
+
+      const btn = $('regraBtnSalvar');
+      const htmlOriginal = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Salvando…';
+      lucide.createIcons();
+
+      try {
+        if (state._regraEmEdicao) {
+          const { error } = await supabaseClient
+            .from('prospeccao_regras')
+            .update(payload)
+            .eq('id', state._regraEmEdicao);
+          if (error) throw error;
+          showToast('Regra atualizada!', 'success');
+        } else {
+          const { error } = await supabaseClient
+            .from('prospeccao_regras')
+            .insert(payload);
+          if (error) throw error;
+          showToast('Regra criada!', 'success');
+        }
+
+        fecharModalRegra();
+        await carregarRegras();
+      } catch (err) {
+        mostrarAlerta('Erro: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = htmlOriginal;
+        lucide.createIcons();
+      }
+    }
+
+    async function toggleRegraAtiva(id, novoEstado) {
+      if (!state._isAdmin) return;
+      const { error } = await supabaseClient
+        .from('prospeccao_regras')
+        .update({ ativo: novoEstado, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) { showToast('Erro: ' + error.message, 'error'); return; }
+      showToast(novoEstado ? 'Regra ativada' : 'Regra desativada', 'info');
+      await carregarRegras();
+    }
+
+    async function deletarRegraAtual() {
+      const id = state._regraEmEdicao;
+      if (!id) return;
+
+      const r = state.regras.find(x => x.id === id);
+      const nome = r?.nome || 'esta regra';
+
+      if (!confirm(`⚠️ Excluir a regra "${nome}"?\n\nEssa ação não pode ser desfeita.`)) return;
+
+      const btn = $('regraBtnDeletar');
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Excluindo…';
+      lucide.createIcons();
+
+      try {
+        const { error } = await supabaseClient
+          .from('prospeccao_regras')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+
+        showToast('Regra excluída.', 'info');
+        fecharModalRegra();
+        await carregarRegras();
+      } catch (err) {
+        showToast('Erro: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir';
+        lucide.createIcons();
+      }
+    }
+    
     async function recalcularBase(event) {
       if (!state._isAdmin) { showToast('Só administradores.', 'warning'); return; }
       const btn = event?.currentTarget;
