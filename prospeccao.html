@@ -157,15 +157,14 @@
                   placeholder="Buscar por nome, CPF ou telefone..."
                   class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
               </div>
-              <select id="filtroTipo" onchange="aplicarFiltro()"
-                class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
-                <option value="">Todos os tipos</option>
-                <option value="UPGRADE_TIM">📱 Upgrade TIM</option>
-                <option value="REATIVACAO_ACESSORIO">🎁 Acessório</option>
-                <option value="REATIVACAO_CHIP_PRE">⚡ Troca de Chip Pré</option>
-                <option value="REATIVACAO_CHIP_POS">⚡ Troca de Chip Pós</option>
-                <option value="REATIVACAO_SERVICO_TI">💻 Serviço TI</option>
-              </select>
+<select id="filtroTipo" onchange="aplicarFiltro()" ...>
+  <option value="">Todos os tipos</option>
+  <option value="UPGRADE_TIM">📱 Upgrade TIM</option>
+  <option value="REATIVACAO_ACESSORIO">🎁 Acessório</option>
+  <option value="REATIVACAO_CHIP_PRE">⚡ Troca de Chip Pré</option>
+  <option value="REATIVACAO_CHIP_POS">⚡ Troca de Chip Pós</option>
+  <option value="REATIVACAO_SERVICO_TI">💻 Serviço TI</option>
+</select>
               <select id="filtroStatus" onchange="aplicarFiltro()"
                 class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-[#0e8890]">
                 <option value="PENDENTE">Pendentes</option>
@@ -598,14 +597,14 @@
     // ─── Helpers visuais ───
     function tipoLeadInfo(tipo) {
       const mapa = {
-        'UPGRADE_TIM':           { label: 'Upgrade TIM', cor: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'smartphone' },
-        'REATIVACAO_ACESSORIO':  { label: 'Acessório',   cor: 'bg-amber-50 text-amber-700 border-amber-200',   icon: 'gift' },
-        'REATIVACAO_CHIP_PRE':   { label: 'Chip Pré',    cor: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: 'zap' },
-        'REATIVACAO_CHIP_POS':   { label: 'Chip Pós',    cor: 'bg-blue-50 text-blue-700 border-blue-200',       icon: 'zap' },
-        'REATIVACAO_SERVICO_TI': { label: 'Serviço TI',  cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
+        'UPGRADE_TIM':           { label: 'Upgrade TIM',         cor: 'bg-indigo-50 text-indigo-700 border-indigo-200',   icon: 'smartphone' },
+        'REATIVACAO_ACESSORIO':  { label: 'Acessório',           cor: 'bg-amber-50 text-amber-700 border-amber-200',     icon: 'gift' },
+        'REATIVACAO_CHIP_PRE':   { label: 'Troca de Chip Pré',   cor: 'bg-yellow-50 text-yellow-700 border-yellow-200',   icon: 'zap' },
+        'REATIVACAO_CHIP_POS':   { label: 'Troca de Chip Pós',   cor: 'bg-blue-50 text-blue-700 border-blue-200',         icon: 'zap' },
+        'REATIVACAO_SERVICO_TI': { label: 'Serviço TI',          cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
         // Fallbacks para tipos antigos
-        'REATIVACAO_CHIP':       { label: 'Chip (legado)', cor: 'bg-yellow-50 text-yellow-700 border-yellow-200', icon: 'zap' },
-        'CROSS_SELL_TI':         { label: 'Serviço TI (legado)', cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
+        'REATIVACAO_CHIP':       { label: 'Troca de Chip',       cor: 'bg-yellow-50 text-yellow-700 border-yellow-200',   icon: 'zap' },
+        'CROSS_SELL_TI':         { label: 'Serviço TI',          cor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'wrench' },
       };
       return mapa[tipo] || { label: tipo, cor: 'bg-slate-100 text-slate-600 border-slate-200', icon: 'tag' };
     }
