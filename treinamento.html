@@ -118,10 +118,6 @@
       <!-- Filtros -->
       <div class="flex flex-wrap items-center gap-2 mb-6">
         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtrar:</span>
-        
-      <!-- Filtros -->
-      <div class="flex flex-wrap items-center gap-2 mb-6">
-        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtrar:</span>
         <button onclick="filtrarModulos('todos')" data-filtro="todos"
           class="filtro-btn active bg-[#0e8890] text-white px-4 py-2 rounded-xl text-xs font-black uppercase transition-colors">
           Todos
@@ -714,12 +710,12 @@
     /* Mostra/oculta card do painel conforme perfil */
     function atualizarBotaoPainel() {
       const card = $('cardAdmin');
-      if (!card) return;
+      if (!card) { console.warn('[Painel] Card não encontrado no DOM'); return; }
       
-      // 🛡️ Inline style força o display (elimina conflito de classes)
-      card.style.display = state.isAdmin ? 'block' : 'none';
+      const visivel = state.isAdmin === true;
+      card.style.display = visivel ? 'block' : 'none';
       
-      console.log('[Painel Admin] isAdmin:', state.isAdmin, '| Card visível:', state.isAdmin);
+      console.log('[Painel Admin] isAdmin:', state.isAdmin, '| Card visível:', visivel, '| Estado do perfil:', state.perfil?.nome_completo);
     }
 
     /* ==========================================================
