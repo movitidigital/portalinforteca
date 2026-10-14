@@ -125,7 +125,7 @@
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
     <!-- CLIENTES EM RISCO (clicável) -->
-    <button onclick="navegar('faturas'); aplicarFiltroAtrasados();"
+<button id="cardClientesRisco" onclick="navegar('faturas'); aplicarFiltroAtrasados();"
       class="bg-white rounded-2xl p-6 border border-red-100 shadow-sm ring-2 ring-red-100 text-left hover:ring-red-300 hover:shadow-md transition-all cursor-pointer group">
       <div class="flex justify-between items-start mb-3">
         <div class="min-w-0">
@@ -1664,6 +1664,11 @@ if (elPerm) elPerm.textContent = state.perfil.permissao;
   const { data: cargos } = await supabaseClient.from('cargos').select('*');
   const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
   const isAdmin = meuCargo?.is_admin === true;
+    // 🛡️ Clientes em Risco é admin-only
+  const cardRisco = document.getElementById('cardClientesRisco');
+  if (cardRisco) {
+    cardRisco.style.display = isAdmin ? '' : 'none';
+  }
 
   // Carrega permissões padrão do cargo + overrides individuais
   const cargoPerms = meuCargo
