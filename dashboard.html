@@ -1664,12 +1664,12 @@ if (elPerm) elPerm.textContent = state.perfil.permissao;
   const { data: cargos } = await supabaseClient.from('cargos').select('*');
   const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
   const isAdmin = meuCargo?.is_admin === true;
-    // 🛡️ Clientes em Risco é admin-only
+  // 🛡️ Clientes em Risco só aparece se tiver acesso a Faturas
   const cardRisco = document.getElementById('cardClientesRisco');
   if (cardRisco) {
-    cardRisco.style.display = isAdmin ? '' : 'none';
+    const nivelFaturas = state._permissoes?.faturas || 'nenhum';
+    cardRisco.style.display = nivelFaturas !== 'nenhum' ? '' : 'none';
   }
-
   // Carrega permissões padrão do cargo + overrides individuais
   const cargoPerms = meuCargo
     ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || []
