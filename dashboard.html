@@ -1664,12 +1664,7 @@ if (elPerm) elPerm.textContent = state.perfil.permissao;
   const { data: cargos } = await supabaseClient.from('cargos').select('*');
   const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
   const isAdmin = meuCargo?.is_admin === true;
-  // 🛡️ Clientes em Risco só aparece se tiver acesso a Faturas
-  const cardRisco = document.getElementById('cardClientesRisco');
-  if (cardRisco) {
-    const nivelFaturas = state._permissoes?.faturas || 'nenhum';
-    cardRisco.style.display = nivelFaturas !== 'nenhum' ? '' : 'none';
-  }
+
   // Carrega permissões padrão do cargo + overrides individuais
   const cargoPerms = meuCargo
     ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || []
@@ -1690,6 +1685,17 @@ if (elPerm) elPerm.textContent = state.perfil.permissao;
   // Guarda no state (usado pelo navegar() pra bloquear módulos sem acesso)
   state._permissoes = perms;
   state._isAdmin = isAdmin;
+
+  // 🛡️ Clientes em Risco — visível para quem tem acesso ao módulo Faturas
+  const cardRisco = document.getElementById('cardClientesRisco');
+  if (cardRisco) {
+    const nivelFaturas = state._permissoes?.faturas || 'nenhum';
+    cardRisco.style.display = nivelFaturas !== 'nenhum' ? '' : 'none';
+  }
+
+// Menu sempre completo — o bloqueio é no clique (navegar() / gate das páginas externas)
+document.getElementById('btnMenuMetas')?.classList.remove('hidden');
+document.getElementById('btnMenuUsuarios')?.classList.remove('hidden');
 
 // Menu sempre completo — o bloqueio é no clique (navegar() / gate das páginas externas)
 document.getElementById('btnMenuMetas')?.classList.remove('hidden');
