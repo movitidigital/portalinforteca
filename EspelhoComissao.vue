@@ -5,7 +5,7 @@
     <div v-if="isLoading" class="flex flex-col items-center justify-center min-h-[60vh]">
       <svg class="animate-spin h-10 w-10 text-indigo-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
       <h3 class="text-xl font-semibold text-slate-700">A carregar espelho financeiro...</h3>
-      <p class="text-slate-500">A consultar a base de dados em tempo real.</p>
+      <p class="text-slate-500">A consultar a base de dados de comissões em tempo real.</p>
     </div>
 
     <!-- Interface Principal (Após o Loading) -->
@@ -17,8 +17,7 @@
           <div>
             <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Meu Extrato B2C</h1>
             <p class="text-slate-500 mt-1">
-              Competência: <span class="font-medium text-slate-700">Agosto 2026</span> | 
-              Pagamento: <span class="font-medium text-slate-700">Outubro 2026</span>
+              Competência: <span class="font-medium text-slate-700">{{ mesFormatado }}</span>
             </p>
           </div>
           <div class="flex items-center gap-3">
@@ -29,7 +28,7 @@
             </span>
             
             <!-- Botão de Exportação PDF -->
-            <button @click="gerarPDF" :disabled="isExporting" class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-medium transition-colors shadow-sm disabled:opacity-50">
+            <button @click="gerarPDF" :disabled="isExporting || !espelho" class="inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-medium transition-colors shadow-sm disabled:opacity-50">
               <svg v-if="isExporting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               {{ isExporting ? 'A gerar PDF...' : 'Baixar PDF' }}
@@ -37,8 +36,8 @@
           </div>
         </div>
 
-        <!-- Alerta de Meta (Gamificação - Não entra no PDF) -->
-        <div v-if="!espelho?.atingiu_meta_pessoal" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
+        <!-- Alerta de Meta (Gamificação) -->
+        <div v-if="espelho && !espelho.atingiu_meta_pessoal" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg">
           <h2 class="text-lg font-semibold mb-2">Você está na faixa: Ativou, Ganhou (20%) 🚀</h2>
           <p class="text-blue-100 text-sm mb-4">Continue a vender para destravar a <span class="text-white font-bold">Meta Pessoal (30%)</span> e ganhar um bónus retroativo sobre tudo o que já ativou no mês!</p>
           <div class="w-full bg-blue-900/50 rounded-full h-3">
@@ -46,7 +45,7 @@
           </div>
         </div>
         
-        <div v-else class="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+        <div v-if="espelho && espelho.atingiu_meta_pessoal" class="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
           <h2 class="text-lg font-semibold mb-2">Parabéns! Meta Pessoal Atingida 🏆</h2>
           <p class="text-emerald-100 text-sm">Você já garantiu a faixa de 30% em Serviços e 1,5% em Aparelhos. Ajude a equipa a bater a Meta da Loja para chegar ao nível máximo!</p>
         </div>
@@ -61,8 +60,8 @@
         <div class="hidden pdf-only text-center mb-8 px-8">
           <h2 class="text-2xl font-bold text-slate-800 uppercase tracking-wide">INFORTECA LTDA - Relatório de Remuneração</h2>
           <div class="flex justify-between items-center mt-4 text-sm text-slate-600 font-medium">
-            <p>Consultor: <span class="font-bold text-slate-800">Daniel Alves Ferreira</span></p> <!-- Trocar por nome real do auth -->
-            <p>Competência: <span class="font-bold text-slate-800">Agosto / 2026</span></p>
+            <p>Consultor: <span class="font-bold text-slate-800">{{ nomeVendedor }}</span></p>
+            <p>Competência: <span class="font-bold text-slate-800">{{ mesFormatado }}</span></p>
             <p>Status: <span class="font-bold text-emerald-600">{{ espelho?.status_espelho || 'PROCESSADO' }}</span></p>
           </div>
           <hr class="mt-4 border-slate-300">
@@ -104,7 +103,7 @@
                 <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
                   <th class="px-6 py-4 font-medium border-b border-slate-200">Produto/Serviço</th>
                   <th class="px-6 py-4 font-medium border-b border-slate-200 text-right">Valor Ref.</th>
-                  <th class="px-6 py-4 font-medium border-b border-slate-200 text-center">Qualidade (M-6)</th>
+                  <th class="px-6 py-4 font-medium border-b border-slate-200 text-center">Qualidade</th>
                   <th class="px-6 py-4 font-medium border-b border-slate-200 text-right">Base Líquida</th>
                   <th class="px-6 py-4 font-medium border-b border-slate-200 text-center">Faixa %</th>
                   <th class="px-6 py-4 font-medium border-b border-slate-200 text-right">Comissão R$</th>
@@ -118,7 +117,7 @@
                   </td>
                   <td class="px-6 py-4 text-right">R$ {{ item.valor_referencia }}</td>
                   <td class="px-6 py-4 text-center">
-                    <span v-if="item.tipo === 'PLANO' || item.tipo === 'CHIP'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                    <span v-if="item.tipo === 'PLANO' || item.tipo === 'CHIP' || item.tipo === 'SERVICO_TIM'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
                       {{ item.qualidade }}%
                     </span>
                     <span v-else class="text-slate-300">-</span>
@@ -134,10 +133,10 @@
                   </td>
                 </tr>
                 
-                <!-- Estado vazio caso não haja vendas ainda -->
+                <!-- Estado vazio -->
                 <tr v-if="espelhoItens.length === 0">
                   <td colspan="6" class="px-6 py-8 text-center text-slate-500">
-                    Nenhuma venda processada para esta competência ainda.
+                    Nenhuma comissão processada para esta competência ainda.
                   </td>
                 </tr>
               </tbody>
@@ -155,7 +154,7 @@
           </div>
           <div class="text-center w-64">
             <div class="border-t-2 border-slate-800 pt-2">
-              <p class="font-bold text-slate-800">Daniel Alves Ferreira</p>
+              <p class="font-bold text-slate-800">{{ nomeVendedor }}</p>
               <p class="text-xs text-slate-500 uppercase mt-1">Consultor de Vendas</p>
             </div>
           </div>
@@ -169,82 +168,40 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import html2pdf from 'html2pdf.js'
-// IMPORTANTE: Ajuste o caminho do seu serviço de integração
-import { financeiroService } from '@/services/financeiroService' 
+import { supabase } from '@/lib/supabaseClient' // Assegure-se de que o caminho para o cliente Supabase está correto
 
 // Variáveis de Estado
 const isLoading = ref(true)
 const isExporting = ref(false)
+const nomeVendedor = ref('Consultor')
 
 // Dados do Banco
 const espelho = ref(null)
 const espelhoItens = ref([])
 
-// TODO: Num cenário real, pegar o ID do Vendedor Logado e a Data atual selecionada
-const vendedorIdTeste = 'COLOQUE_O_UUID_AQUI' 
-const mesCompetenciaTeste = '2026-08-01'
+// Parâmetros (Pode tornar a data dinâmica com um DatePicker posteriormente)
+const mesCompetenciaAtual = '2026-08-01'
 
-// Computed Properties para formatar os totais dos Cards
-const totalLiquido = computed(() => {
-  return espelho.value 
-    ? parseFloat(espelho.value.total_liquido_receber).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-    : '0,00'
+// Computed Properties para formatar os valores
+const mesFormatado = computed(() => {
+  const data = new Date(mesCompetenciaAtual)
+  return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, (c) => c.toUpperCase())
 })
 
-const valorServicos = computed(() => {
-  return espelho.value 
-    ? parseFloat(espelho.value.total_comissao_servicos).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-    : '0,00'
-})
-
-const valorAparelhos = computed(() => {
-  return espelho.value 
-    ? parseFloat(espelho.value.total_comissao_aparelhos).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-    : '0,00'
-})
-
-const valorAcessorios = computed(() => {
-  return espelho.value 
-    ? parseFloat(espelho.value.total_comissao_acessorios).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) 
-    : '0,00'
-})
-
-// Função para buscar os dados reais via API
-const carregarDados = async () => {
-  isLoading.value = true
-  try {
-    // Busca o cabeçalho
-    const dadosEspelho = await financeiroService.buscarEspelhoVendedor(vendedorIdTeste, mesCompetenciaTeste)
-    
-    if (dadosEspelho) {
-      espelho.value = dadosEspelho
-      
-      // Busca as linhas detalhadas
-      const itens = await financeiroService.buscarItensEspelho(dadosEspelho.id)
-      
-      espelhoItens.value = itens.map(item => ({
-        id: item.id,
-        descricao: mapearNomeAmigavel(item.tipo_item), 
-        tipo: item.tipo_item,
-        e_portabilidade: item.e_portabilidade,
-        valor_referencia: parseFloat(item.valor_referencia_base).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-        qualidade: item.qualidade_aplicada ? (parseFloat(item.qualidade_aplicada) * 100).toFixed(2) : '100',
-        base_liquida: parseFloat(item.base_calculo_liquida).toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-        fator_aplicado: (parseFloat(item.fator_remuneracao_aplicado) * 100).toFixed(2),
-        comissao_final: parseFloat(item.valor_comissao_final).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-      }))
-    }
-  } catch (error) {
-    console.error("Erro ao carregar os dados financeiros:", error)
-  } finally {
-    isLoading.value = false
-  }
+const formatarMoeda = (valor) => {
+  return parseFloat(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// Pequeno utilitário para formatar nomes técnicos do banco
+const totalLiquido = computed(() => formatarMoeda(espelho.value?.total_liquido_receber))
+const valorServicos = computed(() => formatarMoeda(espelho.value?.total_comissao_servicos))
+const valorAparelhos = computed(() => formatarMoeda(espelho.value?.total_comissao_aparelhos))
+const valorAcessorios = computed(() => formatarMoeda(espelho.value?.total_comissao_acessorios))
+
+// Utilitário para formatar nomes técnicos
 const mapearNomeAmigavel = (tipo) => {
   const map = {
     'PLANO': 'Serviço Pós/Controle',
+    'SERVICO_TIM': 'Serviço Pós/Controle',
     'CHIP': 'Ativação TIM Chip',
     'ACESSORIO': 'Produto: Acessório',
     'APARELHO': 'Produto: Smartphone / Equipamento'
@@ -252,12 +209,68 @@ const mapearNomeAmigavel = (tipo) => {
   return map[tipo] || tipo
 }
 
+// Lógica de Integração Real com Supabase
+const carregarDados = async () => {
+  isLoading.value = true
+  try {
+    // 1. Obter Utilizador Autenticado
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      console.error("Utilizador não autenticado.")
+      isLoading.value = false
+      return
+    }
+
+    const vendedorIdReal = user.id;
+    nomeVendedor.value = user.user_metadata?.full_name || user.email || 'Consultor de Vendas'
+
+    // 2. Buscar Cabeçalho do Espelho
+    const { data: dadosEspelho, error: espelhoError } = await supabase
+      .from('financeiro_espelhos_b2c')
+      .select('*')
+      .eq('vendedor_id', vendedorIdReal)
+      .eq('mes_competencia_venda', mesCompetenciaAtual)
+      .single()
+
+    if (espelhoError && espelhoError.code !== 'PGRST116') {
+      throw espelhoError
+    }
+
+    if (dadosEspelho) {
+      espelho.value = dadosEspelho
+      
+      // 3. Buscar Itens Detalhados
+      const { data: itens, error: itensError } = await supabase
+        .from('financeiro_espelho_itens')
+        .select('*')
+        .eq('espelho_id', dadosEspelho.id)
+        .order('tipo_item', { ascending: true })
+
+      if (itensError) throw itensError
+      
+      // 4. Formatar os dados para a tabela
+      espelhoItens.value = itens.map(item => ({
+        id: item.id,
+        descricao: mapearNomeAmigavel(item.tipo_item),
+        tipo: item.tipo_item,
+        e_portabilidade: item.e_portabilidade,
+        valor_referencia: formatarMoeda(item.valor_referencia_base),
+        qualidade: item.qualidade_aplicada ? (parseFloat(item.qualidade_aplicada) * 100).toFixed(2) : '100',
+        base_liquida: formatarMoeda(item.base_calculo_liquida),
+        fator_aplicado: (parseFloat(item.fator_remuneracao_aplicado) * 100).toFixed(2),
+        comissao_final: formatarMoeda(item.valor_comissao_final)
+      }))
+    }
+  } catch (error) {
+    console.error("Erro ao carregar os dados financeiros do Supabase:", error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
 onMounted(() => {
-  // Descomente a linha abaixo quando o seu financeiroService.js e as UUIDs estiverem corretas
-  // carregarDados()
-  
-  // Apenas para visualização inicial enquanto não conecta a API:
-  setTimeout(() => { isLoading.value = false }, 1000)
+  carregarDados()
 })
 
 // Função de Exportação PDF
@@ -268,7 +281,7 @@ const gerarPDF = async () => {
   
   const opt = {
     margin:       [15, 10, 15, 10], 
-    filename:     `Comissao_Inforteca_${mesCompetenciaTeste}.pdf`,
+    filename:     `Comissao_${nomeVendedor.value.replace(/\s+/g, '_')}_${mesFormatado.value.replace(/\s+/g, '_')}.pdf`,
     image:        { type: 'jpeg', quality: 0.98 },
     html2canvas:  { 
       scale: 2, 
@@ -294,7 +307,6 @@ const gerarPDF = async () => {
 </script>
 
 <style scoped>
-/* Animação suave na transição do loading */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
@@ -303,7 +315,6 @@ const gerarPDF = async () => {
   animation: fadeInUp 0.4s ease-out forwards;
 }
 
-/* Fundo da div de exportação para evitar transparência indesejada no PDF */
 #espelho-conteudo {
   background-color: #f8fafc;
 }
