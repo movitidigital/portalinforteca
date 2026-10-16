@@ -15,17 +15,18 @@ const finState = {
 function inicializarConciliacao() {
   const inputMes = document.getElementById('concMes');
   if (inputMes) {
-    // Pega o mês atual como padrão
     const mesAtual = new Date().toISOString().slice(0, 7);
     if (!inputMes.value) inputMes.value = mesAtual;
     finState.conciliacao.mes = inputMes.value;
 
-    // ✅ Listener: atualiza o finState quando o usuário muda o mês
+    // Listener: atualiza o finState quando o usuário muda o mês
     if (!inputMes._binded) {
       inputMes._binded = true;
       inputMes.addEventListener('change', (e) => {
         finState.conciliacao.mes = e.target.value;
         console.log('[Conciliação] Mês alterado para:', e.target.value);
+        // 🆕 Recarrega a conciliação existente do novo mês
+        carregarConciliacaoExistente();
       });
     }
   }
@@ -44,11 +45,87 @@ function inicializarConciliacao() {
       document.getElementById('concFileInput').click();
     });
   }
+
+  // 🆕 Carrega conciliação já existente ao abrir a tela
+  carregarConciliacaoExistente();
+}
+
+/* 🆕 Carrega conciliação existente do banco (sem precisar reimportar) */
+async function carregarConciliacaoExistente() {
+  const mes = document.getElementById('concMes').value;
+  if (!mes) return;
+
+  const drop = document.getElementById('concDrop');
+  const cards = document.getElementById('concCards');
+  const status = document.getElementById('concStatus');
+
+  const { data: linhas, error } = await supabaseClient
+    .from('financeiro_conciliacao_tim')
+    .select('*')
+    .eq('mes_competencia', `${mes}-01`)
+    .order('status_conciliacao');
+
+  if (error) {
+    console.error('[Conciliação] Erro ao carregar:', error);
+    return;
+  }
+
+  // Nada importado ainda → mostra a drop zone
+  if (!linhas || linhas.length === 0) {
+    drop.style.display = 'block';
+    cards.style.display = 'none';
+    status.innerHTML = '';
+    return;
+  }
+
+  // Reconstrói o resumo
+  const matches = linhas.filter(l => l.status_conciliacao === 'MATCH_PERFEITO').length;
+  const estornos = linhas.filter(l => l.status_conciliacao === 'DIVERGENCIA_VALOR').length;
+  const glosas = linhas.filter(l => l.status_conciliacao === 'GLOSADO' || l.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA').length;
+  const totalPago = linhas.reduce((s, l) => s + (parseFloat(l.tim_valor_pago) || 0), 0);
+
+  finState.conciliacao.mes = mes;
+  finState.conciliacao.resumo = {
+    processado: linhas.length,
+    match: matches,
+    divergencia: estornos,
+    glosas: glosas,
+    totalPago: totalPago
+  };
+
+  // Busca vendedores
+  const ids = [...new Set(linhas.filter(l => l.interacao_id).map(l => l.interacao_id))];
+  const mapaVend = {};
+  if (ids.length) {
+    const { data: inter } = await supabaseClient
+      .from('interacoes').select('id, vendedor').in('id', ids);
+    (inter || []).forEach(i => { mapaVend[i.id] = i.vendedor; });
+  }
+
+  finState.conciliacao.linhas = linhas.map(d => {
+    let tag = 'OK';
+    if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
+    if (d.status_conciliacao === 'DIVERGENCIA_VALOR') tag = 'ESTORNO';
+    return {
+      id: d.id,
+      consultor: d.interacao_id ? (mapaVend[d.interacao_id] || '—') : 'Não Encontrado',
+      gsm: d.tim_gsm || '—',
+      plano: d.tim_plano_oferta || '—',
+      pago: parseFloat(d.tim_valor_pago || 0),
+      tipo: d.tim_motivo_glosa || 'PAGO',
+      auditoria: tag
+    };
+  });
+
+  // Esconde drop zone e mostra cards
+  drop.style.display = 'none';
+  cards.style.display = 'block';
+
+  renderizarResultadoConciliacao();
 }
 
 async function processarArquivoTim(file) {
   const status = document.getElementById('concStatus');
-  const drop = document.getElementById('concDrop');
 
   status.innerHTML = `<div class="flex items-center gap-3 text-indigo-600 font-bold">
     <svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -70,10 +147,8 @@ async function processarArquivoTim(file) {
     const convertDate = (v) => {
       if (!v) return null;
       const s = String(v).trim();
-      // DD/MM/YYYY → YYYY-MM-DD
       const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
       if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-      // Já está ISO?
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
       return null;
     };
@@ -97,7 +172,7 @@ async function processarArquivoTim(file) {
       return null;
     };
 
-    // ── MAPEAMENTO (aceita múltiplos nomes de colunas) ──
+    // ── MAPEAMENTO ──
     const payload = linhas
       .map(l => {
         const gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
@@ -117,7 +192,8 @@ async function processarArquivoTim(file) {
 
     // ── CHAMA RPC ──
     const mes = document.getElementById('concMes').value;
-finState.conciliacao.mes = mes; // atualiza também
+    finState.conciliacao.mes = mes;
+
     const { data: rpc, error: rpcErr } = await supabaseClient.rpc('processar_conciliacao_tim', {
       p_mes_competencia: `${mes}-01`,
       p_dados_espelho: payload
@@ -150,7 +226,7 @@ finState.conciliacao.mes = mes; // atualiza também
     finState.conciliacao.linhas = (detalhes || []).map(d => {
       let tag = 'OK';
       if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
-      if (d.status_conciliacao === 'DIVERGENCIA_VALOR') tag = 'DIVERGE';
+      if (d.status_conciliacao === 'DIVERGENCIA_VALOR') tag = 'ESTORNO';
       return {
         id: d.id,
         consultor: d.interacao_id ? (mapaVend[d.interacao_id] || '—') : 'Não Encontrado',
@@ -170,6 +246,7 @@ finState.conciliacao.mes = mes; // atualiza também
     </div>`;
   }
 }
+
 function renderizarResultadoConciliacao() {
   const r = finState.conciliacao.resumo;
   const drop = document.getElementById('concDrop');
@@ -182,7 +259,6 @@ function renderizarResultadoConciliacao() {
   cards.style.display = 'block';
 
   const fmt = v => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const mes = finState.conciliacao.mes;
 
   document.getElementById('concCardLinhas').textContent = r.processado;
   document.getElementById('concCardMatch').textContent = r.match;
@@ -192,12 +268,19 @@ function renderizarResultadoConciliacao() {
 
   // Tabela
   tabela.innerHTML = finState.conciliacao.linhas.map(l => {
-    const cls = l.auditoria === 'RETIDO' ? 'bg-red-50/40' : l.auditoria === 'DIVERGE' ? 'bg-amber-50/40' : '';
+    // 🆕 'ESTORNO' agora tem fundo azul
+    const cls = l.auditoria === 'RETIDO'
+      ? 'bg-red-50/40'
+      : l.auditoria === 'ESTORNO'
+        ? 'bg-blue-50/30'
+        : '';
+
     const tag = l.auditoria === 'OK'
       ? '<span class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">MATCH</span>'
       : l.auditoria === 'RETIDO'
         ? '<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700">GLOSA</span>'
-        : '<span class="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700">DIVERGÊNCIA</span>';
+        : '<span class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700">ESTORNO</span>';
+
     return `<tr class="border-b border-slate-100 ${cls}">
       <td class="px-4 py-3 text-sm font-medium">${l.consultor}</td>
       <td class="px-4 py-3"><div class="font-medium text-sm">${l.gsm}</div><div class="text-xs text-slate-400">${l.plano}</div></td>
