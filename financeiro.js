@@ -514,7 +514,6 @@ async function carregarEspelho() {
     let vendedor;
     if (isAdmin) {
       selectVend.style.display = 'inline-block';
-
       if (!selectVend._binded) {
         selectVend._binded = true;
         selectVend.addEventListener('change', () => {
@@ -522,7 +521,6 @@ async function carregarEspelho() {
           carregarEspelho();
         });
       }
-
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
         const { data: vendedores } = await supabaseClient
@@ -530,75 +528,50 @@ async function carregarEspelho() {
           .select('vendedor_id')
           .eq('mes_competencia_venda', mes)
           .order('vendedor_id');
-
         const lista = (vendedores || []).map(v => v.vendedor_id);
-        selectVend.innerHTML = lista.length
-          ? lista.map(v => `<option value="${v}">${v}</option>`).join('')
-          : '<option value="">— Nenhum espelho gerado —</option>';
-
+        if (lista.length) {
+          selectVend.innerHTML = lista.map(v => `<option value="${v}">${v}</option>`).join('');
+        } else {
+          // Sem espelhos gerados: lista consultores das interacoes
+          const { data: inter } = await supabaseClient
+            .from('interacoes')
+            .select('vendedor')
+            .gte('data_venda', mes)
+            .lte('data_venda', competencia + '-31');
+          const unicos = [...new Set((inter || []).map(i => i.vendedor))]
+            .filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA'))
+            .sort();
+          selectVend.innerHTML = unicos.length
+            ? unicos.map(v => `<option value="${v}">${v}</option>`).join('')
+            : '<option value="">— Sem dados —</option>';
+        }
         const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
-        if (lista.includes(nomeUser)) selectVend.value = nomeUser;
+        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) {
+          selectVend.value = nomeUser;
+        }
       }
-
       vendedor = selectVend.value || (state.perfil?.nome_completo || '').toUpperCase();
     } else {
       selectVend.style.display = 'none';
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
     }
 
-    const { data: espelho } = await supabaseClient
-      .from('financeiro_espelhos_b2c')
-      .select('*')
-      .eq('vendedor_id', vendedor)
-      .eq('mes_competencia_venda', mes)
-      .maybeSingle();
-
-    if (!espelho) {
-      container.innerHTML = mensagemEspelhoVazio(vendedor, competencia);
-      return;
-    }
-
-    const { data: itens } = await supabaseClient
-      .from('financeiro_espelho_itens')
-      .select('*')
-      .eq('espelho_id', espelho.id)
-      .order('valor_comissao_final', { ascending: false });
-
-    // Contagem de portabilidades
-    const { data: interPort } = await supabaseClient
-      .from('interacoes')
-      .select('id, conciliacao_status, modalidade')
-      .eq('vendedor', vendedor)
-      .gte('data_venda', mes)
-      .lte('data_venda', competencia + '-31');
-
-    const portCount = (interPort || []).filter(i =>
-      String(i.modalidade || '').toUpperCase().includes('PORTABILIDADE') ||
-      String(i.modalidade || '').toUpperCase().includes('PORTADO')
-    ).length;
-
-    // Meta do mês (aceita 2 formatos: "AGOSTO/2026" e "AGOSTO / 2026")
-    const nomeMesA = formatarMesMeta(competencia);           // "AGOSTO/2026"
-    const nomeMesB = nomeMesA.replace('/', ' / ');           // "AGOSTO / 2026"
-
+    // ── 1. Busca meta (compatível com 2 formatos) ──
+    const nomeMesA = formatarMesMeta(competencia);
+    const nomeMesB = nomeMesA.replace('/', ' / ');
     let { data: metaData } = await supabaseClient
-      .from('metas_mensais')
-      .select('dados')
-      .eq('mes', nomeMesA)
-      .maybeSingle();
-
+      .from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
     if (!metaData) {
       const { data: alt } = await supabaseClient
-        .from('metas_mensais')
-        .select('dados')
-        .eq('mes', nomeMesB)
-        .maybeSingle();
+        .from('metas_mensais').select('dados').eq('mes', nomeMesB).maybeSingle();
       metaData = alt;
     }
 
-    console.log('[Espelho] Buscando meta:', nomeMesA, '/', nomeMesB, '→', metaData ? 'ENCONTRADA ✅' : 'não encontrada ❌');
-
+    // Extrai metaInfo + flags de meta pessoal/loja
     let metaInfo = null;
+    let bateuPessoal = false;
+    let lojaBateu = false;
+
     if (metaData?.dados) {
       const consultores = metaData.dados.consultores || [];
       const metaCons = metaData.dados.metaConsultor || {};
@@ -625,42 +598,83 @@ async function carregarEspelho() {
         const metaServicos = metaPos + metaControle;
 
         const pct = metaServicos > 0 ? (realizadoServicos / metaServicos) * 100 : 0;
+        bateuPessoal = pct >= 100;
 
         const realizadoLojaPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS']), 0);
         const realizadoLojaCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE']), 0);
         const realizadoLoja = realizadoLojaPos + realizadoLojaCtrl;
         const metaLojaTotal = Number(metaLoja['PÓS'] || 0) + Number(metaLoja['CONTROLE'] || 0);
         const pctLoja = metaLojaTotal > 0 ? (realizadoLoja / metaLojaTotal) * 100 : 0;
+        lojaBateu = pctLoja >= 100;
 
         metaInfo = {
-          realizadoServicos,
-          metaServicos,
-          pct,
-          bateuPessoal: pct >= 100,
-          metaPos, realizadoPos,
-          metaControle, realizadoControle,
+          realizadoServicos, metaServicos, pct, bateuPessoal,
+          metaPos, realizadoPos, metaControle, realizadoControle,
           metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
-          portCount,
-          metaAparelho: Number(metaCons['APARELHO'] || 0),
-          realizadoAparelho,
-          metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0),
-          realizadoAcessorios,
-          realizadoLoja,
-          metaLoja: metaLojaTotal,
-          pctLoja,
-          bateuLoja: pctLoja >= 100,
+          metaAparelho: Number(metaCons['APARELHO'] || 0), realizadoAparelho,
+          metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0), realizadoAcessorios,
+          realizadoLoja, metaLoja: metaLojaTotal, pctLoja, bateuLoja: lojaBateu,
           diasTrabalhados: Number(parametros.diasTrabalhados) || 0,
           diasRestantes: Number(parametros.diasRestantes) || 0
         };
       }
     }
 
-finState.espelho.dados = espelho;
-finState.espelho.itens = itens || [];
-finState.espelho.metaInfo = metaInfo;
-finState.espelho.vendedor = vendedor;
-finState.espelho.portCount = portCount;   // 🆕 SEMPRE persiste
-console.log('[Espelho] portCount =', portCount, '| metaInfo =', metaInfo ? 'OK' : 'null');
+    // Contagem de portabilidade (frontend)
+    const { data: interPort } = await supabaseClient
+      .from('interacoes')
+      .select('id, conciliacao_status, modalidade')
+      .eq('vendedor', vendedor)
+      .gte('data_venda', mes)
+      .lte('data_venda', competencia + '-31');
+    const portCount = (interPort || []).filter(i =>
+      String(i.modalidade || '').toUpperCase().includes('PORTABILIDADE') ||
+      String(i.modalidade || '').toUpperCase().includes('PORTADO')
+    ).length;
+
+    // ── 2. Tenta espelho OFICIAL ──
+    const { data: espelho } = await supabaseClient
+      .from('financeiro_espelhos_b2c')
+      .select('*')
+      .eq('vendedor_id', vendedor)
+      .eq('mes_competencia_venda', mes)
+      .maybeSingle();
+
+    if (espelho) {
+      // ── MODO OFICIAL ──
+      const { data: itens } = await supabaseClient
+        .from('financeiro_espelho_itens')
+        .select('*')
+        .eq('espelho_id', espelho.id)
+        .order('valor_comissao_final', { ascending: false });
+
+      finState.espelho.dados = espelho;
+      finState.espelho.itens = itens || [];
+      finState.espelho.metaInfo = metaInfo;
+      finState.espelho.vendedor = vendedor;
+      finState.espelho.portCount = portCount;
+      finState.espelho.modo = 'OFICIAL';
+      finState.espelho.previsao = null;
+      renderizarEspelho();
+      return;
+    }
+
+    // ── 3. MODO PREVISÃO ──
+    const { data: previsao, error: preErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
+      p_mes_competencia: mes,
+      p_vendedor_id: vendedor,
+      p_vendedor_bateu_meta: bateuPessoal,
+      p_loja_bateu_meta: lojaBateu
+    });
+    if (preErr) throw preErr;
+
+    finState.espelho.modo = 'PREVISAO';
+    finState.espelho.previsao = previsao;
+    finState.espelho.metaInfo = metaInfo;
+    finState.espelho.vendedor = vendedor;
+    finState.espelho.portCount = portCount;
+    finState.espelho.dados = null;
+    finState.espelho.itens = [];
     renderizarEspelho();
 
   } catch (err) {
@@ -690,6 +704,12 @@ function mensagemEspelhoVazio(vendedor, competencia) {
 }
 
 function renderizarEspelho() {
+  // 🆕 Se for modo PREVISÃO, renderiza outro layout
+  if (finState.espelho.modo === 'PREVISAO') {
+    renderizarPrevisao();
+    return;
+  }
+
   const e = finState.espelho.dados;
   const itens = finState.espelho.itens;
   const meta = finState.espelho.metaInfo;
@@ -1415,6 +1435,231 @@ async function cancelarVenda(interacaoId, nomeCliente) {
   } catch (err) {
     alert('Erro: ' + err.message);
   }
+}
+
+/* ============================================================
+   MODO PREVISÃO — dia a dia enquanto não há conciliação
+   ============================================================ */
+
+function renderizarPrevisao() {
+  const p = finState.espelho.previsao;
+  const meta = finState.espelho.metaInfo;
+  const vendedor = finState.espelho.vendedor;
+  const competencia = finState.espelho.competencia;
+  const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  const metaPort = p.portabilidade_meta || 0;
+  const realPort = p.portabilidade_realizado || 0;
+  const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
+  const bateuPort = p.portabilidade_bateu;
+
+  // Gamificação (reaproveita o padrão)
+  let gamificacaoHTML = '';
+  if (meta) {
+    const pct = Math.min(100, meta.pct);
+    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
+    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pct >= 70 ? 'text-amber-700' : 'text-red-700';
+    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pct >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
+    const emoji = meta.bateuPessoal ? '🎉' : meta.pct >= 70 ? '💪' : '📈';
+    const msg = meta.bateuPessoal
+      ? `Parabéns! Você bateu sua meta pessoal (fator 30%)`
+      : `Faltam <strong>${meta.metaServicos - meta.realizadoServicos}</strong> vendas para bater meta pessoal (fator 30%)`;
+
+    gamificacaoHTML = `
+      <div class="rounded-2xl border-2 ${corBorder} p-5 mb-6">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal</p>
+            <p class="text-sm ${corTexto} font-bold mt-1">${msg}</p>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-black ${corTexto}">${meta.pct.toFixed(0)}%</div>
+            <div class="text-xs text-slate-500">${meta.realizadoServicos} / ${meta.metaServicos}</div>
+          </div>
+        </div>
+        <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
+          <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+  }
+
+  // Performance
+  let performanceHTML = '';
+  if (meta) {
+    const linhas = [
+      { label: 'Serviços TIM (Controle + Pós)', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
+      { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
+      { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
+    ].filter(l => l.meta > 0);
+
+    const fmtV = (v, tipo) => tipo === 'moeda'
+      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      : Math.round(v||0);
+
+    const linhasHTML = linhas.map(l => {
+      const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
+      const corBg = pctL >= 100 ? 'bg-emerald-500' : pctL >= 70 ? 'bg-amber-500' : 'bg-red-500';
+      const corTexto = pctL >= 100 ? 'text-emerald-700' : pctL >= 70 ? 'text-amber-700' : 'text-red-700';
+      const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
+      return `
+        <div class="py-3 border-b border-slate-100 last:border-0">
+          <div class="flex justify-between items-center mb-1.5">
+            <span class="text-xs font-bold text-slate-700">${l.label}</span>
+            <span class="text-xs font-black ${corTexto}">${emoji} ${pctL.toFixed(0)}%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div class="${corBg} h-2 rounded-full" style="width:${Math.min(100, pctL)}%"></div>
+            </div>
+            <span class="text-[11px] text-slate-500 min-w-[110px] text-right">
+              <strong class="${corTexto}">${fmtV(l.real, l.tipo)}</strong> / ${fmtV(l.meta, l.tipo)}
+            </span>
+          </div>
+        </div>`;
+    }).join('');
+
+    performanceHTML = `
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">📊 Sua Performance (Projeção)</h3>
+          <span class="text-[10px] text-slate-400 font-bold">${meta.diasTrabalhados} dias trabalhados · faltam ${meta.diasRestantes}</span>
+        </div>
+        ${linhasHTML}
+      </div>
+    `;
+  }
+
+  // Linhas de serviços da previsão
+  const linhasServicos = (p.itens_servicos || []).map(it => `
+    <tr class="border-b border-slate-100 hover:bg-slate-50">
+      <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
+      <td class="px-4 py-3 text-center text-sm text-slate-600">${it.qtd}</td>
+      <td class="px-4 py-3 text-right text-sm text-slate-600">R$ ${fmt(it.vr)}</td>
+      <td class="px-4 py-3 text-center text-xs text-slate-500">${(it.qt * 100).toFixed(2)}%</td>
+      <td class="px-4 py-3 text-center text-xs text-slate-500">${(it.fator * 100).toFixed(1)}%</td>
+      <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(it.total)}</td>
+    </tr>`).join('');
+
+  const container = document.getElementById('espelhoConteudo');
+  container.innerHTML = `
+    <!-- HEADER COM BADGE PRÉVIA -->
+    <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-4 text-white shadow-lg">
+      <div class="flex justify-between items-start flex-wrap gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2 py-0.5 bg-amber-400 text-amber-900 text-[10px] font-black rounded uppercase tracking-wider">Prévia</span>
+            <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
+          </div>
+          <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
+          <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(competencia + '-01')}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AVISO -->
+    <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
+      <div class="p-2 bg-amber-100 rounded-lg shrink-0">
+        <i data-lucide="info" class="w-5 h-5 text-amber-600"></i>
+      </div>
+      <div>
+        <p class="text-sm font-black text-amber-900">Valores sujeitos a alteração</p>
+        <p class="text-xs text-amber-700 mt-1 leading-relaxed">
+          Esta é uma <strong>projeção</strong> com base nas vendas do mês. Após a conciliação TIM e fechamento da competência, o espelho oficial substitui automaticamente esses valores.
+        </p>
+      </div>
+    </div>
+
+    <!-- CARDS DE TOTAL -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_servicos)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${p.qtd_servicos} itens</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_acessorios)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${p.qtd_acessorios} itens</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_aparelhos)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${p.qtd_aparelhos} itens</p>
+      </div>
+      <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
+        <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção a Receber</p>
+        <p class="text-2xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
+        <p class="text-[10px] text-white/80 mt-1">Sujeito a glosa</p>
+      </div>
+    </div>
+
+    <!-- GAMIFICAÇÃO -->
+    ${gamificacaoHTML}
+
+    <!-- PERFORMANCE -->
+    ${performanceHTML}
+
+    <!-- TABELA DE SERVIÇOS -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
+      <div class="px-6 py-4 border-b bg-slate-50">
+        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM (Projeção)</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-slate-50 text-[10px] uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left font-black">Plano</th>
+              <th class="px-4 py-3 text-center font-black">Qtd</th>
+              <th class="px-4 py-3 text-right font-black">VR</th>
+              <th class="px-4 py-3 text-center font-black">QT</th>
+              <th class="px-4 py-3 text-center font-black">Fator</th>
+              <th class="px-4 py-3 text-right font-black">Comissão</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasServicos || '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">Nenhuma venda ainda</td></tr>'}
+          </tbody>
+          <tfoot class="bg-slate-50 border-t-2 border-slate-200">
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
+              <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(p.total_servicos)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- PORTABILIDADE -->
+    ${metaPort > 0 ? `
+    <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
+          <p class="text-sm font-bold mt-1 ${bateuPort ? 'text-white' : 'text-slate-700'}">
+            ${bateuPort 
+              ? `Meta batida! Bônus será aplicado em ${realPort} acessos portados` 
+              : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
+          </p>
+        </div>
+        <div class="text-right">
+          <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
+          <div class="text-2xl font-black ${bateuPort ? 'text-white' : 'text-slate-400'}">${bateuPort ? '15% aplicável' : '—'}</div>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- TOTAL FINAL -->
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
+      <div>
+        <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
+        <p class="text-xs text-white/70 mt-0.5">Sujeito a glosa após conciliação TIM</p>
+      </div>
+      <p class="text-3xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
 }
 
 /* ============================================================
