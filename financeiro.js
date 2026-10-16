@@ -29,7 +29,7 @@ function fmtMesExtenso(iso) {
 function formatarMesMeta(competencia) {
   const [y, m] = competencia.split('-');
   const meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-  return `${meses[+m - 1]} / ${y}`;
+  return `${meses[+m - 1]}/${y}`;  // ← sem espaços (formato nativo do portal)
 }
 
 /* ============================================================
@@ -577,13 +577,26 @@ async function carregarEspelho() {
       String(i.modalidade || '').toUpperCase().includes('PORTADO')
     ).length;
 
-    // Meta do mês
-    const nomeMes = formatarMesMeta(competencia);
-    const { data: metaData } = await supabaseClient
+    // Meta do mês (aceita 2 formatos: "AGOSTO/2026" e "AGOSTO / 2026")
+    const nomeMesA = formatarMesMeta(competencia);           // "AGOSTO/2026"
+    const nomeMesB = nomeMesA.replace('/', ' / ');           // "AGOSTO / 2026"
+
+    let { data: metaData } = await supabaseClient
       .from('metas_mensais')
       .select('dados')
-      .eq('mes', nomeMes)
+      .eq('mes', nomeMesA)
       .maybeSingle();
+
+    if (!metaData) {
+      const { data: alt } = await supabaseClient
+        .from('metas_mensais')
+        .select('dados')
+        .eq('mes', nomeMesB)
+        .maybeSingle();
+      metaData = alt;
+    }
+
+    console.log('[Espelho] Buscando meta:', nomeMesA, '/', nomeMesB, '→', metaData ? 'ENCONTRADA ✅' : 'não encontrada ❌');
 
     let metaInfo = null;
     if (metaData?.dados) {
