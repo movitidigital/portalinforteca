@@ -49,25 +49,60 @@ async function processarArquivoTim(file) {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: 'array' });
     const sheet = wb.Sheets[wb.SheetNames[0]];
-    const linhas = XLSX.utils.sheet_to_json(sheet, { defval: null });
+    const linhas = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: false });
 
     if (!linhas.length) throw new Error('Planilha vazia');
 
-    // Mapeamento correto das colunas da TIM
+    // ── HELPERS ──
+    const convertDate = (v) => {
+      if (!v) return null;
+      const s = String(v).trim();
+      // DD/MM/YYYY → YYYY-MM-DD
+      const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+      // Já está ISO?
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      return null;
+    };
+
+    const parseMoney = (v) => {
+      if (v == null || v === '') return 0;
+      if (typeof v === 'number') return v;
+      let s = String(v).trim().replace(/[R$\s]/g, '');
+      if (s.includes(',') && s.includes('.')) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else if (s.includes(',')) {
+        s = s.replace(',', '.');
+      }
+      return parseFloat(s) || 0;
+    };
+
+    const get = (l, ...keys) => {
+      for (const k of keys) {
+        if (l[k] != null && String(l[k]).trim() !== '') return l[k];
+      }
+      return null;
+    };
+
+    // ── MAPEAMENTO (aceita múltiplos nomes de colunas) ──
     const payload = linhas
-      .filter(l => l['gsm'] || l['GSM'])
-      .map(l => ({
-        gsm: String(l['gsm'] || l['GSM'] || '').trim(),
-        cpf: String(l['cpf_cnpjcliente'] || l['CPF'] || '').trim(),
-        plano: String(l['plano'] || '').trim(),
-        dt_ativacao: l['dt_ativacao'] || null,
-        valor_pago: parseFloat(l['valorpagar'] ?? l['ValorPagar'] ?? 0) || 0,
-        motivo_glosa: String(l['desc_tipocomissao'] || l['tipocomissao'] || 'PAGO').trim()
-      }));
+      .map(l => {
+        const gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
+        const gsm = gsmRaw ? String(gsmRaw).trim() : '';
+        return {
+          gsm,
+          cpf: String(get(l, 'cpf_cnpjcliente', 'CPF', 'cpf') || '').trim(),
+          plano: String(get(l, 'plano', 'Plano') || '').trim(),
+          dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação')),
+          valor_pago: parseMoney(get(l, 'valorpagar', 'ValorPagar', 'valor_pago')),
+          motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao') || 'PAGO').trim()
+        };
+      })
+      .filter(l => l.gsm);
 
-    if (!payload.length) throw new Error('Nenhuma linha com GSM válido');
+    if (!payload.length) throw new Error('Nenhuma linha com GSM válido encontrada');
 
-    // Chama RPC
+    // ── CHAMA RPC ──
     const mes = finState.conciliacao.mes;
     const { data: rpc, error: rpcErr } = await supabaseClient.rpc('processar_conciliacao_tim', {
       p_mes_competencia: `${mes}-01`,
@@ -75,7 +110,7 @@ async function processarArquivoTim(file) {
     });
     if (rpcErr) throw rpcErr;
 
-    // Guarda resumo
+    // ── RESUMO ──
     finState.conciliacao.resumo = {
       processado: rpc.linhas_processadas || 0,
       match:      rpc.matches_perfeitos || 0,
@@ -84,14 +119,13 @@ async function processarArquivoTim(file) {
       totalPago:  rpc.total_pago || 0
     };
 
-    // Busca detalhes
+    // ── DETALHES ──
     const { data: detalhes } = await supabaseClient
       .from('financeiro_conciliacao_tim')
       .select('id, tim_gsm, tim_valor_pago, tim_plano_oferta, tim_motivo_glosa, status_conciliacao, interacao_id')
       .eq('lote_importacao_id', rpc.lote_id)
       .order('status_conciliacao');
 
-    // Busca vendedores
     const ids = [...new Set((detalhes || []).filter(d => d.interacao_id).map(d => d.interacao_id))];
     const mapaVend = {};
     if (ids.length) {
@@ -122,7 +156,6 @@ async function processarArquivoTim(file) {
     </div>`;
   }
 }
-
 function renderizarResultadoConciliacao() {
   const r = finState.conciliacao.resumo;
   const drop = document.getElementById('concDrop');
