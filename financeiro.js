@@ -642,10 +642,12 @@ async function carregarEspelho() {
       }
     }
 
-    finState.espelho.dados = espelho;
-    finState.espelho.itens = itens || [];
-    finState.espelho.metaInfo = metaInfo;
-    finState.espelho.vendedor = vendedor;
+finState.espelho.dados = espelho;
+finState.espelho.itens = itens || [];
+finState.espelho.metaInfo = metaInfo;
+finState.espelho.vendedor = vendedor;
+finState.espelho.portCount = portCount;   // 🆕 SEMPRE persiste
+console.log('[Espelho] portCount =', portCount, '| metaInfo =', metaInfo ? 'OK' : 'null');
     renderizarEspelho();
 
   } catch (err) {
@@ -686,9 +688,9 @@ function renderizarEspelho() {
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-  // Info de portabilidade
+  // Info de portabilidade (meta pode ser null, mas portCount existe sempre)
   const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = meta?.portCount || 0;
+  const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
   const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
@@ -908,21 +910,29 @@ function renderizarEspelho() {
     </div>` : ''}
 
     <!-- PORTABILIDADE -->
-    ${metaPort > 0 ? `
+    ${(metaPort > 0 || realPort > 0) ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
       <div class="flex justify-between items-center">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
+          <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">
+            ⚡ Portabilidade ${metaPort > 0 ? '— ' + pctPort.toFixed(0) + '% da meta' : ''}
+          </p>
           <p class="text-sm font-bold mt-1 ${bateuPort ? 'text-white' : 'text-slate-700'}">
-            ${bateuPort
-              ? `Meta batida! Bônus aplicado em ${realPort} acessos portados`
-              : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
+            ${metaPort === 0
+              ? `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`
+              : bateuPort
+                ? `Meta batida! Bônus aplicado em ${realPort} acessos portados`
+                : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
           </p>
           ${bateuPort && portabilidade.length > 0 ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>` : ''}
         </div>
         <div class="text-right">
-          <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
-          <div class="text-2xl font-black ${bateuPort ? 'text-white' : 'text-slate-400'}">${bateuPort ? 'R$ ' + fmt(portTotal) : '—'}</div>
+          <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">
+            ${metaPort > 0 ? realPort + ' / ' + metaPort : realPort}
+          </div>
+          <div class="text-2xl font-black ${bateuPort ? 'text-white' : 'text-slate-400'}">
+            ${bateuPort ? 'R$ ' + fmt(portTotal) : '—'}
+          </div>
         </div>
       </div>
     </div>` : ''}
@@ -965,7 +975,7 @@ async function exportarEspelhoPdf() {
   // Info de portabilidade
   const meta = finState.espelho.metaInfo;
   const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = meta?.portCount || 0;
+  const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
 
@@ -1063,29 +1073,33 @@ async function exportarEspelhoPdf() {
     `;
   }
 
-  // Portabilidade PDF (sempre visível se meta port > 0)
+  // Portabilidade PDF (sempre visível se tiver meta OU realizado)
   let portabilidadePdf = '';
-  if (metaPort > 0) {
+  if (metaPort > 0 || realPort > 0) {
     const corBg = bateuPort ? '#fef3c7' : '#f1f5f9';
     const corBorda = bateuPort ? '#f59e0b' : '#cbd5e1';
     const corTexto = bateuPort ? '#92400e' : '#475569';
     const corTextoSub = bateuPort ? '#78350f' : '#64748b';
-    const emoji = bateuPort ? '✅' : '❌';
-    const msg = bateuPort
-      ? `Meta batida! Acelerador aplicado em ${realPort} acessos`
-      : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`;
+    const emoji = bateuPort ? '✅' : (metaPort > 0 ? '❌' : '⚡');
+    const msg = metaPort === 0
+      ? `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`
+      : bateuPort
+        ? `Meta batida! Acelerador aplicado em ${realPort} acessos`
+        : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`;
     const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
     const valorMostrar = bateuPort ? `R$ ${fmt(portTotal)}` : '—';
+    const tituloMeta = metaPort > 0 ? `— ${emoji} ${pctPort.toFixed(0)}% da meta` : '';
+    const contador = metaPort > 0 ? `${realPort} / ${metaPort}` : `${realPort}`;
 
     portabilidadePdf = `
       <table style="width:100%; margin-top:12px; margin-bottom:6px;">
         <tr>
           <td style="background:${corBg};padding:10px 12px;border-radius:6px;border-left:4px solid ${corBorda};">
-            <div style="font-size:11px;font-weight:900;color:${corTexto};text-transform:uppercase;">⚡ Portabilidade — ${emoji} ${pctPort.toFixed(0)}% da meta</div>
+            <div style="font-size:11px;font-weight:900;color:${corTexto};text-transform:uppercase;">⚡ Portabilidade ${tituloMeta}</div>
             <div style="font-size:9px;color:${corTextoSub};margin-top:2px;">${msg}</div>
           </td>
           <td style="background:${corBg};padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid ${corBorda};">
-            <div style="font-size:9px;color:${corTextoSub};">${realPort} / ${metaPort}</div>
+            <div style="font-size:9px;color:${corTextoSub};">${contador}</div>
             <div style="font-size:15px;font-weight:900;color:${corTexto};">${valorMostrar}</div>
           </td>
         </tr>
