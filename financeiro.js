@@ -870,36 +870,61 @@ function exportarEspelhoPdf() {
     </div>
   `;
 
-  // Cria container off-screen
+  // Cria container visível mas com opacity 0 (html2canvas ignora elementos com visibility:hidden ou left:-9999px)
   const wrapper = document.createElement('div');
-  wrapper.style.position = 'fixed';
-  wrapper.style.left = '-9999px';
+  wrapper.style.position = 'absolute';
+  wrapper.style.left = '0';
   wrapper.style.top = '0';
   wrapper.style.width = '210mm';
-  wrapper.style.background = '#fff';
+  wrapper.style.background = '#ffffff';
+  wrapper.style.zIndex = '99999';
+  wrapper.style.opacity = '0';
+  wrapper.style.pointerEvents = 'none';
   wrapper.innerHTML = html;
   document.body.appendChild(wrapper);
 
+  // Aguarda a logo carregar antes de renderizar (crítico!)
+  const logoImg = wrapper.querySelector('img');
+  const logoPromise = logoImg
+    ? new Promise(resolve => {
+        if (logoImg.complete && logoImg.naturalWidth > 0) return resolve();
+        logoImg.onload = resolve;
+        logoImg.onerror = resolve;  // continua mesmo se der erro
+        setTimeout(resolve, 2000);  // timeout de segurança
+      })
+    : Promise.resolve();
+
   const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
 
-  const opt = {
-    margin: 0,
-    filename: nomeArquivo,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css'] }
-  };
+  logoPromise.then(() => {
+    const opt = {
+      margin: 0,
+      filename: nomeArquivo,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: wrapper.scrollWidth,
+        windowHeight: wrapper.scrollHeight
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css'] }
+    };
 
-  html2pdf().set(opt).from(wrapper).save().then(() => {
+    return html2pdf().set(opt).from(wrapper).save();
+  }).then(() => {
     document.body.removeChild(wrapper);
   }).catch(err => {
     console.error('[PDF]', err);
-    document.body.removeChild(wrapper);
+    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
     alert('Erro ao gerar PDF: ' + err.message);
   });
 }
-
 function fmtMesExtenso(iso) {
   if (!iso) return '—';
   const [y, m] = iso.split('-');
