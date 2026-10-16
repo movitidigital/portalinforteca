@@ -323,15 +323,71 @@ function resetarConciliacao() {
 
 async function carregarEspelho() {
   const container = document.getElementById('espelhoConteudo');
-  container.innerHTML = '<div class="text-center py-12"><svg class="animate-spin w-8 h-8 text-indigo-600 mx-auto" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>';
+  container.innerHTML = `<div class="text-center py-12"><svg class="animate-spin w-8 h-8 text-indigo-600 mx-auto" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></div>`;
 
   try {
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
-    const vendedor = (state.perfil?.nome_completo || '').toUpperCase();
-    const mes = finState.espelho.competencia + '-01';
+    // Input de mês
+    const inputMes = document.getElementById('espelhoMes');
+    if (inputMes && !inputMes.value) {
+      inputMes.value = new Date().toISOString().slice(0, 7);
+      if (!inputMes._binded) {
+        inputMes._binded = true;
+        inputMes.addEventListener('change', () => {
+          finState.espelho.competencia = inputMes.value;
+          carregarEspelho();
+        });
+      }
+    }
+    const competencia = inputMes?.value || finState.espelho.competencia;
+    finState.espelho.competencia = competencia;
+    const mes = competencia + '-01';
 
+    // Vendedor: admin pode escolher, consultor vê o dele
+    const isAdmin = state._isAdmin === true;
+    const selectVend = document.getElementById('espelhoVendedor');
+
+    let vendedor;
+    if (isAdmin) {
+      // Mostra dropdown de consultores com espelho nessa competência
+      selectVend.style.display = 'inline-block';
+
+      if (!selectVend._binded) {
+        selectVend._binded = true;
+        selectVend.addEventListener('change', () => {
+          finState.espelho.vendedorSelecionado = selectVend.value;
+          carregarEspelho();
+        });
+      }
+
+      // Popula lista de vendedores (se vazio ou se mudou o mês)
+      if (selectVend._mesCarregado !== mes) {
+        selectVend._mesCarregado = mes;
+        const { data: vendedores } = await supabaseClient
+          .from('financeiro_espelhos_b2c')
+          .select('vendedor_id')
+          .eq('mes_competencia_venda', mes)
+          .order('vendedor_id');
+
+        const lista = (vendedores || []).map(v => v.vendedor_id);
+        selectVend.innerHTML = lista.length
+          ? lista.map(v => `<option value="${v}">${v}</option>`).join('')
+          : '<option value="">— Nenhum espelho gerado —</option>';
+
+        // Se o vendedor logado estiver na lista, pré-seleciona
+        const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
+        if (lista.includes(nomeUser)) selectVend.value = nomeUser;
+      }
+
+      vendedor = selectVend.value || (state.perfil?.nome_completo || '').toUpperCase();
+    } else {
+      selectVend.style.display = 'none';
+      vendedor = (state.perfil?.nome_completo || '').toUpperCase();
+    }
+
+    // Busca espelho
     const { data: espelho } = await supabaseClient
       .from('financeiro_espelhos_b2c')
       .select('*')
@@ -340,88 +396,297 @@ async function carregarEspelho() {
       .maybeSingle();
 
     if (!espelho) {
-      container.innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-2xl text-center">
-        <p class="font-bold">Nenhum espelho encontrado para ${finState.espelho.competencia}</p>
-        <p class="text-sm mt-1">Peça ao gestor para gerar o espelho da competência.</p>
-      </div>`;
+      container.innerHTML = mensagemEspelhoVazio(vendedor, competencia);
       return;
     }
 
+    // Busca itens
     const { data: itens } = await supabaseClient
       .from('financeiro_espelho_itens')
       .select('*')
       .eq('espelho_id', espelho.id)
       .order('valor_comissao_final', { ascending: false });
 
+    // Busca meta do mês (para gamificação)
+    const nomeMes = formatarMesMeta(competencia);
+    const { data: metaData } = await supabaseClient
+      .from('metas_mensais')
+      .select('dados')
+      .eq('mes', nomeMes)
+      .maybeSingle();
+
+    let metaInfo = null;
+    if (metaData?.dados) {
+      const consultores = metaData.dados.consultores || [];
+      const metaCons = metaData.dados.metaConsultor || {};
+      const metaLoja = metaData.dados.metaLoja || {};
+
+      const primeiroNome = vendedor.split(' ')[0].toLowerCase();
+      const consultor = consultores.find(c =>
+        String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome
+      );
+
+      if (consultor) {
+        const soma = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
+        const d = consultor.diario || {};
+
+        const realizadoPos = soma(d['PÓS']);
+        const realizadoControle = soma(d['CONTROLE']);
+        const realizadoServicos = realizadoPos + realizadoControle;
+
+        const metaPos = Number(metaCons['PÓS'] || 0);
+        const metaControle = Number(metaCons['CONTROLE'] || 0);
+        const metaServicos = metaPos + metaControle;
+
+        const pct = metaServicos > 0 ? (realizadoServicos / metaServicos) * 100 : 0;
+
+        // Meta da loja
+        const realizadoLojaPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS']), 0);
+        const realizadoLojaCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE']), 0);
+        const realizadoLoja = realizadoLojaPos + realizadoLojaCtrl;
+        const metaLojaTotal = Number(metaLoja['PÓS'] || 0) + Number(metaLoja['CONTROLE'] || 0);
+        const pctLoja = metaLojaTotal > 0 ? (realizadoLoja / metaLojaTotal) * 100 : 0;
+
+        metaInfo = {
+          realizadoServicos,
+          metaServicos,
+          pct,
+          bateuPessoal: pct >= 100,
+          realizadoLoja,
+          metaLoja: metaLojaTotal,
+          pctLoja,
+          bateuLoja: pctLoja >= 100
+        };
+      }
+    }
+
     finState.espelho.dados = espelho;
     finState.espelho.itens = itens || [];
+    finState.espelho.metaInfo = metaInfo;
+    finState.espelho.vendedor = vendedor;
     renderizarEspelho();
+
   } catch (err) {
+    console.error('[Espelho]', err);
     container.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl">Erro: ${err.message}</div>`;
   }
+}
+
+function mensagemEspelhoVazio(vendedor, competencia) {
+  const nome = (vendedor || '').split(' ')[0] || '—';
+  const [y, m] = competencia.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const mesNome = meses[+m - 1] + '/' + y;
+
+  return `<div class="bg-amber-50 border-2 border-amber-200 p-8 rounded-2xl text-center max-w-2xl mx-auto">
+    <div class="w-16 h-16 mx-auto rounded-full bg-amber-100 flex items-center justify-center mb-4">
+      <i data-lucide="file-search" class="w-8 h-8 text-amber-600"></i>
+    </div>
+    <h3 class="text-lg font-black text-amber-900">Nenhum espelho disponível</h3>
+    <p class="text-sm text-amber-700 mt-2 leading-relaxed">
+      Ainda não foi gerado o espelho de <strong>${nome}</strong> para <strong>${mesNome}</strong>.
+    </p>
+    <p class="text-xs text-amber-600 mt-3">
+      O espelho é gerado após a conciliação TIM da competência. Fale com o gestor.
+    </p>
+  </div>`;
 }
 
 function renderizarEspelho() {
   const e = finState.espelho.dados;
   const itens = finState.espelho.itens;
-  const fmt = v => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const meta = finState.espelho.metaInfo;
+  const vendedor = finState.espelho.vendedor || e.vendedor_id;
+  const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  // Agrupa itens por categoria
+  const servicos = itens.filter(i => !['ACESSORIO','APARELHO'].includes(i.tipo_item));
+  const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
+  const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
+
+  // Agrupa serviços por nome do plano
+  const servicosAgrupados = {};
+  servicos.forEach(i => {
+    if (!servicosAgrupados[i.tipo_item]) {
+      servicosAgrupados[i.tipo_item] = { qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada, fator: i.fator_remuneracao_aplicado, total: 0 };
+    }
+    servicosAgrupados[i.tipo_item].qtd += 1;
+    servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
+  });
+
+  // Gamificação
+  let gamificacaoHTML = '';
+  if (meta) {
+    const pct = Math.min(100, meta.pct);
+    const cor = meta.bateuPessoal ? 'emerald' : meta.pct >= 70 ? 'amber' : 'red';
+    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
+    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pct >= 70 ? 'text-amber-700' : 'text-red-700';
+    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pct >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
+    const emoji = meta.bateuPessoal ? '🎉' : meta.pct >= 70 ? '💪' : '📈';
+    const msg = meta.bateuPessoal
+      ? `Parabéns! Você bateu sua meta pessoal (fator 30%)`
+      : `Faltam <strong>${meta.metaServicos - meta.realizadoServicos}</strong> vendas para bater meta pessoal (fator 30%)`;
+
+    gamificacaoHTML = `
+      <div class="rounded-2xl border-2 ${corBorder} p-5 mb-6">
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal</p>
+            <p class="text-sm ${corTexto} font-bold mt-1">${msg}</p>
+          </div>
+          <div class="text-right">
+            <div class="text-3xl font-black ${corTexto}">${meta.pct.toFixed(0)}%</div>
+            <div class="text-xs text-slate-500">${meta.realizadoServicos} / ${meta.metaServicos}</div>
+          </div>
+        </div>
+        <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
+          <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
+        </div>
+        <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
+          <span>Fator atual: <strong>${(e.atingiu_meta_pessoal ? '30%' : '20%')}</strong></span>
+          <span>Meta loja: <strong>${meta.pctLoja.toFixed(0)}%</strong> ${meta.bateuLoja ? '✅' : ''}</span>
+        </div>
+      </div>`;
+  } else {
+    gamificacaoHTML = `
+      <div class="rounded-2xl border-2 border-slate-200 bg-slate-50 p-5 mb-6 flex items-center gap-3">
+        <div class="p-3 bg-white rounded-xl">
+          <i data-lucide="info" class="w-5 h-5 text-slate-400"></i>
+        </div>
+        <div>
+          <p class="text-sm font-bold text-slate-700">Meta pessoal não cadastrada para esta competência</p>
+          <p class="text-xs text-slate-500 mt-0.5">Fator aplicado: <strong>20% (ativou ganhou)</strong>. Cadastre a meta em "Acompanhamento de Metas" para ativar a gamificação.</p>
+        </div>
+      </div>`;
+  }
+
+  // HTML dos itens agrupados
+  const linhasServicos = Object.entries(servicosAgrupados)
+    .sort(([, a], [, b]) => b.total - a.total)
+    .map(([nome, d]) => `
+      <tr class="border-b border-slate-100 hover:bg-slate-50">
+        <td class="px-4 py-3 text-sm font-medium text-slate-800">${nome}</td>
+        <td class="px-4 py-3 text-center text-sm text-slate-600">${d.qtd}</td>
+        <td class="px-4 py-3 text-right text-sm text-slate-600">R$ ${fmt(d.vr)}</td>
+        <td class="px-4 py-3 text-center text-xs text-slate-500">${(d.qt * 100).toFixed(2)}%</td>
+        <td class="px-4 py-3 text-center text-xs text-slate-500">${(d.fator * 100).toFixed(1)}%</td>
+        <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(d.total)}</td>
+      </tr>`).join('');
 
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
-    <div class="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
-      <div class="flex justify-between items-start mb-4">
+    <!-- HEADER -->
+    <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-6 text-white shadow-lg">
+      <div class="flex justify-between items-start flex-wrap gap-4">
         <div>
-          <h2 class="text-xl font-black text-[#000033]">${e.vendedor_id}</h2>
-          <p class="text-sm text-slate-500">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
+          <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
+          <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
+          <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
+          <p class="text-[10px] uppercase font-bold mt-1 opacity-70">
+            ${e.status_espelho || 'RASCUNHO'}
+          </p>
         </div>
-        <button onclick="exportarEspelhoPdf()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-          📄 Exportar PDF
+        <button onclick="exportarEspelhoPdf()" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          Exportar PDF
         </button>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-slate-50 rounded-xl p-4">
-          <p class="text-xs font-bold text-slate-400 uppercase">Serviços</p>
-          <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_servicos)}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-4">
-          <p class="text-xs font-bold text-slate-400 uppercase">Acessórios</p>
-          <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
-        </div>
-        <div class="bg-slate-50 rounded-xl p-4">
-          <p class="text-xs font-bold text-slate-400 uppercase">Aparelhos</p>
-          <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
-        </div>
-        <div class="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-200">
-          <p class="text-xs font-bold text-emerald-700 uppercase">Total</p>
-          <p class="text-xl font-black text-emerald-700">R$ ${fmt(e.total_liquido_receber)}</p>
-        </div>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-          <tr>
-            <th class="px-4 py-3 text-left">Item</th>
-            <th class="px-4 py-3 text-right">VR</th>
-            <th class="px-4 py-3 text-center">QT</th>
-            <th class="px-4 py-3 text-center">Fator</th>
-            <th class="px-4 py-3 text-right">Comissão</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itens.map(i => `<tr class="border-b border-slate-100">
-            <td class="px-4 py-2 font-medium">${i.tipo_item}</td>
-            <td class="px-4 py-2 text-right">R$ ${fmt(i.valor_referencia_base)}</td>
-            <td class="px-4 py-2 text-center">${(i.qualidade_aplicada * 100).toFixed(2)}%</td>
-            <td class="px-4 py-2 text-center">${(i.fator_remuneracao_aplicado * 100).toFixed(1)}%</td>
-            <td class="px-4 py-2 text-right font-bold">R$ ${fmt(i.valor_comissao_final)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
+    <!-- CARDS DE TOTAL -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_servicos)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${servicos.length} itens</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${acessorios.length} itens</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">${aparelhos.length} itens</p>
+      </div>
+      <div class="bg-emerald-500 rounded-2xl p-5 shadow-lg">
+        <p class="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-1">Total a Receber</p>
+        <p class="text-2xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
+        <p class="text-[10px] text-emerald-100 mt-1">Fator: ${e.atingiu_meta_pessoal ? '30%' : '20%'}</p>
+      </div>
+    </div>
+
+    <!-- GAMIFICAÇÃO -->
+    ${gamificacaoHTML}
+
+    <!-- TABELA DE SERVIÇOS -->
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
+      <div class="px-6 py-4 border-b bg-slate-50">
+        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-slate-50 text-[10px] uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left font-black">Plano</th>
+              <th class="px-4 py-3 text-center font-black">Qtd</th>
+              <th class="px-4 py-3 text-right font-black">VR</th>
+              <th class="px-4 py-3 text-center font-black">QT</th>
+              <th class="px-4 py-3 text-center font-black">Fator</th>
+              <th class="px-4 py-3 text-right font-black">Comissão</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhasServicos || '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">Nenhum serviço no espelho</td></tr>'}
+          </tbody>
+          <tfoot class="bg-slate-50 border-t-2 border-slate-200">
+            <tr>
+              <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
+              <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(e.total_comissao_servicos)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ACESSÓRIOS E APARELHOS -->
+    ${acessorios.length > 0 ? `
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
+      <div>
+        <p class="text-sm font-black text-slate-700 uppercase tracking-wide">Acessórios</p>
+        <p class="text-xs text-slate-500 mt-0.5">${acessorios.length} itens vendidos · fator ${(acessorios[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</p>
+      </div>
+      <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
+    </div>` : ''}
+
+    ${aparelhos.length > 0 ? `
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm flex justify-between items-center">
+      <div>
+        <p class="text-sm font-black text-slate-700 uppercase tracking-wide">Aparelhos</p>
+        <p class="text-xs text-slate-500 mt-0.5">${aparelhos.length} itens vendidos · fator ${(aparelhos[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</p>
+      </div>
+      <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
+    </div>` : ''}
+
+    <!-- TOTAL FINAL -->
+    <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
+      <div>
+        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
+        <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
+      </div>
+      <p class="text-3xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
     </div>
   `;
+
   if (window.lucide) lucide.createIcons();
+}
+
+function formatarMesMeta(competencia) {
+  // "2026-08" → "AGOSTO / 2026"
+  const [y, m] = competencia.split('-');
+  const meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  return `${meses[+m - 1]} / ${y}`;
 }
 
 function exportarEspelhoPdf() {
