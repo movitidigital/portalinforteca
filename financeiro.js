@@ -4,9 +4,33 @@
 
 const finState = {
   conciliacao: { mes: new Date().toISOString().slice(0,7), arquivo: null, resumo: null, linhas: [] },
-  espelho:     { competencia: new Date().toISOString().slice(0,7), dados: null, itens: [] },
+  espelho:     { competencia: new Date().toISOString().slice(0,7), dados: null, itens: [], metaInfo: null, vendedor: null },
   politicas:   { lista: [] }
 };
+
+/* ============================================================
+   HELPERS DE DATA
+   ============================================================ */
+
+function fmtMes(iso) {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${meses[+m - 1]}/${y}`;
+}
+
+function fmtMesExtenso(iso) {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${meses[+m - 1]} / ${y}`;
+}
+
+function formatarMesMeta(competencia) {
+  const [y, m] = competencia.split('-');
+  const meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  return `${meses[+m - 1]} / ${y}`;
+}
 
 /* ============================================================
    CONCILIAÇÃO TIM
@@ -19,18 +43,15 @@ function inicializarConciliacao() {
     if (!inputMes.value) inputMes.value = mesAtual;
     finState.conciliacao.mes = inputMes.value;
 
-    // Listener: atualiza o finState quando o usuário muda o mês
     if (!inputMes._binded) {
       inputMes._binded = true;
       inputMes.addEventListener('change', (e) => {
         finState.conciliacao.mes = e.target.value;
-        console.log('[Conciliação] Mês alterado para:', e.target.value);
         carregarConciliacaoExistente();
       });
     }
   }
 
-  // Bind drag & drop
   const drop = document.getElementById('concDrop');
   if (drop && !drop._binded) {
     drop._binded = true;
@@ -45,11 +66,9 @@ function inicializarConciliacao() {
     });
   }
 
-  // Carrega conciliação já existente ao abrir a tela
   carregarConciliacaoExistente();
 }
 
-/* Carrega conciliação existente do banco (sem precisar reimportar) */
 async function carregarConciliacaoExistente() {
   const mes = document.getElementById('concMes').value;
   if (!mes) return;
@@ -69,7 +88,6 @@ async function carregarConciliacaoExistente() {
     return;
   }
 
-  // Nada importado ainda → mostra a drop zone
   if (!linhas || linhas.length === 0) {
     drop.style.display = 'block';
     cards.style.display = 'none';
@@ -77,7 +95,6 @@ async function carregarConciliacaoExistente() {
     return;
   }
 
-  // Reconstrói o resumo
   const matches = linhas.filter(l => l.status_conciliacao === 'MATCH_PERFEITO').length;
   const estornos = linhas.filter(l => l.status_conciliacao === 'DIVERGENCIA_VALOR').length;
   const glosas = linhas.filter(l => l.status_conciliacao === 'GLOSADO' || l.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA').length;
@@ -92,7 +109,6 @@ async function carregarConciliacaoExistente() {
     totalPago: totalPago
   };
 
-  // Busca vendedores
   const ids = [...new Set(linhas.filter(l => l.interacao_id).map(l => l.interacao_id))];
   const mapaVend = {};
   if (ids.length) {
@@ -141,7 +157,6 @@ async function processarArquivoTim(file) {
 
     if (!linhas.length) throw new Error('Planilha vazia');
 
-    // ── HELPERS ──
     const convertDate = (v) => {
       if (!v) return null;
       const s = String(v).trim();
@@ -170,7 +185,6 @@ async function processarArquivoTim(file) {
       return null;
     };
 
-    // ── MAPEAMENTO ──
     const payload = linhas
       .map(l => {
         const gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
@@ -188,7 +202,6 @@ async function processarArquivoTim(file) {
 
     if (!payload.length) throw new Error('Nenhuma linha com GSM válido encontrada');
 
-    // ── CHAMA RPC ──
     const mes = document.getElementById('concMes').value;
     finState.conciliacao.mes = mes;
 
@@ -198,7 +211,6 @@ async function processarArquivoTim(file) {
     });
     if (rpcErr) throw rpcErr;
 
-    // ── RESUMO ──
     finState.conciliacao.resumo = {
       processado: rpc.linhas_processadas || 0,
       match:      rpc.matches_perfeitos || 0,
@@ -207,7 +219,6 @@ async function processarArquivoTim(file) {
       totalPago:  rpc.total_pago || 0
     };
 
-    // ── DETALHES ──
     const { data: detalhes } = await supabaseClient
       .from('financeiro_conciliacao_tim')
       .select('id, tim_gsm, tim_valor_pago, tim_plano_oferta, tim_motivo_glosa, status_conciliacao, interacao_id')
@@ -318,6 +329,159 @@ function resetarConciliacao() {
 }
 
 /* ============================================================
+   ABAS DA CONCILIAÇÃO
+   ============================================================ */
+
+function trocarAbaConc(aba) {
+  const tabTim = document.getElementById('concTabTim');
+  const tabVendas = document.getElementById('concTabVendas');
+  const viewTim = document.getElementById('concDrop');
+  const viewCards = document.getElementById('concCards');
+  const viewVendas = document.getElementById('concVendasView');
+
+  if (aba === 'tim') {
+    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
+    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+    viewVendas.style.display = 'none';
+
+    if (finState.conciliacao.resumo) {
+      viewTim.style.display = 'none';
+      viewCards.style.display = 'block';
+    } else {
+      viewTim.style.display = 'block';
+      viewCards.style.display = 'none';
+    }
+  } else {
+    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
+    viewTim.style.display = 'none';
+    viewCards.style.display = 'none';
+    viewVendas.style.display = 'block';
+    carregarVendasNaoPagas();
+  }
+}
+
+/* ============================================================
+   MINHAS VENDAS — Auditoria por venda
+   ============================================================ */
+
+async function carregarVendasNaoPagas() {
+  const container = document.getElementById('concVendasTbody');
+  const mes = document.getElementById('concMes').value;
+
+  container.innerHTML = `<div class="text-center py-12 text-slate-500">
+    <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg>
+    Carregando...
+  </div>`;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', {
+      p_mes_competencia: `${mes}-01`
+    });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      container.innerHTML = `<div class="px-6 py-12 text-center text-slate-500">
+        Nenhuma venda encontrada para ${mes}.
+      </div>`;
+      return;
+    }
+
+    const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
+    const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
+    const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
+    const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
+    const totalRecebidoGeral = data.reduce((s, d) => s + (parseFloat(d.total_recebido) || 0), 0);
+
+    const header = `
+      <div class="bg-slate-100 px-6 py-3 flex flex-wrap gap-3 items-center text-xs border-b border-slate-200">
+        <span class="font-black text-slate-700">${data.length} linhas vendidas</span>
+        <span class="text-emerald-700 font-bold">✅ ${totalPago} pagas</span>
+        <span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>
+        <span class="text-orange-700 font-bold">⚠️ ${totalGlosado} glosadas</span>
+        <span class="text-blue-700 font-bold">↩️ ${totalEstornado} estornadas</span>
+        <span class="ml-auto font-black text-slate-900">Total TIM: R$ ${fmt(totalRecebidoGeral)}</span>
+      </div>
+    `;
+
+    const cards = data.map(v => {
+      const badge = {
+        'PAGO':       '<span class="px-2 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-700">✅ PAGO</span>',
+        'NAO_PAGO':   '<span class="px-2 py-1 rounded text-xs font-black bg-red-100 text-red-700">❌ NÃO PAGO</span>',
+        'GLOSADO':    '<span class="px-2 py-1 rounded text-xs font-black bg-orange-100 text-orange-700">⚠️ GLOSADO</span>',
+        'ESTORNADO':  '<span class="px-2 py-1 rounded text-xs font-black bg-blue-100 text-blue-700">↩️ ESTORNADO</span>',
+        'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
+      }[v.status_pagamento] || '—';
+
+      const cardBorder = v.status_pagamento === 'NAO_PAGO' ? 'border-l-red-500 bg-red-50/30'
+                       : v.status_pagamento === 'GLOSADO'  ? 'border-l-orange-500 bg-orange-50/30'
+                       : v.status_pagamento === 'ESTORNADO' ? 'border-l-blue-500 bg-blue-50/30'
+                       : 'border-l-emerald-500 bg-white';
+
+      const total = parseFloat(v.total_recebido) || 0;
+      const totalCor = total > 0 ? 'text-emerald-700' : total < 0 ? 'text-red-700' : 'text-slate-400';
+
+      const itens = Array.isArray(v.itens) ? v.itens : [];
+      const itensHTML = itens.length === 0
+        ? `<div class="text-xs text-slate-400 italic py-2">Nenhum pagamento registrado pela TIM</div>`
+        : itens.map(it => {
+            const valor = parseFloat(it.valor) || 0;
+            const corValor = valor >= 0 ? 'text-emerald-700' : 'text-red-600';
+            const qtdTxt = it.qtd > 1 ? `<span class="ml-1 text-[10px] text-slate-400">(×${it.qtd})</span>` : '';
+            return `
+              <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                <span class="text-xs text-slate-600 flex-1">${it.tipo || '—'}${qtdTxt}</span>
+                <span class="text-sm font-bold ${corValor} ml-3">R$ ${fmt(valor)}</span>
+              </div>`;
+          }).join('');
+
+      const provInfo = v.telefone_provisorio
+        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
+        : '';
+
+      return `
+        <div class="border border-slate-200 border-l-4 ${cardBorder} rounded-lg mb-3 overflow-hidden shadow-sm">
+          <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-sm text-slate-800 truncate">${v.nome || '—'}</div>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                <span class="font-mono text-xs text-slate-500">${v.telefone || '—'}</span>
+                <span class="text-xs text-slate-400">${v.plano || '—'}</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
+              </div>
+              ${provInfo}
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <div class="text-right">
+                <div class="text-[10px] text-slate-400 uppercase font-bold">Total</div>
+                <div class="text-base font-black ${totalCor}">R$ ${fmt(total)}</div>
+              </div>
+              ${badge}
+            </div>
+          </div>
+
+          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
+            ${itensHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `<div class="rounded-lg overflow-hidden border border-slate-200">${header}<div class="p-3">${cards}</div></div>`;
+
+  } catch (err) {
+    console.error('[Vendas]', err);
+    container.innerHTML = `<div class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</div>`;
+  }
+}
+
+/* ============================================================
    ESPELHO DE COMISSÃO
    ============================================================ */
 
@@ -329,7 +493,6 @@ async function carregarEspelho() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) throw new Error('Usuário não autenticado');
 
-    // Input de mês
     const inputMes = document.getElementById('espelhoMes');
     if (inputMes && !inputMes.value) {
       inputMes.value = new Date().toISOString().slice(0, 7);
@@ -345,13 +508,11 @@ async function carregarEspelho() {
     finState.espelho.competencia = competencia;
     const mes = competencia + '-01';
 
-    // Vendedor: admin pode escolher, consultor vê o dele
     const isAdmin = state._isAdmin === true;
     const selectVend = document.getElementById('espelhoVendedor');
 
     let vendedor;
     if (isAdmin) {
-      // Mostra dropdown de consultores com espelho nessa competência
       selectVend.style.display = 'inline-block';
 
       if (!selectVend._binded) {
@@ -362,7 +523,6 @@ async function carregarEspelho() {
         });
       }
 
-      // Popula lista de vendedores (se vazio ou se mudou o mês)
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
         const { data: vendedores } = await supabaseClient
@@ -376,7 +536,6 @@ async function carregarEspelho() {
           ? lista.map(v => `<option value="${v}">${v}</option>`).join('')
           : '<option value="">— Nenhum espelho gerado —</option>';
 
-        // Se o vendedor logado estiver na lista, pré-seleciona
         const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
         if (lista.includes(nomeUser)) selectVend.value = nomeUser;
       }
@@ -387,7 +546,6 @@ async function carregarEspelho() {
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
     }
 
-    // Busca espelho
     const { data: espelho } = await supabaseClient
       .from('financeiro_espelhos_b2c')
       .select('*')
@@ -400,14 +558,26 @@ async function carregarEspelho() {
       return;
     }
 
-    // Busca itens
     const { data: itens } = await supabaseClient
       .from('financeiro_espelho_itens')
       .select('*')
       .eq('espelho_id', espelho.id)
       .order('valor_comissao_final', { ascending: false });
 
-    // Busca meta do mês (para gamificação)
+    // 🆕 Contagem de portabilidades
+    const { data: interPort } = await supabaseClient
+      .from('interacoes')
+      .select('id, conciliacao_status, modalidade')
+      .eq('vendedor', vendedor)
+      .gte('data_venda', mes)
+      .lte('data_venda', competencia + '-31');
+
+    const portCount = (interPort || []).filter(i =>
+      String(i.modalidade || '').toUpperCase().includes('PORTABILIDADE') ||
+      String(i.modalidade || '').toUpperCase().includes('PORTADO')
+    ).length;
+
+    // Meta do mês
     const nomeMes = formatarMesMeta(competencia);
     const { data: metaData } = await supabaseClient
       .from('metas_mensais')
@@ -420,6 +590,7 @@ async function carregarEspelho() {
       const consultores = metaData.dados.consultores || [];
       const metaCons = metaData.dados.metaConsultor || {};
       const metaLoja = metaData.dados.metaLoja || {};
+      const parametros = metaData.dados.parametros || {};
 
       const primeiroNome = vendedor.split(' ')[0].toLowerCase();
       const consultor = consultores.find(c =>
@@ -433,6 +604,8 @@ async function carregarEspelho() {
         const realizadoPos = soma(d['PÓS']);
         const realizadoControle = soma(d['CONTROLE']);
         const realizadoServicos = realizadoPos + realizadoControle;
+        const realizadoAparelho = soma(d['APARELHO']);
+        const realizadoAcessorios = soma(d['ACESSÓRIOS']);
 
         const metaPos = Number(metaCons['PÓS'] || 0);
         const metaControle = Number(metaCons['CONTROLE'] || 0);
@@ -440,7 +613,6 @@ async function carregarEspelho() {
 
         const pct = metaServicos > 0 ? (realizadoServicos / metaServicos) * 100 : 0;
 
-        // Meta da loja
         const realizadoLojaPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS']), 0);
         const realizadoLojaCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE']), 0);
         const realizadoLoja = realizadoLojaPos + realizadoLojaCtrl;
@@ -452,10 +624,20 @@ async function carregarEspelho() {
           metaServicos,
           pct,
           bateuPessoal: pct >= 100,
+          metaPos, realizadoPos,
+          metaControle, realizadoControle,
+          metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
+          portCount,
+          metaAparelho: Number(metaCons['APARELHO'] || 0),
+          realizadoAparelho,
+          metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0),
+          realizadoAcessorios,
           realizadoLoja,
           metaLoja: metaLojaTotal,
           pctLoja,
-          bateuLoja: pctLoja >= 100
+          bateuLoja: pctLoja >= 100,
+          diasTrabalhados: Number(parametros.diasTrabalhados) || 0,
+          diasRestantes: Number(parametros.diasRestantes) || 0
         };
       }
     }
@@ -499,12 +681,11 @@ function renderizarEspelho() {
   const vendedor = finState.espelho.vendedor || e.vendedor_id;
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-  // Agrupa itens por categoria
-  const servicos = itens.filter(i => !['ACESSORIO','APARELHO'].includes(i.tipo_item));
+  const servicos = itens.filter(i => !['ACESSORIO','APARELHO','ACELERADOR_PORTABILIDADE'].includes(i.tipo_item));
   const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
+  const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-  // Agrupa serviços por nome do plano
   const servicosAgrupados = {};
   servicos.forEach(i => {
     if (!servicosAgrupados[i.tipo_item]) {
@@ -514,11 +695,10 @@ function renderizarEspelho() {
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
-  // Gamificação
+  // ── Gamificação (meta pessoal) ──
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pct);
-    const cor = meta.bateuPessoal ? 'emerald' : meta.pct >= 70 ? 'amber' : 'red';
     const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
     const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pct >= 70 ? 'text-amber-700' : 'text-red-700';
     const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pct >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
@@ -560,7 +740,56 @@ function renderizarEspelho() {
       </div>`;
   }
 
-  // HTML dos itens agrupados
+  // ── Performance (todos indicadores) ──
+  let performanceHTML = '';
+  if (meta && meta.metaServicos > 0) {
+    const linhas = [
+      { label: 'Serviços TIM (Controle + Pós)', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
+      { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
+      { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
+    ].filter(l => l.meta > 0);
+
+    const fmtV = (v, tipo) => tipo === 'moeda'
+      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      : Math.round(v||0);
+
+    const linhasHTML = linhas.map(l => {
+      const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
+      const corBg = pctL >= 100 ? 'bg-emerald-500' : pctL >= 70 ? 'bg-amber-500' : 'bg-red-500';
+      const corTexto = pctL >= 100 ? 'text-emerald-700' : pctL >= 70 ? 'text-amber-700' : 'text-red-700';
+      const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
+
+      return `
+        <div class="py-3 border-b border-slate-100 last:border-0">
+          <div class="flex justify-between items-center mb-1.5">
+            <span class="text-xs font-bold text-slate-700">${l.label}</span>
+            <span class="text-xs font-black ${corTexto}">${emoji} ${pctL.toFixed(0)}%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+              <div class="${corBg} h-2 rounded-full" style="width:${Math.min(100, pctL)}%"></div>
+            </div>
+            <span class="text-[11px] text-slate-500 min-w-[110px] text-right">
+              <strong class="${corTexto}">${fmtV(l.real, l.tipo)}</strong> / ${fmtV(l.meta, l.tipo)}
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    performanceHTML = `
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">📊 Sua Performance</h3>
+          <span class="text-[10px] text-slate-400 font-bold">${meta.diasTrabalhados} dias trabalhados · faltam ${meta.diasRestantes}</span>
+        </div>
+        ${linhasHTML}
+      </div>
+    `;
+  }
+
+  // ── Itens agrupados ──
   const linhasServicos = Object.entries(servicosAgrupados)
     .sort(([, a], [, b]) => b.total - a.total)
     .map(([nome, d]) => `
@@ -573,6 +802,8 @@ function renderizarEspelho() {
         <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(d.total)}</td>
       </tr>`).join('');
 
+  const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
+
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
     <!-- HEADER -->
@@ -582,9 +813,7 @@ function renderizarEspelho() {
           <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
           <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
           <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
-          <p class="text-[10px] uppercase font-bold mt-1 opacity-70">
-            ${e.status_espelho || 'RASCUNHO'}
-          </p>
+          <p class="text-[10px] uppercase font-bold mt-1 opacity-70">${e.status_espelho || 'RASCUNHO'}</p>
         </div>
         <button onclick="exportarEspelhoPdf()" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition">
           <i data-lucide="download" class="w-4 h-4"></i>
@@ -620,6 +849,9 @@ function renderizarEspelho() {
     <!-- GAMIFICAÇÃO -->
     ${gamificacaoHTML}
 
+    <!-- PERFORMANCE -->
+    ${performanceHTML}
+
     <!-- TABELA DE SERVIÇOS -->
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
@@ -650,7 +882,7 @@ function renderizarEspelho() {
       </div>
     </div>
 
-    <!-- ACESSÓRIOS E APARELHOS -->
+    <!-- ACESSÓRIOS -->
     ${acessorios.length > 0 ? `
     <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
       <div>
@@ -660,13 +892,29 @@ function renderizarEspelho() {
       <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
     </div>` : ''}
 
+    <!-- APARELHOS -->
     ${aparelhos.length > 0 ? `
-    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm flex justify-between items-center">
+    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
       <div>
         <p class="text-sm font-black text-slate-700 uppercase tracking-wide">Aparelhos</p>
         <p class="text-xs text-slate-500 mt-0.5">${aparelhos.length} itens vendidos · fator ${(aparelhos[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</p>
       </div>
       <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
+    </div>` : ''}
+
+    <!-- PORTABILIDADE -->
+    ${portabilidade.length > 0 ? `
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 mb-6 shadow-md">
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-[10px] font-black text-white/90 uppercase tracking-widest">⚡ Acelerador de Portabilidade</p>
+          <p class="text-sm font-bold text-white mt-1">Meta batida! Bônus aplicado em ${portabilidade.length} acessos portados</p>
+          <p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-black text-white">R$ ${fmt(portTotal)}</div>
+        </div>
+      </div>
     </div>` : ''}
 
     <!-- TOTAL FINAL -->
@@ -682,16 +930,14 @@ function renderizarEspelho() {
   if (window.lucide) lucide.createIcons();
 }
 
-function formatarMesMeta(competencia) {
-  // "2026-08" → "AGOSTO / 2026"
-  const [y, m] = competencia.split('-');
-  const meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-  return `${meses[+m - 1]} / ${y}`;
-}
+/* ============================================================
+   EXPORTAR PDF
+   ============================================================ */
 
 async function exportarEspelhoPdf() {
   const e = finState.espelho.dados;
   const itens = finState.espelho.itens;
+  const meta = finState.espelho.metaInfo;
   const vendedor = finState.espelho.vendedor || e?.vendedor_id;
 
   if (!e || !vendedor) {
@@ -702,9 +948,10 @@ async function exportarEspelhoPdf() {
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const competencia = fmtMesExtenso(e.mes_competencia_venda);
 
-  const servicos = itens.filter(i => !['ACESSORIO','APARELHO'].includes(i.tipo_item));
+  const servicos = itens.filter(i => !['ACESSORIO','APARELHO','ACELERADOR_PORTABILIDADE'].includes(i.tipo_item));
   const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
+  const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
   const agrupados = {};
   servicos.forEach(i => {
@@ -730,6 +977,68 @@ async function exportarEspelhoPdf() {
         <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;font-weight:700;">R$ ${fmt(d.total)}</td>
       </tr>
     `).join('');
+
+  // ── Performance PDF ──
+  let performancePdf = '';
+  if (meta && meta.metaServicos > 0) {
+    const linhas = [
+      { label: 'Serviços TIM', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
+      { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
+      { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
+    ].filter(l => l.meta > 0);
+
+    const fmtL = (v, tipo) => tipo === 'moeda'
+      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      : Math.round(v||0);
+
+    const linhasPdf = linhas.map(l => {
+      const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
+      const cor = pctL >= 100 ? '#10b981' : pctL >= 70 ? '#f59e0b' : '#dc2626';
+      const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
+      return `
+        <tr>
+          <td style="padding:6px 8px;font-size:11px;color:#334155;">${l.label}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#64748b;">${fmtL(l.meta, l.tipo)}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#0f172a;font-weight:700;">${fmtL(l.real, l.tipo)}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:${cor};font-weight:900;">${emoji} ${pctL.toFixed(0)}%</td>
+        </tr>`;
+    }).join('');
+
+    performancePdf = `
+      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Indicador</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Meta</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Realizado</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Ating.</th>
+          </tr>
+        </thead>
+        <tbody>${linhasPdf}</tbody>
+      </table>
+    `;
+  }
+
+  // ── Portabilidade PDF ──
+  let portabilidadePdf = '';
+  if (portabilidade.length > 0) {
+    const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
+    portabilidadePdf = `
+      <table style="width:100%; margin-bottom:6px;">
+        <tr>
+          <td style="background:#fef3c7;padding:10px 12px;border-radius:6px;border-left:4px solid #f59e0b;">
+            <div style="font-size:11px;font-weight:900;color:#92400e;text-transform:uppercase;">⚡ Acelerador de Portabilidade</div>
+            <div style="font-size:9px;color:#78350f;margin-top:2px;">Meta batida! ${portabilidade.length} acessos portados · fator ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</div>
+          </td>
+          <td style="background:#fef3c7;padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid #f59e0b;">
+            <div style="font-size:15px;font-weight:900;color:#92400e;">R$ ${fmt(portTotal)}</div>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
 
   const hoje = new Date();
   const dataEmissao = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()} às ${String(hoje.getHours()).padStart(2,'0')}:${String(hoje.getMinutes()).padStart(2,'0')}`;
@@ -769,6 +1078,8 @@ async function exportarEspelhoPdf() {
           </td>
         </tr>
       </table>
+
+      ${performancePdf}
 
       <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">Serviços TIM</div>
       <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
@@ -817,6 +1128,8 @@ async function exportarEspelhoPdf() {
         </tr>
       </table>` : ''}
 
+      ${portabilidadePdf}
+
       <table style="width:100%; margin-top:16px; margin-bottom:36px;">
         <tr>
           <td style="background:#000033;padding:14px 20px;border-radius:8px;">
@@ -863,7 +1176,6 @@ async function exportarEspelhoPdf() {
     </div>
   `;
 
-  // ── WRAPPER ──
   const wrapper = document.createElement('div');
   wrapper.id = 'pdf-wrapper';
   wrapper.style.cssText = 'position:fixed; top:0; left:-10000px; width:210mm; background:#ffffff; padding:0; margin:0; z-index:99999;';
@@ -871,7 +1183,6 @@ async function exportarEspelhoPdf() {
   document.body.appendChild(wrapper);
 
   try {
-    // Aguarda imagem da logo carregar
     const img = wrapper.querySelector('img');
     if (img && !img.complete) {
       await new Promise(r => {
@@ -881,10 +1192,8 @@ async function exportarEspelhoPdf() {
       });
     }
 
-    // Aguarda o browser pintar o layout
     await new Promise(r => setTimeout(r, 400));
 
-    // Renderiza
     const canvas = await html2canvas(wrapper, {
       scale: 2,
       useCORS: true,
@@ -912,10 +1221,8 @@ async function exportarEspelhoPdf() {
     console.log('[PDF] Imagem renderizada:', imgWidth, 'x', imgHeight, 'mm');
 
     if (imgHeight <= pageHeight) {
-      // Cabe numa página
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
     } else {
-      // Divide em múltiplas páginas
       const totalPages = Math.ceil(imgHeight / pageHeight);
       const pxPerMm = canvas.height / imgHeight;
       const sliceHeightMm = pageHeight;
@@ -959,25 +1266,6 @@ async function exportarEspelhoPdf() {
   }
 }
 
-function fmtMesExtenso(iso) {
-  if (!iso) return '—';
-  const [y, m] = iso.split('-');
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  return `${meses[+m - 1]} / ${y}`;
-}
-function fmtMesExtenso(iso) {
-  if (!iso) return '—';
-  const [y, m] = iso.split('-');
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  return `${meses[+m - 1]} / ${y}`;
-}
-function fmtMes(iso) {
-  if (!iso) return '—';
-  const [y, m] = iso.split('-');
-  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  return `${meses[+m - 1]}/${y}`;
-}
-
 /* ============================================================
    POLÍTICAS
    ============================================================ */
@@ -999,179 +1287,12 @@ function renderizarPoliticas() {
 }
 
 /* ============================================================
-   ABAS DA CONCILIAÇÃO
+   BOTÕES DE AÇÃO
    ============================================================ */
-
-function trocarAbaConc(aba) {
-  const tabTim = document.getElementById('concTabTim');
-  const tabVendas = document.getElementById('concTabVendas');
-  const viewTim = document.getElementById('concDrop');
-  const viewCards = document.getElementById('concCards');
-  const viewVendas = document.getElementById('concVendasView');
-
-  if (aba === 'tim') {
-    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
-    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
-    viewVendas.style.display = 'none';
-
-    if (finState.conciliacao.resumo) {
-      viewTim.style.display = 'none';
-      viewCards.style.display = 'block';
-    } else {
-      viewTim.style.display = 'block';
-      viewCards.style.display = 'none';
-    }
-  } else {
-    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
-    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
-    viewTim.style.display = 'none';
-    viewCards.style.display = 'none';
-    viewVendas.style.display = 'block';
-    carregarVendasNaoPagas();
-  }
-}
-
-/* ============================================================
-   MINHAS VENDAS — Auditoria por venda (com portabilidade)
-   ============================================================ */
-
-async function carregarVendasNaoPagas() {
-  const container = document.getElementById('concVendasTbody');
-  const mes = document.getElementById('concMes').value;
-
-  container.innerHTML = `<div class="text-center py-12 text-slate-500">
-    <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
-      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-    </svg>
-    Carregando...
-  </div>`;
-
-  try {
-    const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', {
-      p_mes_competencia: `${mes}-01`
-    });
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      container.innerHTML = `<div class="px-6 py-12 text-center text-slate-500">
-        Nenhuma venda encontrada para ${mes}.
-      </div>`;
-      return;
-    }
-
-    const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-
-    // Contadores
-    const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
-    const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
-    const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
-    const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
-    const totalRecebidoGeral = data.reduce((s, d) => s + (parseFloat(d.total_recebido) || 0), 0);
-
-    // Header com resumo
-    const header = `
-      <div class="bg-slate-100 px-6 py-3 flex flex-wrap gap-3 items-center text-xs border-b border-slate-200">
-        <span class="font-black text-slate-700">${data.length} linhas vendidas</span>
-        <span class="text-emerald-700 font-bold">✅ ${totalPago} pagas</span>
-        <span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>
-        <span class="text-orange-700 font-bold">⚠️ ${totalGlosado} glosadas</span>
-        <span class="text-blue-700 font-bold">↩️ ${totalEstornado} estornadas</span>
-        <span class="ml-auto font-black text-slate-900">Total TIM: R$ ${fmt(totalRecebidoGeral)}</span>
-      </div>
-    `;
-
-    // Cards por venda
-    const cards = data.map(v => {
-      const badge = {
-        'PAGO':       '<span class="px-2 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-700">✅ PAGO</span>',
-        'NAO_PAGO':   '<span class="px-2 py-1 rounded text-xs font-black bg-red-100 text-red-700">❌ NÃO PAGO</span>',
-        'GLOSADO':    '<span class="px-2 py-1 rounded text-xs font-black bg-orange-100 text-orange-700">⚠️ GLOSADO</span>',
-        'ESTORNADO':  '<span class="px-2 py-1 rounded text-xs font-black bg-blue-100 text-blue-700">↩️ ESTORNADO</span>',
-        'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
-      }[v.status_pagamento] || '—';
-
-      const cardBorder = v.status_pagamento === 'NAO_PAGO' ? 'border-l-red-500 bg-red-50/30'
-                       : v.status_pagamento === 'GLOSADO'  ? 'border-l-orange-500 bg-orange-50/30'
-                       : v.status_pagamento === 'ESTORNADO' ? 'border-l-blue-500 bg-blue-50/30'
-                       : 'border-l-emerald-500 bg-white';
-
-      // Total formatado
-      const total = parseFloat(v.total_recebido) || 0;
-      const totalCor = total > 0 ? 'text-emerald-700' : total < 0 ? 'text-red-700' : 'text-slate-400';
-
-      // Lista de indicadores
-      const itens = Array.isArray(v.itens) ? v.itens : [];
-      const itensHTML = itens.length === 0
-        ? `<div class="text-xs text-slate-400 italic py-2">Nenhum pagamento registrado pela TIM</div>`
-        : itens.map(it => {
-            const valor = parseFloat(it.valor) || 0;
-            const corValor = valor >= 0 ? 'text-emerald-700' : 'text-red-600';
-            const qtdTxt = it.qtd > 1 ? `<span class="ml-1 text-[10px] text-slate-400">(×${it.qtd})</span>` : '';
-            return `
-              <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
-                <span class="text-xs text-slate-600 flex-1">${it.tipo || '—'}${qtdTxt}</span>
-                <span class="text-sm font-bold ${corValor} ml-3">R$ ${fmt(valor)}</span>
-              </div>`;
-          }).join('');
-
-      // Info portabilidade
-      const provInfo = v.telefone_provisorio
-        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
-        : '';
-
-      return `
-        <div class="border border-slate-200 border-l-4 ${cardBorder} rounded-lg mb-3 overflow-hidden shadow-sm">
-          <!-- HEADER -->
-          <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-            <div class="flex-1 min-w-0">
-              <div class="font-bold text-sm text-slate-800 truncate">${v.nome || '—'}</div>
-              <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                <span class="font-mono text-xs text-slate-500">${v.telefone || '—'}</span>
-                <span class="text-xs text-slate-400">${v.plano || '—'}</span>
-                <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
-              </div>
-              ${provInfo}
-            </div>
-            <div class="flex items-center gap-3 shrink-0">
-              <div class="text-right">
-                <div class="text-[10px] text-slate-400 uppercase font-bold">Total</div>
-                <div class="text-base font-black ${totalCor}">R$ ${fmt(total)}</div>
-              </div>
-              ${badge}
-            </div>
-          </div>
-
-          <!-- INDICADORES -->
-          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
-            ${itensHTML}
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    container.innerHTML = `<div class="rounded-lg overflow-hidden border border-slate-200">${header}<div class="p-3">${cards}</div></div>`;
-
-  } catch (err) {
-    console.error('[Vendas]', err);
-    container.innerHTML = `<div class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</div>`;
-  }
-}
-
-/* ============================================================
-   BOOT — chamado quando navegar() troca pra uma view financeira
-   ============================================================ */
-
-window.inicializarModuloFinanceiro = function(view) {
-  if (view === 'conciliacao') inicializarConciliacao();
-  if (view === 'espelho')     carregarEspelho();
-  if (view === 'politicas')   carregarPoliticas();
-};
 
 async function gerarEspelhosCompetencia() {
   const mes = document.getElementById('concMes').value;
-  
+
   if (!confirm(`⚡ Gerar espelhos de TODOS os consultores para ${mes}?\n\nIsso recalcula os espelhos com base na conciliação atual.`)) return;
 
   const btn = document.getElementById('concBtnGerarEspelhos');
@@ -1202,15 +1323,14 @@ async function gerarEspelhosCompetencia() {
     if (window.lucide) lucide.createIcons();
   }
 }
+
 async function cancelarVenda(interacaoId, nomeCliente) {
   if (!confirm(`⚠️ Cancelar a venda de ${nomeCliente}?\n\nA venda NÃO entrará em nenhum espelho futuro.`)) return;
 
   try {
     const { error } = await supabaseClient
       .from('interacoes')
-      .update({
-        conciliacao_status: 'CANCELADO_CLIENTE'
-      })
+      .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
       .eq('id', interacaoId);
 
     if (error) throw error;
@@ -1221,3 +1341,13 @@ async function cancelarVenda(interacaoId, nomeCliente) {
     alert('Erro: ' + err.message);
   }
 }
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+
+window.inicializarModuloFinanceiro = function(view) {
+  if (view === 'conciliacao') inicializarConciliacao();
+  if (view === 'espelho')     carregarEspelho();
+  if (view === 'politicas')   carregarPoliticas();
+};
