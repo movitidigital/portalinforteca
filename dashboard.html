@@ -184,22 +184,9 @@
         🔄 Atualizar
       </button>
     </div>
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-        <tr>
-          <th class="px-4 py-3 text-left">Cliente</th>
-          <th class="px-4 py-3 text-left">Telefone / Plano</th>
-          <th class="px-4 py-3 text-left">Consultor</th>
-          <th class="px-4 py-3 text-right">Contratado</th>
-          <th class="px-4 py-3 text-right">Pago TIM</th>
-          <th class="px-4 py-3 text-center">Status</th>
-        </tr>
-      </thead>
-      <tbody id="concVendasTbody"></tbody>
-    </table>
+    <div id="concVendasTbody"></div>
   </div>
-</div>
-  
+</div>  
   <!-- Drop zone -->
   <div id="concDrop" class="max-w-3xl mx-auto bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center hover:bg-slate-50 cursor-pointer">
     <input type="file" id="concFileInput" accept=".xlsx,.xls" class="hidden" onchange="processarArquivoTim(this.files[0])">
