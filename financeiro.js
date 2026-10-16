@@ -13,9 +13,22 @@ const finState = {
    ============================================================ */
 
 function inicializarConciliacao() {
-  // Preenche o mês
   const inputMes = document.getElementById('concMes');
-  if (inputMes) inputMes.value = finState.conciliacao.mes;
+  if (inputMes) {
+    // Pega o mês atual como padrão
+    const mesAtual = new Date().toISOString().slice(0, 7);
+    if (!inputMes.value) inputMes.value = mesAtual;
+    finState.conciliacao.mes = inputMes.value;
+
+    // ✅ Listener: atualiza o finState quando o usuário muda o mês
+    if (!inputMes._binded) {
+      inputMes._binded = true;
+      inputMes.addEventListener('change', (e) => {
+        finState.conciliacao.mes = e.target.value;
+        console.log('[Conciliação] Mês alterado para:', e.target.value);
+      });
+    }
+  }
 
   // Bind drag & drop
   const drop = document.getElementById('concDrop');
@@ -103,7 +116,8 @@ async function processarArquivoTim(file) {
     if (!payload.length) throw new Error('Nenhuma linha com GSM válido encontrada');
 
     // ── CHAMA RPC ──
-    const mes = finState.conciliacao.mes;
+    const mes = document.getElementById('concMes').value;
+finState.conciliacao.mes = mes; // atualiza também
     const { data: rpc, error: rpcErr } = await supabaseClient.rpc('processar_conciliacao_tim', {
       p_mes_competencia: `${mes}-01`,
       p_dados_espelho: payload
