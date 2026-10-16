@@ -1653,7 +1653,7 @@ function renderizarPrevisao() {
     <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
       <div>
         <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
-        <p class="text-xs text-white/70 mt-0.5">Sujeito a glosa após conciliação TIM</p>
+        <p class="text-xs text-white/70 mt-0.5">Sujeito a alterações após conciliação com a base oficial da TIM</p>
       </div>
       <p class="text-3xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
     </div>
