@@ -6,30 +6,36 @@
 
       <div class="mt-4 flex items-center gap-3">
         <label class="text-sm font-medium text-slate-700">Competência:</label>
-        <input type="month" v-model="mesCompetencia" 
-               class="rounded-lg border-slate-300 shadow-sm text-sm">
+        <input type="month" v-model="mesCompetencia"
+               class="rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm px-3 py-2 border">
       </div>
     </div>
 
     <!-- Upload -->
-    <div v-if="!arquivoCarregado" 
+    <div v-if="!arquivoCarregado"
       @dragover.prevent @drop.prevent="processarDrop"
-      class="max-w-4xl mx-auto bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center hover:bg-slate-50 cursor-pointer"
+      class="max-w-4xl mx-auto bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center hover:bg-slate-50 transition-colors cursor-pointer"
       :class="{'opacity-50 pointer-events-none': isProcessingUpload}">
-      <input type="file" ref="fileInput" @change="processarSelecaoArquivo" 
+      <input type="file" ref="fileInput" @change="processarSelecaoArquivo"
              accept=".xlsx,.xls,.csv" class="hidden" />
-      
+
       <div v-if="isProcessingUpload" class="flex flex-col items-center">
         <svg class="animate-spin h-10 w-10 text-indigo-600 mb-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
         <h3 class="text-lg font-semibold">Cruzando com o VEXO...</h3>
+        <p class="text-sm text-slate-500">Isso pode levar alguns segundos.</p>
       </div>
       <div v-else>
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 mb-4">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+        </div>
         <h3 class="text-lg font-semibold text-slate-800 mb-1">Importar Espelho TIM</h3>
-        <p class="text-sm text-slate-500 mb-4">Arraste o arquivo .xlsx enviado pela TIM.</p>
-        <button @click="fileInput.click()" 
+        <p class="text-sm text-slate-500 mb-4">Arraste o arquivo .xlsx enviado pela TIM para este mês.</p>
+        <button @click="fileInput.click()"
                 class="px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
           Selecionar Arquivo
         </button>
@@ -38,23 +44,23 @@
 
     <!-- Dashboard -->
     <div v-else class="max-w-7xl mx-auto">
-      <!-- Cards de Resumo -->
+      <!-- Cards -->
       <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-blue-500">
-          <p class="text-xs font-medium text-slate-500 uppercase">Linhas Processadas</p>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-blue-500 shadow-sm">
+          <p class="text-xs font-medium text-slate-500 uppercase">Linhas</p>
           <h3 class="text-2xl font-bold text-slate-800">{{ resumo.processado }}</h3>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-emerald-500">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm">
           <p class="text-xs font-medium text-slate-500 uppercase">Match</p>
           <h3 class="text-2xl font-bold text-emerald-600">{{ resumo.match }}</h3>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-amber-500">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-amber-500 shadow-sm">
           <p class="text-xs font-medium text-slate-500 uppercase">Divergência</p>
           <h3 class="text-2xl font-bold text-amber-600">{{ resumo.divergencia }}</h3>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-red-500">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 border-l-4 border-l-red-500 shadow-sm">
           <p class="text-xs font-medium text-slate-500 uppercase">Glosa / Não Enc.</p>
-          <h3 class="text-2xl font-bold text-red-600">{{ resumo.glosa + resumo.naoEncontrado }}</h3>
+          <h3 class="text-2xl font-bold text-red-600">{{ resumo.glosas }}</h3>
         </div>
         <div class="bg-slate-800 rounded-2xl p-4 shadow-lg">
           <p class="text-xs font-medium text-slate-300 uppercase">Total Pago TIM</p>
@@ -62,9 +68,9 @@
         </div>
       </div>
 
-      <!-- Botões de ação -->
-      <div class="flex gap-3 mb-6">
-        <button @click="resetar" 
+      <!-- Ações -->
+      <div class="flex flex-wrap gap-3 mb-6">
+        <button @click="resetar"
                 class="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 text-sm font-medium">
           ↺ Nova Conciliação
         </button>
@@ -77,20 +83,20 @@
         </span>
       </div>
 
-      <!-- Tabela Auditoria -->
+      <!-- Tabela -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b bg-slate-50">
-          <h3 class="text-lg font-semibold">Auditoria {{ mesCompetencia }}</h3>
+          <h3 class="text-lg font-semibold text-slate-800">Auditoria {{ mesCompetencia }}</h3>
         </div>
         <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
           <table class="w-full text-left text-sm">
             <thead class="sticky top-0 bg-white z-10">
-              <tr class="text-xs uppercase bg-slate-100">
-                <th class="px-4 py-3">Consultor</th>
-                <th class="px-4 py-3">GSM / Plano</th>
-                <th class="px-4 py-3 text-right">Valor TIM (R$)</th>
-                <th class="px-4 py-3">Tipo Comissão</th>
-                <th class="px-4 py-3 text-center">Auditoria</th>
+              <tr class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600">
+                <th class="px-4 py-3 font-semibold">Consultor</th>
+                <th class="px-4 py-3 font-semibold">GSM / Plano</th>
+                <th class="px-4 py-3 font-semibold text-right">Valor TIM (R$)</th>
+                <th class="px-4 py-3 font-semibold">Tipo Comissão</th>
+                <th class="px-4 py-3 font-semibold text-center">Auditoria</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -99,9 +105,9 @@
                     'bg-red-50/30': linha.auditoria === 'RETIDO',
                     'bg-amber-50/30': linha.auditoria === 'DIVERGE'
                   }">
-                <td class="px-4 py-3 font-medium">{{ linha.consultor }}</td>
+                <td class="px-4 py-3 font-medium text-slate-800">{{ linha.consultor }}</td>
                 <td class="px-4 py-3">
-                  <div class="font-medium">{{ linha.gsm }}</div>
+                  <div class="font-medium text-slate-800">{{ linha.gsm }}</div>
                   <div class="text-xs text-slate-400">{{ linha.plano }}</div>
                 </td>
                 <td class="px-4 py-3 text-right font-bold"
@@ -112,14 +118,14 @@
                     }">
                   {{ formatar(linha.pago) }}
                 </td>
-                <td class="px-4 py-3 text-xs">{{ linha.status }}</td>
+                <td class="px-4 py-3 text-xs text-slate-500">{{ linha.status }}</td>
                 <td class="px-4 py-3 text-center">
-                  <span v-if="linha.auditoria === 'OK'" 
-                        class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">MATCH</span>
-                  <span v-if="linha.auditoria === 'RETIDO'" 
-                        class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700">GLOSA</span>
-                  <span v-if="linha.auditoria === 'DIVERGE'" 
-                        class="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700">DIVERGÊNCIA</span>
+                  <span v-if="linha.auditoria === 'OK'"
+                        class="inline-flex px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">MATCH</span>
+                  <span v-if="linha.auditoria === 'RETIDO'"
+                        class="inline-flex px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700">GLOSA</span>
+                  <span v-if="linha.auditoria === 'DIVERGE'"
+                        class="inline-flex px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-700">DIVERGÊNCIA</span>
                 </td>
               </tr>
               <tr v-if="linhasAuditoria.length === 0">
@@ -148,25 +154,28 @@ const fechandoCompetencia = ref(false)
 const competenciaFechada = ref(false)
 
 const resumo = ref({
-  processado: 0, match: 0, divergencia: 0, glosa: 0, naoEncontrado: 0, totalPago: 0
+  processado: 0, match: 0, divergencia: 0, glosas: 0, totalPago: 0
 })
 const linhasAuditoria = ref([])
 
-const formatar = (v) => Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+const formatar = (v) => {
+  const n = Number(v || 0)
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
-const processarDrop = (e) => { 
+const processarDrop = (e) => {
   const file = e.dataTransfer.files[0]
-  if (file) manipularArquivo(file) 
+  if (file) manipularArquivo(file)
 }
-const processarSelecaoArquivo = (e) => { 
+const processarSelecaoArquivo = (e) => {
   const file = e.target.files[0]
-  if (file) manipularArquivo(file) 
+  if (file) manipularArquivo(file)
 }
-const resetar = () => { 
+const resetar = () => {
   arquivoCarregado.value = false
   linhasAuditoria.value = []
   competenciaFechada.value = false
-  if (fileInput.value) fileInput.value.value = null 
+  if (fileInput.value) fileInput.value.value = null
 }
 
 const manipularArquivo = (file) => {
@@ -194,7 +203,7 @@ const manipularArquivo = (file) => {
           motivo_glosa: String(l['desc_tipocomissao'] || l['tipocomissao'] || 'PAGO').trim()
         }))
 
-      if (!payload.length) throw new Error('Nenhuma linha com GSM válido encontrada')
+      if (!payload.length) throw new Error('Nenhuma linha com GSM válido')
 
       const dataSQL = `${mesCompetencia.value}-01`
       const { data: rpc, error: rpcErr } = await supabase.rpc('processar_conciliacao_tim', {
@@ -207,12 +216,10 @@ const manipularArquivo = (file) => {
         processado: rpc.linhas_processadas || 0,
         match: rpc.matches_perfeitos || 0,
         divergencia: rpc.divergencias || 0,
-        glosa: rpc.glosas || 0,
-        naoEncontrado: rpc.nao_encontrados || 0,
+        glosas: (rpc.glosas || 0) + (rpc.nao_encontrados || 0),
         totalPago: rpc.total_pago || 0
       }
 
-      // Detalhes
       const { data: detalhes, error: detErr } = await supabase
         .from('financeiro_conciliacao_tim')
         .select('id, tim_gsm, tim_valor_pago, tim_plano_oferta, tim_motivo_glosa, status_conciliacao, interacao_id')
@@ -220,7 +227,6 @@ const manipularArquivo = (file) => {
         .order('status_conciliacao')
       if (detErr) throw detErr
 
-      // Buscar vendedores
       const ids = [...new Set(detalhes.filter(d => d.interacao_id).map(d => d.interacao_id))]
       const mapaInter = {}
       if (ids.length) {
@@ -259,7 +265,7 @@ const manipularArquivo = (file) => {
 
 const fecharCompetencia = async () => {
   if (!confirm(`Fechar a competência ${mesCompetencia.value}?\n\nApós fechada, o espelho dos consultores só considerará vendas conciliadas.`)) return
-  
+
   fechandoCompetencia.value = true
   try {
     const { data, error } = await supabase.rpc('fechar_competencia', {
