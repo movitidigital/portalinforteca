@@ -163,6 +163,43 @@
     </div>
   </div>
 
+<!-- 🆕 Abas da Conciliação -->
+<div class="flex gap-2 mb-6 border-b border-slate-200">
+  <button id="concTabTim" onclick="trocarAbaConc('tim')"
+    class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]">
+    📊 Espelho TIM
+  </button>
+  <button id="concTabVendas" onclick="trocarAbaConc('vendas')"
+    class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">
+    🛒 Minhas Vendas
+  </button>
+</div>
+
+<!-- 🆕 Conteúdo da aba "Minhas Vendas" -->
+<div id="concVendasView" style="display:none" class="mb-6">
+  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+      <h3 class="text-lg font-bold text-slate-800">Auditoria das vendas do mês</h3>
+      <button onclick="carregarVendasNaoPagas()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold">
+        🔄 Atualizar
+      </button>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left">Cliente</th>
+          <th class="px-4 py-3 text-left">Telefone / Plano</th>
+          <th class="px-4 py-3 text-left">Consultor</th>
+          <th class="px-4 py-3 text-right">Contratado</th>
+          <th class="px-4 py-3 text-right">Pago TIM</th>
+          <th class="px-4 py-3 text-center">Status</th>
+        </tr>
+      </thead>
+      <tbody id="concVendasTbody"></tbody>
+    </table>
+  </div>
+</div>
+  
   <!-- Drop zone -->
   <div id="concDrop" class="max-w-3xl mx-auto bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center hover:bg-slate-50 cursor-pointer">
     <input type="file" id="concFileInput" accept=".xlsx,.xls" class="hidden" onchange="processarArquivoTim(this.files[0])">
