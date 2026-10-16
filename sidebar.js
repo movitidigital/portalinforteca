@@ -19,10 +19,15 @@
     { key: 'faturas',        tipo: 'view', viewId: 'faturas',        icon: 'file-text',        label: 'Faturas' },
     { key: 'suspensoes',     tipo: 'view', viewId: 'suspensoes',     icon: 'shield-alert',     label: 'Gestão de Acessos',    badge: 'badgeSuspensoes' },
     { key: 'gestao',         tipo: 'view', viewId: 'gestao',         icon: 'file-check-2',     label: 'Gestão de Clientes',   badge: 'badgeGestao' },
-   { key: 'prospeccao',     tipo: 'page', url: 'prospeccao.html',   icon: 'users',            label: 'Prospecção' },
-   { key: 'treinamento',    tipo: 'page', url: 'treinamento.html',  icon: 'graduation-cap',   label: 'Central de Treinamento' },
-     
+
+    // 🆕 MÓDULO FINANCEIRO
+    { key: 'conciliacao',    tipo: 'view', viewId: 'conciliacao',    icon: 'file-search',      label: 'Conciliação TIM' },
+    { key: 'espelho',        tipo: 'view', viewId: 'espelho',        icon: 'receipt',          label: 'Meu Espelho' },
+    { key: 'politicas',      tipo: 'view', viewId: 'politicas',      icon: 'settings-2',       label: 'Políticas de Comissão' },
+
     // Páginas externas (HTML separado)
+    { key: 'prospeccao',     tipo: 'page', url: 'prospeccao.html',   icon: 'users',            label: 'Prospecção' },
+    { key: 'treinamento',    tipo: 'page', url: 'treinamento.html',  icon: 'graduation-cap',   label: 'Central de Treinamento' },
     { key: 'premiada',       tipo: 'page', url: 'premiada.html',     icon: 'trophy',           label: 'Inforteca Premiada' },
     { key: 'metas',          tipo: 'page', url: 'metas.html',        icon: 'target',           label: 'Acompanhamento de Metas' },
     { key: 'usuarios',       tipo: 'page', url: 'usuarios.html',     icon: 'user-cog',         label: 'Gestão de Usuários' },
