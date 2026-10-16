@@ -924,3 +924,22 @@ async function gerarEspelhosCompetencia() {
     if (window.lucide) lucide.createIcons();
   }
 }
+async function cancelarVenda(interacaoId, nomeCliente) {
+  if (!confirm(`⚠️ Cancelar a venda de ${nomeCliente}?\n\nA venda NÃO entrará em nenhum espelho futuro.`)) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('interacoes')
+      .update({
+        conciliacao_status: 'CANCELADO_CLIENTE'
+      })
+      .eq('id', interacaoId);
+
+    if (error) throw error;
+
+    alert('✅ Venda cancelada. Regenere o espelho do vendedor para refletir.');
+    carregarVendasNaoPagas();
+  } catch (err) {
+    alert('Erro: ' + err.message);
+  }
+}
