@@ -689,7 +689,7 @@ function formatarMesMeta(competencia) {
   return `${meses[+m - 1]} / ${y}`;
 }
 
-function exportarEspelhoPdf() {
+async function exportarEspelhoPdf() {
   const e = finState.espelho.dados;
   const itens = finState.espelho.itens;
   const vendedor = finState.espelho.vendedor || e?.vendedor_id;
@@ -702,7 +702,6 @@ function exportarEspelhoPdf() {
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const competencia = fmtMesExtenso(e.mes_competencia_venda);
 
-  // Agrupar serviços
   const servicos = itens.filter(i => !['ACESSORIO','APARELHO'].includes(i.tipo_item));
   const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
@@ -736,8 +735,7 @@ function exportarEspelhoPdf() {
   const dataEmissao = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()} às ${String(hoje.getHours()).padStart(2,'0')}:${String(hoje.getMinutes()).padStart(2,'0')}`;
 
   const html = `
-    <div style="padding:30px 40px; font-family: Arial, sans-serif; color:#1e293b; background:#fff; width:100%;">
-      <!-- HEADER -->
+    <div style="padding:30px 40px; font-family: Arial, sans-serif; color:#1e293b; background:#fff; width:100%; box-sizing:border-box;">
       <table style="width:100%; border-bottom:3px solid #0e8890; padding-bottom:14px; margin-bottom:22px;">
         <tr>
           <td style="vertical-align:middle;">
@@ -751,7 +749,6 @@ function exportarEspelhoPdf() {
         </tr>
       </table>
 
-      <!-- RESUMO -->
       <table style="width:100%; margin-bottom:24px; border-collapse:separate; border-spacing:6px;">
         <tr>
           <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
@@ -773,7 +770,6 @@ function exportarEspelhoPdf() {
         </tr>
       </table>
 
-      <!-- SERVIÇOS -->
       <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">Serviços TIM</div>
       <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
         <thead>
@@ -821,7 +817,6 @@ function exportarEspelhoPdf() {
         </tr>
       </table>` : ''}
 
-      <!-- TOTAL FINAL -->
       <table style="width:100%; margin-top:16px; margin-bottom:36px;">
         <tr>
           <td style="background:#000033;padding:14px 20px;border-radius:8px;">
@@ -840,7 +835,6 @@ function exportarEspelhoPdf() {
         </tr>
       </table>
 
-      <!-- ASSINATURAS -->
       <table style="width:100%; margin-top:44px;">
         <tr>
           <td style="width:45%; text-align:center; vertical-align:bottom;">
@@ -859,7 +853,6 @@ function exportarEspelhoPdf() {
         </tr>
       </table>
 
-      <!-- RODAPÉ -->
       <div style="margin-top:32px; padding-top:14px; border-top:1px solid #cbd5e1; text-align:center;">
         <div style="font-size:9px; color:#64748b; line-height:1.7;">
           <strong style="color:#0f172a;">INFORTECA LTDA</strong> · CNPJ 45.765.640/0001-20<br>
@@ -870,60 +863,107 @@ function exportarEspelhoPdf() {
     </div>
   `;
 
-  // Cria container visível mas com opacity 0 (html2canvas ignora elementos com visibility:hidden ou left:-9999px)
+  // ── WRAPPER ──
   const wrapper = document.createElement('div');
-  wrapper.style.position = 'absolute';
-  wrapper.style.left = '0';
-  wrapper.style.top = '0';
-  wrapper.style.width = '210mm';
-  wrapper.style.background = '#ffffff';
-  wrapper.style.zIndex = '99999';
-  wrapper.style.opacity = '0';
-  wrapper.style.pointerEvents = 'none';
+  wrapper.id = 'pdf-wrapper';
+  wrapper.style.cssText = 'position:fixed; top:0; left:-10000px; width:210mm; background:#ffffff; padding:0; margin:0; z-index:99999;';
   wrapper.innerHTML = html;
   document.body.appendChild(wrapper);
 
-  // Aguarda a logo carregar antes de renderizar (crítico!)
-  const logoImg = wrapper.querySelector('img');
-  const logoPromise = logoImg
-    ? new Promise(resolve => {
-        if (logoImg.complete && logoImg.naturalWidth > 0) return resolve();
-        logoImg.onload = resolve;
-        logoImg.onerror = resolve;  // continua mesmo se der erro
-        setTimeout(resolve, 2000);  // timeout de segurança
-      })
-    : Promise.resolve();
+  try {
+    // Aguarda imagem da logo carregar
+    const img = wrapper.querySelector('img');
+    if (img && !img.complete) {
+      await new Promise(r => {
+        img.onload = r;
+        img.onerror = r;
+        setTimeout(r, 2000);
+      });
+    }
 
-  const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
+    // Aguarda o browser pintar o layout
+    await new Promise(r => setTimeout(r, 400));
 
-  logoPromise.then(() => {
-    const opt = {
-      margin: 0,
-      filename: nomeArquivo,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: wrapper.scrollWidth,
-        windowHeight: wrapper.scrollHeight
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css'] }
-    };
+    // Renderiza
+    const canvas = await html2canvas(wrapper, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: wrapper.scrollWidth,
+      height: wrapper.scrollHeight,
+      windowWidth: wrapper.scrollWidth,
+      windowHeight: wrapper.scrollHeight,
+      scrollX: 0,
+      scrollY: 0
+    });
 
-    return html2pdf().set(opt).from(wrapper).save();
-  }).then(() => {
-    document.body.removeChild(wrapper);
-  }).catch(err => {
+    console.log('[PDF] Canvas:', canvas.width, 'x', canvas.height);
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    console.log('[PDF] Imagem renderizada:', imgWidth, 'x', imgHeight, 'mm');
+
+    if (imgHeight <= pageHeight) {
+      // Cabe numa página
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
+    } else {
+      // Divide em múltiplas páginas
+      const totalPages = Math.ceil(imgHeight / pageHeight);
+      const pxPerMm = canvas.height / imgHeight;
+      const sliceHeightMm = pageHeight;
+      const sliceHeightPx = sliceHeightMm * pxPerMm;
+
+      for (let p = 0; p < totalPages; p++) {
+        if (p > 0) pdf.addPage();
+
+        const yStartPx = p * sliceHeightPx;
+        const currentSliceHeightPx = Math.min(sliceHeightPx, canvas.height - yStartPx);
+
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = currentSliceHeightPx;
+
+        const ctx = sliceCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(
+          canvas,
+          0, yStartPx, canvas.width, currentSliceHeightPx,
+          0, 0, sliceCanvas.width, sliceCanvas.height
+        );
+
+        const sliceHeightMmActual = currentSliceHeightPx / pxPerMm;
+        pdf.addImage(
+          sliceCanvas.toDataURL('image/jpeg', 0.95),
+          'JPEG', 0, 0, imgWidth, sliceHeightMmActual
+        );
+      }
+    }
+
+    const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
+    pdf.save(nomeArquivo);
+    console.log('[PDF] ✅ Salvo:', nomeArquivo);
+  } catch (err) {
     console.error('[PDF]', err);
-    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
     alert('Erro ao gerar PDF: ' + err.message);
-  });
+  } finally {
+    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
+  }
+}
+
+function fmtMesExtenso(iso) {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${meses[+m - 1]} / ${y}`;
 }
 function fmtMesExtenso(iso) {
   if (!iso) return '—';
