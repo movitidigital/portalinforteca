@@ -493,52 +493,54 @@ function trocarAbaConc(aba) {
    ============================================================ */
 
 async function carregarVendasNaoPagas() {
-  const tbody = document.getElementById('concVendasTbody');
+  const container = document.getElementById('concVendasTbody');
   const mes = document.getElementById('concMes').value;
 
-  tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">
+  container.innerHTML = `<div class="text-center py-12 text-slate-500">
     <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
       <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
     </svg>
     Carregando...
-  </td></tr>`;
+  </div>`;
 
   try {
-    const { data, error } = await supabaseClient.rpc('listar_vendas_nao_pagas', {
+    const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', {
       p_mes_competencia: `${mes}-01`
     });
 
     if (error) throw error;
 
     if (!data || data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">
+      container.innerHTML = `<div class="px-6 py-12 text-center text-slate-500">
         Nenhuma venda encontrada para ${mes}.
-      </td></tr>`;
+      </div>`;
       return;
     }
 
     const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-    // Contador no topo
+    // Contadores
     const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
     const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
     const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
     const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
-    const totalViaProv = data.filter(d => d.match_por === 'PROVISORIO').length;
+    const totalRecebidoGeral = data.reduce((s, d) => s + (parseFloat(d.total_recebido) || 0), 0);
 
-    const header = `<tr class="bg-slate-50/60">
-      <td colspan="6" class="px-6 py-3 text-xs">
-        <span class="font-bold text-slate-600">${data.length} vendas</span>
-        · <span class="text-emerald-700 font-bold">${totalPago} pagas</span>
-        · <span class="text-red-700 font-bold">${totalNaoPago} não pagas</span>
-        · <span class="text-orange-700 font-bold">${totalGlosado} glosadas</span>
-        · <span class="text-blue-700 font-bold">${totalEstornado} estornadas</span>
-        ${totalViaProv > 0 ? `· <span class="text-amber-700 font-bold">${totalViaProv} via provisório</span>` : ''}
-      </td>
-    </tr>`;
+    // Header com resumo
+    const header = `
+      <div class="bg-slate-100 px-6 py-3 flex flex-wrap gap-3 items-center text-xs border-b border-slate-200">
+        <span class="font-black text-slate-700">${data.length} linhas vendidas</span>
+        <span class="text-emerald-700 font-bold">✅ ${totalPago} pagas</span>
+        <span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>
+        <span class="text-orange-700 font-bold">⚠️ ${totalGlosado} glosadas</span>
+        <span class="text-blue-700 font-bold">↩️ ${totalEstornado} estornadas</span>
+        <span class="ml-auto font-black text-slate-900">Total TIM: R$ ${fmt(totalRecebidoGeral)}</span>
+      </div>
+    `;
 
-    tbody.innerHTML = header + data.map(v => {
+    // Cards por venda
+    const cards = data.map(v => {
       const badge = {
         'PAGO':       '<span class="px-2 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-700">✅ PAGO</span>',
         'NAO_PAGO':   '<span class="px-2 py-1 rounded text-xs font-black bg-red-100 text-red-700">❌ NÃO PAGO</span>',
@@ -547,40 +549,70 @@ async function carregarVendasNaoPagas() {
         'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
       }[v.status_pagamento] || '—';
 
-      const rowClass = v.status_pagamento === 'NAO_PAGO' ? 'bg-red-50/40' 
-                     : v.status_pagamento === 'GLOSADO'  ? 'bg-orange-50/40'
-                     : '';
+      const cardBorder = v.status_pagamento === 'NAO_PAGO' ? 'border-l-red-500 bg-red-50/30'
+                       : v.status_pagamento === 'GLOSADO'  ? 'border-l-orange-500 bg-orange-50/30'
+                       : v.status_pagamento === 'ESTORNADO' ? 'border-l-blue-500 bg-blue-50/30'
+                       : 'border-l-emerald-500 bg-white';
 
-      // 🆕 Indicador visual de match via provisório
-      const matchInfo = v.match_por === 'PROVISORIO'
-        ? '<div class="text-[10px] font-bold text-amber-600 mt-0.5">⚡ provisório</div>'
+      // Total formatado
+      const total = parseFloat(v.total_recebido) || 0;
+      const totalCor = total > 0 ? 'text-emerald-700' : total < 0 ? 'text-red-700' : 'text-slate-400';
+
+      // Lista de indicadores
+      const itens = Array.isArray(v.itens) ? v.itens : [];
+      const itensHTML = itens.length === 0
+        ? `<div class="text-xs text-slate-400 italic py-2">Nenhum pagamento registrado pela TIM</div>`
+        : itens.map(it => {
+            const valor = parseFloat(it.valor) || 0;
+            const corValor = valor >= 0 ? 'text-emerald-700' : 'text-red-600';
+            const qtdTxt = it.qtd > 1 ? `<span class="ml-1 text-[10px] text-slate-400">(×${it.qtd})</span>` : '';
+            return `
+              <div class="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                <span class="text-xs text-slate-600 flex-1">${it.tipo || '—'}${qtdTxt}</span>
+                <span class="text-sm font-bold ${corValor} ml-3">R$ ${fmt(valor)}</span>
+              </div>`;
+          }).join('');
+
+      // Info portabilidade
+      const provInfo = v.telefone_provisorio
+        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
         : '';
 
-      // 🆕 Número provisório (se existir)
-      const provInfo = v.telefone_provisorio 
-        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>` 
-        : '';
+      return `
+        <div class="border border-slate-200 border-l-4 ${cardBorder} rounded-lg mb-3 overflow-hidden shadow-sm">
+          <!-- HEADER -->
+          <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-sm text-slate-800 truncate">${v.nome || '—'}</div>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                <span class="font-mono text-xs text-slate-500">${v.telefone || '—'}</span>
+                <span class="text-xs text-slate-400">${v.plano || '—'}</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
+              </div>
+              ${provInfo}
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+              <div class="text-right">
+                <div class="text-[10px] text-slate-400 uppercase font-bold">Total</div>
+                <div class="text-base font-black ${totalCor}">R$ ${fmt(total)}</div>
+              </div>
+              ${badge}
+            </div>
+          </div>
 
-      return `<tr class="border-b border-slate-100 ${rowClass}">
-        <td class="px-4 py-3 font-medium text-sm">${v.nome || '—'}</td>
-        <td class="px-4 py-3">
-          <div class="font-mono text-sm">${v.telefone || '—'}</div>
-          ${provInfo}
-          <div class="text-xs text-slate-400 mt-0.5">${v.plano || '—'}</div>
-        </td>
-        <td class="px-4 py-3 text-xs text-slate-500 uppercase">${v.consultor || '—'}</td>
-        <td class="px-4 py-3 text-right text-sm">R$ ${fmt(v.valor_contratado)}</td>
-        <td class="px-4 py-3 text-right text-sm font-bold">${v.valor_pago_tim != null ? 'R$ ' + fmt(v.valor_pago_tim) : '—'}</td>
-        <td class="px-4 py-3 text-center">
-          ${badge}
-          ${matchInfo}
-        </td>
-      </tr>`;
+          <!-- INDICADORES -->
+          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
+            ${itensHTML}
+          </div>
+        </div>
+      `;
     }).join('');
+
+    container.innerHTML = `<div class="rounded-lg overflow-hidden border border-slate-200">${header}<div class="p-3">${cards}</div></div>`;
 
   } catch (err) {
     console.error('[Vendas]', err);
-    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</td></tr>`;
+    container.innerHTML = `<div class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</div>`;
   }
 }
 
