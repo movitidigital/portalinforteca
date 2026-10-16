@@ -690,9 +690,222 @@ function formatarMesMeta(competencia) {
 }
 
 function exportarEspelhoPdf() {
-  alert('PDF será implementado com html2pdf.js na próxima sprint.');
+  const e = finState.espelho.dados;
+  const itens = finState.espelho.itens;
+  const vendedor = finState.espelho.vendedor || e?.vendedor_id;
+
+  if (!e || !vendedor) {
+    alert('Nada para exportar. Abra um espelho primeiro.');
+    return;
+  }
+
+  const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const competencia = fmtMesExtenso(e.mes_competencia_venda);
+
+  // Agrupar serviços
+  const servicos = itens.filter(i => !['ACESSORIO','APARELHO'].includes(i.tipo_item));
+  const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
+  const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
+
+  const agrupados = {};
+  servicos.forEach(i => {
+    if (!agrupados[i.tipo_item]) {
+      agrupados[i.tipo_item] = {
+        qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada,
+        fator: i.fator_remuneracao_aplicado, total: 0
+      };
+    }
+    agrupados[i.tipo_item].qtd += 1;
+    agrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
+  });
+
+  const linhasServicos = Object.entries(agrupados)
+    .sort(([,a], [,b]) => b.total - a.total)
+    .map(([nome, d]) => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;">${nome}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${d.qtd}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;">R$ ${fmt(d.vr)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.qt * 100).toFixed(2)}%</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.fator * 100).toFixed(1)}%</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;font-weight:700;">R$ ${fmt(d.total)}</td>
+      </tr>
+    `).join('');
+
+  const hoje = new Date();
+  const dataEmissao = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()} às ${String(hoje.getHours()).padStart(2,'0')}:${String(hoje.getMinutes()).padStart(2,'0')}`;
+
+  const html = `
+    <div style="padding:30px 40px; font-family: Arial, sans-serif; color:#1e293b; background:#fff; width:100%;">
+      <!-- HEADER -->
+      <table style="width:100%; border-bottom:3px solid #0e8890; padding-bottom:14px; margin-bottom:22px;">
+        <tr>
+          <td style="vertical-align:middle;">
+            <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" style="height:60px; width:auto;">
+          </td>
+          <td style="text-align:right; vertical-align:middle;">
+            <div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:1.5px;">Espelho de Comissão</div>
+            <div style="font-size:20px; font-weight:900; color:#000033; margin-top:4px;">${vendedor}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:3px;">Competência: <strong>${competencia}</strong></div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- RESUMO -->
+      <table style="width:100%; margin-bottom:24px; border-collapse:separate; border-spacing:6px;">
+        <tr>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Serviços TIM</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_servicos)}</div>
+          </td>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Acessórios</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_acessorios)}</div>
+          </td>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Aparelhos</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_aparelhos)}</div>
+          </td>
+          <td style="background:#0e8890; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#d1fae5; text-transform:uppercase; font-weight:700;">Total a Receber</div>
+            <div style="font-size:17px; font-weight:900; color:#fff; margin-top:4px;">R$ ${fmt(e.total_liquido_receber)}</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- SERVIÇOS -->
+      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">Serviços TIM</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Plano</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Qtd</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">VR</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">QT</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Fator</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Comissão</th>
+          </tr>
+        </thead>
+        <tbody>${linhasServicos}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;border-top:2px solid #e2e8f0;">Subtotal Serviços</td>
+            <td style="padding:9px;text-align:right;font-size:13px;font-weight:900;color:#0f172a;border-top:2px solid #e2e8f0;">R$ ${fmt(e.total_comissao_servicos)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      ${acessorios.length > 0 ? `
+      <table style="width:100%; margin-bottom:6px;">
+        <tr>
+          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;">
+            <div style="font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;">Acessórios</div>
+            <div style="font-size:9px;color:#64748b;margin-top:2px;">${acessorios.length} itens vendidos · fator ${(acessorios[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</div>
+          </td>
+          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;text-align:right;width:180px;">
+            <div style="font-size:15px;font-weight:900;color:#0f172a;">R$ ${fmt(e.total_comissao_acessorios)}</div>
+          </td>
+        </tr>
+      </table>` : ''}
+
+      ${aparelhos.length > 0 ? `
+      <table style="width:100%; margin-bottom:6px;">
+        <tr>
+          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;">
+            <div style="font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;">Aparelhos</div>
+            <div style="font-size:9px;color:#64748b;margin-top:2px;">${aparelhos.length} itens vendidos · fator ${(aparelhos[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</div>
+          </td>
+          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;text-align:right;width:180px;">
+            <div style="font-size:15px;font-weight:900;color:#0f172a;">R$ ${fmt(e.total_comissao_aparelhos)}</div>
+          </td>
+        </tr>
+      </table>` : ''}
+
+      <!-- TOTAL FINAL -->
+      <table style="width:100%; margin-top:16px; margin-bottom:36px;">
+        <tr>
+          <td style="background:#000033;padding:14px 20px;border-radius:8px;">
+            <table style="width:100%;">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Total Líquido a Receber</div>
+                  <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Competência ${competencia}</div>
+                </td>
+                <td style="text-align:right;vertical-align:middle;">
+                  <div style="font-size:24px;font-weight:900;color:#fff;">R$ ${fmt(e.total_liquido_receber)}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <!-- ASSINATURAS -->
+      <table style="width:100%; margin-top:44px;">
+        <tr>
+          <td style="width:45%; text-align:center; vertical-align:bottom;">
+            <div style="border-top:1px solid #334155; padding-top:8px; margin-top:50px;">
+              <div style="font-size:10px;font-weight:900;color:#0f172a;text-transform:uppercase;">${vendedor}</div>
+              <div style="font-size:9px;color:#64748b;margin-top:2px;">Consultor de Vendas</div>
+            </div>
+          </td>
+          <td style="width:10%;"></td>
+          <td style="width:45%; text-align:center; vertical-align:bottom;">
+            <div style="border-top:1px solid #334155; padding-top:8px; margin-top:50px;">
+              <div style="font-size:10px;font-weight:900;color:#0f172a;text-transform:uppercase;">INFORTECA LTDA</div>
+              <div style="font-size:9px;color:#64748b;margin-top:2px;">Representante Legal</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- RODAPÉ -->
+      <div style="margin-top:32px; padding-top:14px; border-top:1px solid #cbd5e1; text-align:center;">
+        <div style="font-size:9px; color:#64748b; line-height:1.7;">
+          <strong style="color:#0f172a;">INFORTECA LTDA</strong> · CNPJ 45.765.640/0001-20<br>
+          Rua Dom José, 198 · Centro · Garanhuns/PE<br>
+          Documento gerado eletronicamente em ${dataEmissao}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Cria container off-screen
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'fixed';
+  wrapper.style.left = '-9999px';
+  wrapper.style.top = '0';
+  wrapper.style.width = '210mm';
+  wrapper.style.background = '#fff';
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper);
+
+  const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
+
+  const opt = {
+    margin: 0,
+    filename: nomeArquivo,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css'] }
+  };
+
+  html2pdf().set(opt).from(wrapper).save().then(() => {
+    document.body.removeChild(wrapper);
+  }).catch(err => {
+    console.error('[PDF]', err);
+    document.body.removeChild(wrapper);
+    alert('Erro ao gerar PDF: ' + err.message);
+  });
 }
 
+function fmtMesExtenso(iso) {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${meses[+m - 1]} / ${y}`;
+}
 function fmtMes(iso) {
   if (!iso) return '—';
   const [y, m] = iso.split('-');
