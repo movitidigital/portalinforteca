@@ -890,3 +890,37 @@ window.inicializarModuloFinanceiro = function(view) {
   if (view === 'espelho')     carregarEspelho();
   if (view === 'politicas')   carregarPoliticas();
 };
+
+async function gerarEspelhosCompetencia() {
+  const mes = document.getElementById('concMes').value;
+  
+  if (!confirm(`⚡ Gerar espelhos de TODOS os consultores para ${mes}?\n\nIsso recalcula os espelhos com base na conciliação atual.`)) return;
+
+  const btn = document.getElementById('concBtnGerarEspelhos');
+  const htmlOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin inline-block w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Gerando...';
+
+  try {
+    const { data, error } = await supabaseClient.rpc('gerar_espelhos_competencia', {
+      p_mes_competencia: `${mes}-01`
+    });
+
+    if (error) throw error;
+    if (!data.sucesso) throw new Error('Erro ao gerar');
+
+    let msg = `✅ ${data.total_gerado} espelho(s) gerado(s) para ${mes}`;
+    if (data.erros && data.erros.length > 0) {
+      msg += `\n\n⚠️ ${data.erros.length} erro(s):\n` + data.erros.slice(0, 5).join('\n');
+    }
+    alert(msg);
+
+  } catch (err) {
+    console.error('[Gerar Espelhos]', err);
+    alert('❌ Erro: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    if (window.lucide) lucide.createIcons();
+  }
+}
