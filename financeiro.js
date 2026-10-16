@@ -564,7 +564,7 @@ async function carregarEspelho() {
       .eq('espelho_id', espelho.id)
       .order('valor_comissao_final', { ascending: false });
 
-    // 🆕 Contagem de portabilidades
+    // Contagem de portabilidades
     const { data: interPort } = await supabaseClient
       .from('interacoes')
       .select('id, conciliacao_status, modalidade')
@@ -686,7 +686,7 @@ function renderizarEspelho() {
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-     // 🆕 Info de portabilidade independente do bônus
+  // Info de portabilidade
   const metaPort = meta?.metaPortabilidade || 0;
   const realPort = meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
@@ -702,7 +702,7 @@ function renderizarEspelho() {
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
-  // ── Gamificação (meta pessoal) ──
+  // Gamificação (meta pessoal)
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pct);
@@ -747,9 +747,9 @@ function renderizarEspelho() {
       </div>`;
   }
 
-  // ── Performance (todos indicadores) ──
+  // Performance (meta vs realizado)
   let performanceHTML = '';
-  if (meta) {
+  if (meta && meta.metaServicos > 0) {
     const linhas = [
       { label: 'Serviços TIM (Controle + Pós)', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
       { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
@@ -796,7 +796,7 @@ function renderizarEspelho() {
     `;
   }
 
-  // ── Itens agrupados ──
+  // Itens agrupados
   const linhasServicos = Object.entries(servicosAgrupados)
     .sort(([, a], [, b]) => b.total - a.total)
     .map(([nome, d]) => `
@@ -808,8 +808,6 @@ function renderizarEspelho() {
         <td class="px-4 py-3 text-center text-xs text-slate-500">${(d.fator * 100).toFixed(1)}%</td>
         <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(d.total)}</td>
       </tr>`).join('');
-
-  const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
 
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
@@ -916,11 +914,11 @@ function renderizarEspelho() {
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
           <p class="text-sm font-bold mt-1 ${bateuPort ? 'text-white' : 'text-slate-700'}">
-            ${bateuPort 
-              ? `Meta batida! Bônus aplicado em ${realPort} acessos portados` 
+            ${bateuPort
+              ? `Meta batida! Bônus aplicado em ${realPort} acessos portados`
               : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
           </p>
-          ${bateuPort ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0]?.fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>` : ''}
+          ${bateuPort && portabilidade.length > 0 ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>` : ''}
         </div>
         <div class="text-right">
           <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
@@ -928,7 +926,7 @@ function renderizarEspelho() {
         </div>
       </div>
     </div>` : ''}
-    
+
     <!-- TOTAL FINAL -->
     <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
       <div>
@@ -949,7 +947,6 @@ function renderizarEspelho() {
 async function exportarEspelhoPdf() {
   const e = finState.espelho.dados;
   const itens = finState.espelho.itens;
-  const meta = finState.espelho.metaInfo;
   const vendedor = finState.espelho.vendedor || e?.vendedor_id;
 
   if (!e || !vendedor) {
@@ -965,10 +962,10 @@ async function exportarEspelhoPdf() {
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-     // 🆕 Contagem de portabilidade do mês (independente de ter batido meta)
-  const metaInfo = finState.espelho.metaInfo;
-  const metaPort = metaInfo?.metaPortabilidade || 0;
-  const realPort = metaInfo?.portCount || 0;
+  // Info de portabilidade
+  const meta = finState.espelho.metaInfo;
+  const metaPort = meta?.metaPortabilidade || 0;
+  const realPort = meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
 
@@ -997,9 +994,9 @@ async function exportarEspelhoPdf() {
       </tr>
     `).join('');
 
-  // ── Performance PDF (sempre visível se tiver meta OU portabilidade) ──
+  // Performance PDF
   let performancePdf = '';
-  if (meta || metaPort > 0) {
+  if (meta && meta.metaServicos > 0) {
     const linhas = [
       { label: 'Serviços TIM', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
       { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
@@ -1038,10 +1035,8 @@ async function exportarEspelhoPdf() {
         <tbody>${linhasPdf}</tbody>
       </table>
     `;
-  }
-
-     // Card alternativo se não tiver meta mas tiver portabilidade
-  if (!meta && metaPort > 0) {
+  } else if (metaPort > 0) {
+    // Card alternativo quando não há meta cadastrada mas há portabilidade
     performancePdf = `
       <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
       <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
@@ -1058,7 +1053,7 @@ async function exportarEspelhoPdf() {
             <td style="padding:6px 8px;font-size:11px;color:#334155;">Portabilidade</td>
             <td style="padding:6px 8px;font-size:11px;text-align:right;color:#64748b;">${metaPort}</td>
             <td style="padding:6px 8px;font-size:11px;text-align:right;color:#0f172a;font-weight:700;">${realPort}</td>
-            <td style="padding:6px 8px;font-size:11px;text-align:right;color:#dc2626;font-weight:900;">${bateuPort ? '✅' : '❌'} ${pctPort.toFixed(0)}%</td>
+            <td style="padding:6px 8px;font-size:11px;text-align:right;color:${bateuPort ? '#10b981' : '#dc2626'};font-weight:900;">${bateuPort ? '✅' : '❌'} ${pctPort.toFixed(0)}%</td>
           </tr>
         </tbody>
       </table>
@@ -1068,7 +1063,7 @@ async function exportarEspelhoPdf() {
     `;
   }
 
-  // ── Portabilidade PDF (sempre visível) ──
+  // Portabilidade PDF (sempre visível se meta port > 0)
   let portabilidadePdf = '';
   if (metaPort > 0) {
     const corBg = bateuPort ? '#fef3c7' : '#f1f5f9';
@@ -1266,8 +1261,6 @@ async function exportarEspelhoPdf() {
       scrollY: 0
     });
 
-    console.log('[PDF] Canvas:', canvas.width, 'x', canvas.height);
-
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
 
@@ -1275,8 +1268,6 @@ async function exportarEspelhoPdf() {
     const pageHeight = 297;
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    console.log('[PDF] Imagem renderizada:', imgWidth, 'x', imgHeight, 'mm');
 
     if (imgHeight <= pageHeight) {
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
@@ -1315,7 +1306,6 @@ async function exportarEspelhoPdf() {
 
     const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
     pdf.save(nomeArquivo);
-    console.log('[PDF] ✅ Salvo:', nomeArquivo);
   } catch (err) {
     console.error('[PDF]', err);
     alert('Erro ao gerar PDF: ' + err.message);
