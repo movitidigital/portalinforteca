@@ -25,7 +25,6 @@ function inicializarConciliacao() {
       inputMes.addEventListener('change', (e) => {
         finState.conciliacao.mes = e.target.value;
         console.log('[Conciliação] Mês alterado para:', e.target.value);
-        // 🆕 Recarrega a conciliação existente do novo mês
         carregarConciliacaoExistente();
       });
     }
@@ -46,11 +45,11 @@ function inicializarConciliacao() {
     });
   }
 
-  // 🆕 Carrega conciliação já existente ao abrir a tela
+  // Carrega conciliação já existente ao abrir a tela
   carregarConciliacaoExistente();
 }
 
-/* 🆕 Carrega conciliação existente do banco (sem precisar reimportar) */
+/* Carrega conciliação existente do banco (sem precisar reimportar) */
 async function carregarConciliacaoExistente() {
   const mes = document.getElementById('concMes').value;
   if (!mes) return;
@@ -117,7 +116,6 @@ async function carregarConciliacaoExistente() {
     };
   });
 
-  // Esconde drop zone e mostra cards
   drop.style.display = 'none';
   cards.style.display = 'block';
 
@@ -266,9 +264,7 @@ function renderizarResultadoConciliacao() {
   document.getElementById('concCardGlosa').textContent = r.glosas;
   document.getElementById('concCardTotal').textContent = 'R$ ' + fmt(r.totalPago);
 
-  // Tabela
   tabela.innerHTML = finState.conciliacao.linhas.map(l => {
-    // 🆕 'ESTORNO' agora tem fundo azul
     const cls = l.auditoria === 'RETIDO'
       ? 'bg-red-50/40'
       : l.auditoria === 'ESTORNO'
@@ -459,7 +455,10 @@ function renderizarPoliticas() {
   </tr>`).join('');
 }
 
-/* 🆕 Abas da Conciliação */
+/* ============================================================
+   ABAS DA CONCILIAÇÃO
+   ============================================================ */
+
 function trocarAbaConc(aba) {
   const tabTim = document.getElementById('concTabTim');
   const tabVendas = document.getElementById('concTabVendas');
@@ -472,7 +471,6 @@ function trocarAbaConc(aba) {
     tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
     viewVendas.style.display = 'none';
 
-    // Restaura visão TIM baseado no estado atual
     if (finState.conciliacao.resumo) {
       viewTim.style.display = 'none';
       viewCards.style.display = 'block';
@@ -490,7 +488,10 @@ function trocarAbaConc(aba) {
   }
 }
 
-/* 🆕 Carrega as vendas do portal e status de pagamento TIM */
+/* ============================================================
+   MINHAS VENDAS — Auditoria por venda (com portabilidade)
+   ============================================================ */
+
 async function carregarVendasNaoPagas() {
   const tbody = document.getElementById('concVendasTbody');
   const mes = document.getElementById('concMes').value;
@@ -524,6 +525,7 @@ async function carregarVendasNaoPagas() {
     const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
     const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
     const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
+    const totalViaProv = data.filter(d => d.match_por === 'PROVISORIO').length;
 
     const header = `<tr class="bg-slate-50/60">
       <td colspan="6" class="px-6 py-3 text-xs">
@@ -532,11 +534,11 @@ async function carregarVendasNaoPagas() {
         · <span class="text-red-700 font-bold">${totalNaoPago} não pagas</span>
         · <span class="text-orange-700 font-bold">${totalGlosado} glosadas</span>
         · <span class="text-blue-700 font-bold">${totalEstornado} estornadas</span>
+        ${totalViaProv > 0 ? `· <span class="text-amber-700 font-bold">${totalViaProv} via provisório</span>` : ''}
       </td>
     </tr>`;
 
     tbody.innerHTML = header + data.map(v => {
-      // Indicativo visual
       const badge = {
         'PAGO':       '<span class="px-2 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-700">✅ PAGO</span>',
         'NAO_PAGO':   '<span class="px-2 py-1 rounded text-xs font-black bg-red-100 text-red-700">❌ NÃO PAGO</span>',
@@ -549,16 +551,30 @@ async function carregarVendasNaoPagas() {
                      : v.status_pagamento === 'GLOSADO'  ? 'bg-orange-50/40'
                      : '';
 
+      // 🆕 Indicador visual de match via provisório
+      const matchInfo = v.match_por === 'PROVISORIO'
+        ? '<div class="text-[10px] font-bold text-amber-600 mt-0.5">⚡ provisório</div>'
+        : '';
+
+      // 🆕 Número provisório (se existir)
+      const provInfo = v.telefone_provisorio 
+        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>` 
+        : '';
+
       return `<tr class="border-b border-slate-100 ${rowClass}">
         <td class="px-4 py-3 font-medium text-sm">${v.nome || '—'}</td>
         <td class="px-4 py-3">
           <div class="font-mono text-sm">${v.telefone || '—'}</div>
-          <div class="text-xs text-slate-400">${v.plano || '—'}</div>
+          ${provInfo}
+          <div class="text-xs text-slate-400 mt-0.5">${v.plano || '—'}</div>
         </td>
         <td class="px-4 py-3 text-xs text-slate-500 uppercase">${v.consultor || '—'}</td>
         <td class="px-4 py-3 text-right text-sm">R$ ${fmt(v.valor_contratado)}</td>
         <td class="px-4 py-3 text-right text-sm font-bold">${v.valor_pago_tim != null ? 'R$ ' + fmt(v.valor_pago_tim) : '—'}</td>
-        <td class="px-4 py-3 text-center">${badge}</td>
+        <td class="px-4 py-3 text-center">
+          ${badge}
+          ${matchInfo}
+        </td>
       </tr>`;
     }).join('');
 
