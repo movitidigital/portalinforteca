@@ -459,6 +459,115 @@ function renderizarPoliticas() {
   </tr>`).join('');
 }
 
+/* 🆕 Abas da Conciliação */
+function trocarAbaConc(aba) {
+  const tabTim = document.getElementById('concTabTim');
+  const tabVendas = document.getElementById('concTabVendas');
+  const viewTim = document.getElementById('concDrop');
+  const viewCards = document.getElementById('concCards');
+  const viewVendas = document.getElementById('concVendasView');
+
+  if (aba === 'tim') {
+    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
+    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+    viewVendas.style.display = 'none';
+
+    // Restaura visão TIM baseado no estado atual
+    if (finState.conciliacao.resumo) {
+      viewTim.style.display = 'none';
+      viewCards.style.display = 'block';
+    } else {
+      viewTim.style.display = 'block';
+      viewCards.style.display = 'none';
+    }
+  } else {
+    tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+    tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
+    viewTim.style.display = 'none';
+    viewCards.style.display = 'none';
+    viewVendas.style.display = 'block';
+    carregarVendasNaoPagas();
+  }
+}
+
+/* 🆕 Carrega as vendas do portal e status de pagamento TIM */
+async function carregarVendasNaoPagas() {
+  const tbody = document.getElementById('concVendasTbody');
+  const mes = document.getElementById('concMes').value;
+
+  tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">
+    <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg>
+    Carregando...
+  </td></tr>`;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('listar_vendas_nao_pagas', {
+      p_mes_competencia: `${mes}-01`
+    });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">
+        Nenhuma venda encontrada para ${mes}.
+      </td></tr>`;
+      return;
+    }
+
+    const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+    // Contador no topo
+    const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
+    const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
+    const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
+    const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
+
+    const header = `<tr class="bg-slate-50/60">
+      <td colspan="6" class="px-6 py-3 text-xs">
+        <span class="font-bold text-slate-600">${data.length} vendas</span>
+        · <span class="text-emerald-700 font-bold">${totalPago} pagas</span>
+        · <span class="text-red-700 font-bold">${totalNaoPago} não pagas</span>
+        · <span class="text-orange-700 font-bold">${totalGlosado} glosadas</span>
+        · <span class="text-blue-700 font-bold">${totalEstornado} estornadas</span>
+      </td>
+    </tr>`;
+
+    tbody.innerHTML = header + data.map(v => {
+      // Indicativo visual
+      const badge = {
+        'PAGO':       '<span class="px-2 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-700">✅ PAGO</span>',
+        'NAO_PAGO':   '<span class="px-2 py-1 rounded text-xs font-black bg-red-100 text-red-700">❌ NÃO PAGO</span>',
+        'GLOSADO':    '<span class="px-2 py-1 rounded text-xs font-black bg-orange-100 text-orange-700">⚠️ GLOSADO</span>',
+        'ESTORNADO':  '<span class="px-2 py-1 rounded text-xs font-black bg-blue-100 text-blue-700">↩️ ESTORNADO</span>',
+        'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
+      }[v.status_pagamento] || '—';
+
+      const rowClass = v.status_pagamento === 'NAO_PAGO' ? 'bg-red-50/40' 
+                     : v.status_pagamento === 'GLOSADO'  ? 'bg-orange-50/40'
+                     : '';
+
+      return `<tr class="border-b border-slate-100 ${rowClass}">
+        <td class="px-4 py-3 font-medium text-sm">${v.nome || '—'}</td>
+        <td class="px-4 py-3">
+          <div class="font-mono text-sm">${v.telefone || '—'}</div>
+          <div class="text-xs text-slate-400">${v.plano || '—'}</div>
+        </td>
+        <td class="px-4 py-3 text-xs text-slate-500 uppercase">${v.consultor || '—'}</td>
+        <td class="px-4 py-3 text-right text-sm">R$ ${fmt(v.valor_contratado)}</td>
+        <td class="px-4 py-3 text-right text-sm font-bold">${v.valor_pago_tim != null ? 'R$ ' + fmt(v.valor_pago_tim) : '—'}</td>
+        <td class="px-4 py-3 text-center">${badge}</td>
+      </tr>`;
+    }).join('');
+
+  } catch (err) {
+    console.error('[Vendas]', err);
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</td></tr>`;
+  }
+}
+
 /* ============================================================
    BOOT — chamado quando navegar() troca pra uma view financeira
    ============================================================ */
