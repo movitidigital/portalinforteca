@@ -1588,7 +1588,7 @@ function renderizarPrevisao() {
         <p class="text-[10px] text-slate-400 mt-1">${p.qtd_aparelhos} itens</p>
       </div>
       <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
-        <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção a Receber</p>
+        <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção à Receber</p>
         <p class="text-2xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
         <p class="text-[10px] text-white/80 mt-1">Sujeito a glosa</p>
       </div>
@@ -1603,7 +1603,7 @@ function renderizarPrevisao() {
     <!-- TABELA DE SERVIÇOS -->
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
-        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM (Projeção)</h3>
+        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM (Projeção de Recebimento)</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full">
