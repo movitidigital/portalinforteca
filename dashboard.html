@@ -1868,6 +1868,11 @@ function navegar(destino) {
     if (destino === 'clientes') {
       setTimeout(() => $('inputBuscaClientes')?.focus(), 100);
     }
+
+    // 🆕 MÓDULO FINANCEIRO (Conciliação / Espelho / Políticas)
+    if (destino === 'conciliacao' || destino === 'espelho' || destino === 'politicas') {
+      setTimeout(() => window.inicializarModuloFinanceiro?.(destino), 100);
+    }
   }
 
   // 4. Atualiza estilo dos botões do menu
