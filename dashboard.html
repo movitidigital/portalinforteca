@@ -13,6 +13,8 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="sidebar.js"></script>
   <script src="header.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="financeiro.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -60,6 +62,99 @@
 
 <!-- ===== DASHBOARD ===== -->
 <div id="view-dashboard" class="animate-fade-in">
+
+  <!-- ===== CONCILIAÇÃO TIM ===== -->
+<div id="view-conciliacao" class="hidden animate-fade-in">
+  <div class="mb-6">
+    <h1 class="text-2xl font-black text-[#000033]">Conciliação TIM</h1>
+    <p class="text-sm text-slate-500 mt-1">Importe o espelho oficial da TIM e audite o pagamento.</p>
+    <div class="mt-4 flex items-center gap-3">
+      <label class="text-sm font-bold text-slate-700">Competência:</label>
+      <input type="month" id="concMes" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+    </div>
+  </div>
+
+  <!-- Drop zone -->
+  <div id="concDrop" class="max-w-3xl mx-auto bg-white rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center hover:bg-slate-50 cursor-pointer">
+    <input type="file" id="concFileInput" accept=".xlsx,.xls" class="hidden" onchange="processarArquivoTim(this.files[0])">
+    <div class="inline-flex w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 items-center justify-center mb-4">
+      <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+    </div>
+    <h3 class="text-lg font-bold text-slate-800">Importar Espelho TIM</h3>
+    <p class="text-sm text-slate-500">Arraste o .xlsx da TIM ou clique aqui.</p>
+  </div>
+
+  <div id="concStatus" class="max-w-3xl mx-auto mt-4"></div>
+
+  <!-- Cards resultado -->
+  <div id="concCards" style="display:none">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="bg-white rounded-2xl p-4 border-l-4 border-blue-500 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Linhas</p>
+        <p id="concCardLinhas" class="text-2xl font-black">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border-l-4 border-emerald-500 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Match</p>
+        <p id="concCardMatch" class="text-2xl font-black text-emerald-600">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border-l-4 border-amber-500 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Divergência</p>
+        <p id="concCardDiverge" class="text-2xl font-black text-amber-600">0</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 border-l-4 border-red-500 shadow-sm">
+        <p class="text-xs font-bold text-slate-400 uppercase">Glosa</p>
+        <p id="concCardGlosa" class="text-2xl font-black text-red-600">0</p>
+      </div>
+      <div class="bg-slate-800 rounded-2xl p-4 shadow-lg">
+        <p class="text-xs font-bold text-slate-300 uppercase">Total TIM</p>
+        <p id="concCardTotal" class="text-2xl font-black text-white">R$ 0</p>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mb-6">
+      <button onclick="resetarConciliacao()" class="px-4 py-2 bg-slate-600 text-white rounded-lg text-sm font-bold">↺ Nova</button>
+      <button id="concBtnFechar" onclick="fecharCompetencia()" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold">🔒 Fechar Competência</button>
+      <span id="concSeloFechada" style="display:none" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg text-sm font-bold">✅ Competência Fechada</span>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+          <tr>
+            <th class="px-4 py-3 text-left">Consultor</th>
+            <th class="px-4 py-3 text-left">GSM / Plano</th>
+            <th class="px-4 py-3 text-right">Valor TIM</th>
+            <th class="px-4 py-3 text-left">Tipo</th>
+            <th class="px-4 py-3 text-center">Auditoria</th>
+          </tr>
+        </thead>
+        <tbody id="concTabela"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MEU ESPELHO ===== -->
+<div id="view-espelho" class="hidden animate-fade-in">
+  <div id="espelhoConteudo"></div>
+</div>
+
+<!-- ===== POLÍTICAS ===== -->
+<div id="view-politicas" class="hidden animate-fade-in">
+  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+        <tr>
+          <th class="px-4 py-3 text-left">Categoria</th>
+          <th class="px-4 py-3 text-left">Faixa</th>
+          <th class="px-4 py-3 text-right">Fator</th>
+          <th class="px-4 py-3 text-left">Vigência</th>
+        </tr>
+      </thead>
+      <tbody id="politicasTbody"></tbody>
+    </table>
+  </div>
+</div>
 
   <!-- 👋 SAUDAÇÃO -->
   <div class="mb-6">
@@ -1671,7 +1766,7 @@ if (elPerm) elPerm.textContent = state.perfil.permissao;
     : [];
   const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
 
-  const MODULOS = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','prospeccao','metas'];
+  const MODULOS = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','prospeccao','metas','conciliacao','espelho','politicas'];
 
   const perms = {};
   MODULOS.forEach(m => {
@@ -1734,6 +1829,9 @@ atualizarBadgeSuspensoes();
       suspensoes: 'Gestão de Suspensões',
       portabilidades: 'Gestão de Portabilidades',
       prospeccao: 'Prospecção de Clientes',
+      conciliacao: 'Conciliação TIM',
+      espelho:     'Meu Espelho de Comissão',
+      politicas:   'Políticas de Comissão',
     };
 
 function navegar(destino) {
