@@ -68,10 +68,7 @@ function resolverTier(metaInfo) {
 
 function resolverFator(mapaPoliticas, categoria, tier) {
   const fator = mapaPoliticas?.[categoria]?.[tier];
-  if (fator == null) {
-    console.warn(`[Políticas] Sem fator para ${categoria} / ${tier}`);
-    return 0;
-  }
+  if (fator == null) return 0;
   return fator;
 }
 
@@ -343,12 +340,7 @@ function renderizarResultadoConciliacao() {
   document.getElementById('concCardTotal').textContent = 'R$ ' + fmt(r.totalPago);
 
   tabela.innerHTML = finState.conciliacao.linhas.map(l => {
-    const cls = l.auditoria === 'RETIDO'
-      ? 'bg-red-50/40'
-      : l.auditoria === 'ESTORNO'
-        ? 'bg-blue-50/30'
-        : '';
-
+    const cls = l.auditoria === 'RETIDO' ? 'bg-red-50/40' : l.auditoria === 'ESTORNO' ? 'bg-blue-50/30' : '';
     const tag = l.auditoria === 'OK'
       ? '<span class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">MATCH</span>'
       : l.auditoria === 'RETIDO'
@@ -379,7 +371,6 @@ async function fecharCompetencia() {
 
     document.getElementById('concBtnFechar').style.display = 'none';
     document.getElementById('concSeloFechada').style.display = 'inline-flex';
-
     alert(`✅ Competência fechada!\n\nConciliadas: ${data.conciliadas}\nPendentes: ${data.pendentes}\n\n${data.aviso}`);
   } catch (err) {
     alert('Erro: ' + err.message);
@@ -395,10 +386,6 @@ function resetarConciliacao() {
   if (fi) fi.value = '';
 }
 
-/* ============================================================
-   ABAS DA CONCILIAÇÃO
-   ============================================================ */
-
 function trocarAbaConc(aba) {
   const tabTim = document.getElementById('concTabTim');
   const tabVendas = document.getElementById('concTabVendas');
@@ -410,7 +397,6 @@ function trocarAbaConc(aba) {
     tabTim.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
     tabVendas.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
     viewVendas.style.display = 'none';
-
     if (finState.conciliacao.resumo) {
       viewTim.style.display = 'none';
       viewCards.style.display = 'block';
@@ -428,38 +414,22 @@ function trocarAbaConc(aba) {
   }
 }
 
-/* ============================================================
-   MINHAS VENDAS — Auditoria por venda
-   ============================================================ */
-
 async function carregarVendasNaoPagas() {
   const container = document.getElementById('concVendasTbody');
   const mes = document.getElementById('concMes').value;
 
-  container.innerHTML = `<div class="text-center py-12 text-slate-500">
-    <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
-      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-    </svg>
-    Carregando...
-  </div>`;
+  container.innerHTML = `<div class="text-center py-12 text-slate-500">Carregando...</div>`;
 
   try {
-    const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', {
-      p_mes_competencia: `${mes}-01`
-    });
-
+    const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', { p_mes_competencia: `${mes}-01` });
     if (error) throw error;
 
     if (!data || data.length === 0) {
-      container.innerHTML = `<div class="px-6 py-12 text-center text-slate-500">
-        Nenhuma venda encontrada para ${mes}.
-      </div>`;
+      container.innerHTML = `<div class="px-6 py-12 text-center text-slate-500">Nenhuma venda encontrada para ${mes}.</div>`;
       return;
     }
 
     const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-
     const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
     const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
     const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
@@ -508,10 +478,6 @@ async function carregarVendasNaoPagas() {
               </div>`;
           }).join('');
 
-      const provInfo = v.telefone_provisorio
-        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
-        : '';
-
       return `
         <div class="border border-slate-200 border-l-4 ${cardBorder} rounded-lg mb-3 overflow-hidden shadow-sm">
           <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -522,7 +488,6 @@ async function carregarVendasNaoPagas() {
                 <span class="text-xs text-slate-400">${v.plano || '—'}</span>
                 <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
               </div>
-              ${provInfo}
             </div>
             <div class="flex items-center gap-3 shrink-0">
               <div class="text-right">
@@ -532,18 +497,13 @@ async function carregarVendasNaoPagas() {
               ${badge}
             </div>
           </div>
-
-          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
-            ${itensHTML}
-          </div>
+          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">${itensHTML}</div>
         </div>
       `;
     }).join('');
 
     container.innerHTML = `<div class="rounded-lg overflow-hidden border border-slate-200">${header}<div class="p-3">${cards}</div></div>`;
-
   } catch (err) {
-    console.error('[Vendas]', err);
     container.innerHTML = `<div class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</div>`;
   }
 }
@@ -591,30 +551,18 @@ async function carregarEspelho() {
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
         const { data: vendedores } = await supabaseClient
-          .from('financeiro_espelhos_b2c')
-          .select('vendedor_id')
-          .eq('mes_competencia_venda', mes)
-          .order('vendedor_id');
+          .from('financeiro_espelhos_b2c').select('vendedor_id').eq('mes_competencia_venda', mes).order('vendedor_id');
         const lista = (vendedores || []).map(v => v.vendedor_id);
         if (lista.length) {
           selectVend.innerHTML = lista.map(v => `<option value="${v}">${v}</option>`).join('');
         } else {
           const { data: inter } = await supabaseClient
-            .from('interacoes')
-            .select('vendedor')
-            .gte('data_venda', mes)
-            .lte('data_venda', competencia + '-31');
-          const unicos = [...new Set((inter || []).map(i => i.vendedor))]
-            .filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA'))
-            .sort();
-          selectVend.innerHTML = unicos.length
-            ? unicos.map(v => `<option value="${v}">${v}</option>`).join('')
-            : '<option value="">— Sem dados —</option>';
+            .from('interacoes').select('vendedor').gte('data_venda', mes).lte('data_venda', competencia + '-31');
+          const unicos = [...new Set((inter || []).map(i => i.vendedor))].filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA')).sort();
+          selectVend.innerHTML = unicos.length ? unicos.map(v => `<option value="${v}">${v}</option>`).join('') : '<option value="">— Sem dados —</option>';
         }
         const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
-        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) {
-          selectVend.value = nomeUser;
-        }
+        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) selectVend.value = nomeUser;
       }
       vendedor = selectVend.value || (state.perfil?.nome_completo || '').toUpperCase();
     } else {
@@ -622,14 +570,11 @@ async function carregarEspelho() {
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
     }
 
-    // Busca meta
     const nomeMesA = formatarMesMeta(competencia);
     const nomeMesB = nomeMesA.replace('/', ' / ');
-    let { data: metaData } = await supabaseClient
-      .from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
+    let { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
     if (!metaData) {
-      const { data: alt } = await supabaseClient
-        .from('metas_mensais').select('dados').eq('mes', nomeMesB).maybeSingle();
+      const { data: alt } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesB).maybeSingle();
       metaData = alt;
     }
 
@@ -644,9 +589,7 @@ async function carregarEspelho() {
       const parametros = metaData.dados.parametros || {};
 
       const primeiroNome = vendedor.split(' ')[0].toLowerCase();
-      const consultor = consultores.find(c =>
-        String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome
-      );
+      const consultor = consultores.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
 
       if (consultor) {
         const soma = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -676,32 +619,23 @@ async function carregarEspelho() {
         const realizadoLojaFatPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS FAT.']), 0);
         const realizadoLojaFatCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE FAT.']), 0);
         const realizadoLojaFat = realizadoLojaFatPos + realizadoLojaFatCtrl;
-        const metaLojaFatTotal = Number(metaLoja['FAT TOTAL TIM'] || 0)
-                              || (Number(metaLoja['PÓS FAT.'] || 0) + Number(metaLoja['CONTROLE FAT.'] || 0));
+        const metaLojaFatTotal = Number(metaLoja['FAT TOTAL TIM'] || 0) || (Number(metaLoja['PÓS FAT.'] || 0) + Number(metaLoja['CONTROLE FAT.'] || 0));
         const pctLoja = metaLojaFatTotal > 0 ? (realizadoLojaFat / metaLojaFatTotal) * 100 : 0;
         lojaBateu = pctLoja >= 100;
 
         metaInfo = {
           realizadoFatTotal, metaFatTotal, pctFat,
-          realizadoFatPos, realizadoFatControle,
-          metaFatPos, metaFatControle,
-
+          realizadoFatPos, realizadoFatControle, metaFatPos, metaFatControle,
           realizadoServicos: realizadoGross, metaServicos: metaGross,
           metaPos, realizadoPos, metaControle, realizadoControle,
-
-          pct: pctFat,
-          bateuPessoal,
-
+          pct: pctFat, bateuPessoal,
           metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
           realizadoPortabilidade,
           metaAparelho: Number(metaCons['APARELHO'] || 0), realizadoAparelho,
           metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0), realizadoAcessorios,
-
           realizadoLoja: realizadoLojaFat, metaLoja: metaLojaFatTotal, pctLoja, bateuLoja: lojaBateu,
           diasTrabalhados: Number(parametros.diasTrabalhados) || 0,
           diasRestantes: Number(parametros.diasRestantes) || 0,
-
-          // 🆕 LÊ AS QTs DO ACOMPANHAMENTO DE METAS
           qtControle: Number(parametros.qt_controle ?? metaData.dados.qt_controle) || 0.7308,
           qtPos: Number(parametros.qt_pos ?? metaData.dados.qt_pos) || 1.0
         };
@@ -710,21 +644,10 @@ async function carregarEspelho() {
 
     const portCount = metaInfo?.realizadoPortabilidade || 0;
 
-    // Tenta espelho OFICIAL
-    const { data: espelho } = await supabaseClient
-      .from('financeiro_espelhos_b2c')
-      .select('*')
-      .eq('vendedor_id', vendedor)
-      .eq('mes_competencia_venda', mes)
-      .maybeSingle();
+    const { data: espelho } = await supabaseClient.from('financeiro_espelhos_b2c').select('*').eq('vendedor_id', vendedor).eq('mes_competencia_venda', mes).maybeSingle();
 
     if (espelho) {
-      const { data: itens } = await supabaseClient
-        .from('financeiro_espelho_itens')
-        .select('*')
-        .eq('espelho_id', espelho.id)
-        .order('valor_comissao_final', { ascending: false });
-
+      const { data: itens } = await supabaseClient.from('financeiro_espelho_itens').select('*').eq('espelho_id', espelho.id).order('valor_comissao_final', { ascending: false });
       finState.espelho.dados = espelho;
       finState.espelho.itens = itens || [];
       finState.espelho.metaInfo = metaInfo;
@@ -736,12 +659,8 @@ async function carregarEspelho() {
       return;
     }
 
-    // MODO PREVISÃO
     const { data: previsao, error: preErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
-      p_mes_competencia: mes,
-      p_vendedor_id: vendedor,
-      p_vendedor_bateu_meta: bateuPessoal,
-      p_loja_bateu_meta: lojaBateu
+      p_mes_competencia: mes, p_vendedor_id: vendedor, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
     });
     if (preErr) throw preErr;
 
@@ -755,29 +674,8 @@ async function carregarEspelho() {
     await renderizarEspelho();
 
   } catch (err) {
-    console.error('[Espelho]', err);
     container.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-6 rounded-2xl">Erro: ${err.message}</div>`;
   }
-}
-
-function mensagemEspelhoVazio(vendedor, competencia) {
-  const nome = (vendedor || '').split(' ')[0] || '—';
-  const [y, m] = competencia.split('-');
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const mesNome = meses[+m - 1] + '/' + y;
-
-  return `<div class="bg-amber-50 border-2 border-amber-200 p-8 rounded-2xl text-center max-w-2xl mx-auto">
-    <div class="w-16 h-16 mx-auto rounded-full bg-amber-100 flex items-center justify-center mb-4">
-      <i data-lucide="file-search" class="w-8 h-8 text-amber-600"></i>
-    </div>
-    <h3 class="text-lg font-black text-amber-900">Nenhum espelho disponível</h3>
-    <p class="text-sm text-amber-700 mt-2 leading-relaxed">
-      Ainda não foi gerado o espelho de <strong>${nome}</strong> para <strong>${mesNome}</strong>.
-    </p>
-    <p class="text-xs text-amber-600 mt-3">
-      O espelho é gerado após a conciliação TIM da competência. Fale com o gestor.
-    </p>
-  </div>`;
 }
 
 async function renderizarEspelho() {
@@ -795,30 +693,22 @@ async function renderizarEspelho() {
   const servicos = itens.filter(i => !['ACESSORIO','APARELHO','ACELERADOR_PORTABILIDADE'].includes(i.tipo_item));
   const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
-  const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
   const metaPort = meta?.metaPortabilidade || 0;
   const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
-  const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
 
   const metaFatA = meta?.metaFatTotal || 0;
   const realFatA = meta?.realizadoFatTotal || 0;
   const bateuFatA = metaFatA > 0 && realFatA >= metaFatA;
   const faltaFatPort = Math.max(0, metaFatA - realFatA);
-  const fmtRPort = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-
+  
   let portEstado;
-  if (metaPort === 0) {
-    portEstado = 'SEM_META';
-  } else if (!bateuPort) {
-    portEstado = 'FALTAM_PORT';
-  } else if (bateuPort && !bateuFatA) {
-    portEstado = 'FALTA_FAT';
-  } else {
-    portEstado = 'LIBERADO';
-  }
+  if (metaPort === 0) portEstado = 'SEM_META';
+  else if (!bateuPort) portEstado = 'FALTAM_PORT';
+  else if (bateuPort && !bateuFatA) portEstado = 'FALTA_FAT';
+  else portEstado = 'LIBERADO';
 
   const aceleradorPort = portEstado === 'LIBERADO' ? (e.total_comissao_servicos || 0) * 0.15 : 0;
   const totalFinalEspelho = (e.total_liquido_receber || 0) + aceleradorPort;
@@ -861,21 +751,6 @@ async function renderizarEspelho() {
         <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
           <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
         </div>
-        <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
-          <span>Fator atual: <strong>${(e.atingiu_meta_pessoal ? '30%' : '20%')}</strong></span>
-          <span>Meta loja: <strong>${meta.pctLoja.toFixed(0)}%</strong> ${meta.bateuLoja ? '✅' : ''}</span>
-        </div>
-      </div>`;
-  } else {
-    gamificacaoHTML = `
-      <div class="rounded-2xl border-2 border-slate-200 bg-slate-50 p-5 mb-6 flex items-center gap-3">
-        <div class="p-3 bg-white rounded-xl">
-          <i data-lucide="info" class="w-5 h-5 text-slate-400"></i>
-        </div>
-        <div>
-          <p class="text-sm font-bold text-slate-700">Meta pessoal não cadastrada para esta competência</p>
-          <p class="text-xs text-slate-500 mt-0.5">Fator aplicado: <strong>20% (ativou ganhou)</strong>. Cadastre a meta em "Acompanhamento de Metas" para ativar a gamificação.</p>
-        </div>
       </div>`;
   }
 
@@ -888,16 +763,12 @@ async function renderizarEspelho() {
       { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
     ].filter(l => l.meta > 0);
 
-    const fmtV = (v, tipo) => tipo === 'moeda'
-      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
-      : Math.round(v||0);
-
+    const fmtV = (v, tipo) => tipo === 'moeda' ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : Math.round(v||0);
     const linhasHTML = linhas.map(l => {
       const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
       const corBg = pctL >= 100 ? 'bg-emerald-500' : pctL >= 70 ? 'bg-amber-500' : 'bg-red-500';
       const corTexto = pctL >= 100 ? 'text-emerald-700' : pctL >= 70 ? 'text-amber-700' : 'text-red-700';
       const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
-
       return `
         <div class="py-3 border-b border-slate-100 last:border-0">
           <div class="flex justify-between items-center mb-1.5">
@@ -912,8 +783,7 @@ async function renderizarEspelho() {
               <strong class="${corTexto}">${fmtV(l.real, l.tipo)}</strong> / ${fmtV(l.meta, l.tipo)}
             </span>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('');
 
     performanceHTML = `
@@ -923,13 +793,10 @@ async function renderizarEspelho() {
           <span class="text-[10px] text-slate-400 font-bold">${meta.diasTrabalhados} dias trabalhados · faltam ${meta.diasRestantes}</span>
         </div>
         ${linhasHTML}
-      </div>
-    `;
+      </div>`;
   }
 
-  const linhasServicos = Object.entries(servicosAgrupados)
-    .sort(([, a], [, b]) => b.total - a.total)
-    .map(([nome, d]) => `
+  const linhasServicos = Object.entries(servicosAgrupados).sort(([, a], [, b]) => b.total - a.total).map(([nome, d]) => `
       <tr class="border-b border-slate-100 hover:bg-slate-50">
         <td class="px-4 py-3 text-sm font-medium text-slate-800">${nome}</td>
         <td class="px-4 py-3 text-center text-sm text-slate-600">${d.qtd}</td>
@@ -947,11 +814,9 @@ async function renderizarEspelho() {
           <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
           <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
           <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
-          <p class="text-[10px] uppercase font-bold mt-1 opacity-70">${e.status_espelho || 'RASCUNHO'}</p>
         </div>
         <button onclick="exportarEspelhoPdf()" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition">
-          <i data-lucide="download" class="w-4 h-4"></i>
-          Exportar PDF
+          <i data-lucide="download" class="w-4 h-4"></i> Exportar PDF
         </button>
       </div>
     </div>
@@ -975,13 +840,10 @@ async function renderizarEspelho() {
       <div class="bg-emerald-500 rounded-2xl p-5 shadow-lg">
         <p class="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-1">Total a Receber</p>
         <p class="text-2xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
-        <p class="text-[10px] text-emerald-100 mt-1">Fator: ${e.atingiu_meta_pessoal ? '30%' : '20%'}</p>
       </div>
     </div>
 
-    ${gamificacaoHTML}
-
-    ${performanceHTML}
+    ${gamificacaoHTML}${performanceHTML}
 
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
@@ -999,9 +861,7 @@ async function renderizarEspelho() {
               <th class="px-4 py-3 text-right font-black">Comissão</th>
             </tr>
           </thead>
-          <tbody>
-            ${linhasServicos || '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">Nenhum serviço no espelho</td></tr>'}
-          </tbody>
+          <tbody>${linhasServicos}</tbody>
           <tfoot class="bg-slate-50 border-t-2 border-slate-200">
             <tr>
               <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
@@ -1012,25 +872,6 @@ async function renderizarEspelho() {
       </div>
     </div>
 
-    ${acessorios.length > 0 ? `
-    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
-      <div>
-        <p class="text-sm font-black text-slate-700 uppercase tracking-wide">Acessórios</p>
-        <p class="text-xs text-slate-500 mt-0.5">${acessorios.length} itens vendidos · fator ${(acessorios[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</p>
-      </div>
-      <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
-    </div>` : ''}
-
-    ${aparelhos.length > 0 ? `
-    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
-      <div>
-        <p class="text-sm font-black text-slate-700 uppercase tracking-wide">Aparelhos</p>
-        <p class="text-xs text-slate-500 mt-0.5">${aparelhos.length} itens vendidos · fator ${(aparelhos[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</p>
-      </div>
-      <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
-    </div>` : ''}
-
-    <!-- PORTABILIDADE -->
     ${metaPort > 0 ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${
       portEstado === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
@@ -1039,35 +880,22 @@ async function renderizarEspelho() {
     }">
       <div class="flex justify-between items-center">
         <div class="flex-1 min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-widest ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
-          }">
+          <p class="text-[10px] font-black uppercase tracking-widest ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'}">
             ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
-            ${portEstado === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
           </p>
-          <p class="text-sm font-bold mt-1 ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
-          }">
-            ${portEstado === 'FALTAM_PORT'
-              ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
-              : portEstado === 'FALTA_FAT'
-                ? `✅ Portabilidade batida! Falta <strong>${fmtRPort(faltaFatPort)}</strong> em faturamento para liberar o Acelerador`
-                : `🎉 Meta batida! Acelerador de <strong>15%</strong> aplicado sobre R$ ${fmt(e.total_comissao_servicos)} de serviços`
-            }
+          <p class="text-sm font-bold mt-1 ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'}">
+            ${portEstado === 'FALTAM_PORT' ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta` :
+              portEstado === 'FALTA_FAT' ? `✅ Portabilidade batida! Falta <strong>R$ ${fmt(faltaFatPort)}</strong> em faturamento` :
+                `🎉 Meta batida! Acelerador de <strong>15%</strong> aplicado`}
           </p>
         </div>
         <div class="text-right shrink-0 ml-4">
-          <div class="text-sm font-bold ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
-          } mb-1">${realPort} / ${metaPort}</div>
-          <div class="text-xl font-black ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
-          }">${portEstado === 'LIBERADO' ? '+ R$ ' + fmt(aceleradorPort) : '—'}</div>
+          <div class="text-sm font-bold ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
+          <div class="text-xl font-black ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'}">${portEstado === 'LIBERADO' ? '+ R$ ' + fmt(aceleradorPort) : '—'}</div>
         </div>
       </div>
     </div>` : ''}
     
-    <!-- TOTAL FINAL -->
     <div class="bg-[#000033] rounded-2xl p-6 shadow-xl mb-6">
       ${aceleradorPort > 0 ? `
       <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/10">
@@ -1077,524 +905,17 @@ async function renderizarEspelho() {
       <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/10">
         <p class="text-[10px] font-black text-emerald-300 uppercase tracking-widest">⚡ Acelerador Portabilidade (15%)</p>
         <p class="text-lg font-black text-emerald-300">+ R$ ${fmt(aceleradorPort)}</p>
-      </div>
-      ` : ''}
+      </div>` : ''}
       <div class="flex justify-between items-center">
         <div>
           <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
-          <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
         </div>
         <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalEspelho)}</p>
       </div>
     </div>
   `;
-
   if (window.lucide) lucide.createIcons();
 }
-
-/* ============================================================
-   EXPORTAR PDF
-   ============================================================ */
-
-async function exportarEspelhoPdf() {
-  const e = finState.espelho.dados;
-  const itens = finState.espelho.itens;
-  const vendedor = finState.espelho.vendedor || e?.vendedor_id;
-
-  if (!e || !vendedor) {
-    alert('Nada para exportar. Abra um espelho primeiro.');
-    return;
-  }
-
-  const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const competencia = fmtMesExtenso(e.mes_competencia_venda);
-
-  const servicos = itens.filter(i => !['ACESSORIO','APARELHO','ACELERADOR_PORTABILIDADE'].includes(i.tipo_item));
-  const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
-  const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
-  const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
-
-  const meta = finState.espelho.metaInfo;
-  const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
-  const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
-  const bateuPort = realPort >= metaPort && metaPort > 0;
-
-  const metaFatPdf = meta?.metaFatTotal || 0;
-  const realFatPdf = meta?.realizadoFatTotal || 0;
-  const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
-  const aceleradorPortPdf = (bateuPort && bateuFatPdf) ? (e.total_comissao_servicos || 0) * 0.15 : 0;
-  const totalFinalPdf = (e.total_liquido_receber || 0) + aceleradorPortPdf;
-
-  const agrupados = {};
-  servicos.forEach(i => {
-    if (!agrupados[i.tipo_item]) {
-      agrupados[i.tipo_item] = {
-        qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada,
-        fator: i.fator_remuneracao_aplicado, total: 0
-      };
-    }
-    agrupados[i.tipo_item].qtd += 1;
-    agrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
-  });
-
-  const linhasServicos = Object.entries(agrupados)
-    .sort(([,a], [,b]) => b.total - a.total)
-    .map(([nome, d]) => `
-      <tr>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;">${nome}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${d.qtd}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;">R$ ${fmt(d.vr)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.qt * 100).toFixed(2)}%</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.fator * 100).toFixed(1)}%</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;font-weight:700;">R$ ${fmt(d.total)}</td>
-      </tr>
-    `).join('');
-
-  let performancePdf = '';
-  if (meta && meta.metaFatTotal > 0) {
-    const linhas = [
-      { label: 'Faturamento TIM', meta: meta.metaFatTotal, real: meta.realizadoFatTotal, tipo: 'moeda' },
-      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
-      { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
-      { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
-    ].filter(l => l.meta > 0);
-
-    const fmtL = (v, tipo) => tipo === 'moeda'
-      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
-      : Math.round(v||0);
-
-    const linhasPdf = linhas.map(l => {
-      const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
-      const cor = pctL >= 100 ? '#10b981' : pctL >= 70 ? '#f59e0b' : '#dc2626';
-      const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
-      return `
-        <tr>
-          <td style="padding:6px 8px;font-size:11px;color:#334155;">${l.label}</td>
-          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#64748b;">${fmtL(l.meta, l.tipo)}</td>
-          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#0f172a;font-weight:700;">${fmtL(l.real, l.tipo)}</td>
-          <td style="padding:6px 8px;font-size:11px;text-align:right;color:${cor};font-weight:900;">${emoji} ${pctL.toFixed(0)}%</td>
-        </tr>`;
-    }).join('');
-
-    performancePdf = `
-      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
-      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
-        <thead>
-          <tr style="background:#f8fafc;">
-            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Indicador</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Meta</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Realizado</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Ating.</th>
-          </tr>
-        </thead>
-        <tbody>${linhasPdf}</tbody>
-      </table>
-    `;
-  } else if (metaPort > 0) {
-    performancePdf = `
-      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
-      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
-        <thead>
-          <tr style="background:#f8fafc;">
-            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Indicador</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Meta</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Realizado</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Ating.</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style="padding:6px 8px;font-size:11px;color:#334155;">Portabilidade</td>
-            <td style="padding:6px 8px;font-size:11px;text-align:right;color:#64748b;">${metaPort}</td>
-            <td style="padding:6px 8px;font-size:11px;text-align:right;color:#0f172a;font-weight:700;">${realPort}</td>
-            <td style="padding:6px 8px;font-size:11px;text-align:right;color:${bateuPort ? '#10b981' : '#dc2626'};font-weight:900;">${bateuPort ? '✅' : '❌'} ${pctPort.toFixed(0)}%</td>
-          </tr>
-        </tbody>
-      </table>
-      <div style="font-size:9px;color:#94a3b8;font-style:italic;margin-bottom:16px;">
-        Meta pessoal e demais indicadores não foram cadastrados para esta competência.
-      </div>
-    `;
-  }
-
-  let portabilidadePdf = '';
-  if (metaPort > 0 || realPort > 0) {
-    const metaFatPdf = meta?.metaFatTotal || 0;
-    const realFatPdf = meta?.realizadoFatTotal || 0;
-    const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
-    const faltaFatPdf = Math.max(0, metaFatPdf - realFatPdf);
-
-    let estadoPdf;
-    if (metaPort === 0) estadoPdf = 'SEM_META';
-    else if (!bateuPort) estadoPdf = 'FALTAM_PORT';
-    else if (bateuPort && !bateuFatPdf) estadoPdf = 'FALTA_FAT';
-    else estadoPdf = 'LIBERADO';
-
-    const cores = {
-      LIBERADO:    { bg: '#d1fae5', borda: '#10b981', texto: '#065f46', textoSub: '#047857', emoji: '🎉' },
-      FALTA_FAT:   { bg: '#dbeafe', borda: '#3b82f6', texto: '#1e40af', textoSub: '#1d4ed8', emoji: '⚠️' },
-      FALTAM_PORT: { bg: '#f1f5f9', borda: '#cbd5e1', texto: '#475569', textoSub: '#64748b', emoji: '⚡' },
-      SEM_META:    { bg: '#f1f5f9', borda: '#cbd5e1', texto: '#475569', textoSub: '#64748b', emoji: '⚡' }
-    };
-    const c = cores[estadoPdf];
-
-    let msgPdf, valorMostrarPdf;
-    if (estadoPdf === 'SEM_META') {
-      msgPdf = `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`;
-      valorMostrarPdf = '—';
-    } else if (estadoPdf === 'FALTAM_PORT') {
-      msgPdf = `Faltam ${metaPort - realPort} portabilidades para bater a meta`;
-      valorMostrarPdf = '—';
-    } else if (estadoPdf === 'FALTA_FAT') {
-      msgPdf = `✅ Portabilidade batida! Falta ${fmt(faltaFatPdf)} em faturamento para liberar o Acelerador`;
-      valorMostrarPdf = '—';
-    } else {
-      msgPdf = `Parabéns! Acelerador de 15% sobre R$ ${fmt(e.total_comissao_servicos)} de serviços`;
-      valorMostrarPdf = `+ R$ ${fmt(aceleradorPortPdf)}`;
-    }
-
-    const tituloMetaPdf = metaPort > 0 ? `— ${pctPort.toFixed(0)}% da meta` : '';
-    const contadorPdf = metaPort > 0 ? `${realPort} / ${metaPort}` : `${realPort}`;
-
-    portabilidadePdf = `
-      <table style="width:100%; margin-top:12px; margin-bottom:6px;">
-        <tr>
-          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;border-left:4px solid ${c.borda};">
-            <div style="font-size:11px;font-weight:900;color:${c.texto};text-transform:uppercase;">⚡ Portabilidade ${tituloMetaPdf}</div>
-            <div style="font-size:9px;color:${c.textoSub};margin-top:2px;">${msgPdf}</div>
-          </td>
-          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid ${c.borda};">
-            <div style="font-size:9px;color:${c.textoSub};">${contadorPdf}</div>
-            <div style="font-size:15px;font-weight:900;color:${c.texto};">${valorMostrarPdf}</div>
-          </td>
-        </tr>
-      </table>
-    `;
-  }
-
-  const hoje = new Date();
-  const dataEmissao = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()} às ${String(hoje.getHours()).padStart(2,'0')}:${String(hoje.getMinutes()).padStart(2,'0')}`;
-
-  const html = `
-    <div style="padding:30px 40px; font-family: Arial, sans-serif; color:#1e293b; background:#fff; width:100%; box-sizing:border-box;">
-      <table style="width:100%; border-bottom:3px solid #0e8890; padding-bottom:14px; margin-bottom:22px;">
-        <tr>
-          <td style="vertical-align:middle;">
-            <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" style="height:60px; width:auto;">
-          </td>
-          <td style="text-align:right; vertical-align:middle;">
-            <div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; letter-spacing:1.5px;">Espelho de Comissão</div>
-            <div style="font-size:20px; font-weight:900; color:#000033; margin-top:4px;">${vendedor}</div>
-            <div style="font-size:11px; color:#64748b; margin-top:3px;">Competência: <strong>${competencia}</strong></div>
-          </td>
-        </tr>
-      </table>
-
-      <table style="width:100%; margin-bottom:24px; border-collapse:separate; border-spacing:6px;">
-        <tr>
-          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
-            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Serviços TIM</div>
-            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_servicos)}</div>
-          </td>
-          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
-            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Acessórios</div>
-            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_acessorios)}</div>
-          </td>
-          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
-            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Aparelhos</div>
-            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_aparelhos)}</div>
-          </td>
-          <td style="background:#0e8890; padding:12px; border-radius:6px; width:25%;">
-            <div style="font-size:9px; color:#d1fae5; text-transform:uppercase; font-weight:700;">Total a Receber</div>
-            <div style="font-size:17px; font-weight:900; color:#fff; margin-top:4px;">R$ ${fmt(totalFinalPdf)}</div>
-          </td>
-          </tr>
-      </table>
-
-      ${performancePdf}
-
-      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">Serviços TIM</div>
-      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
-        <thead>
-          <tr style="background:#f8fafc;">
-            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Plano</th>
-            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Qtd</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">VR</th>
-            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">QT</th>
-            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Fator</th>
-            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Comissão</th>
-          </tr>
-        </thead>
-        <tbody>${linhasServicos}</tbody>
-        <tfoot>
-          <tr>
-            <td colspan="5" style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;border-top:2px solid #e2e8f0;">Subtotal Serviços</td>
-            <td style="padding:9px;text-align:right;font-size:13px;font-weight:900;color:#0f172a;border-top:2px solid #e2e8f0;">R$ ${fmt(e.total_comissao_servicos)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      ${acessorios.length > 0 ? `
-      <table style="width:100%; margin-bottom:6px;">
-        <tr>
-          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;">
-            <div style="font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;">Acessórios</div>
-            <div style="font-size:9px;color:#64748b;margin-top:2px;">${acessorios.length} itens vendidos · fator ${(acessorios[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</div>
-          </td>
-          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;text-align:right;width:180px;">
-            <div style="font-size:15px;font-weight:900;color:#0f172a;">R$ ${fmt(e.total_comissao_acessorios)}</div>
-          </td>
-        </tr>
-      </table>` : ''}
-
-      ${aparelhos.length > 0 ? `
-      <table style="width:100%; margin-bottom:6px;">
-        <tr>
-          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;">
-            <div style="font-size:11px;font-weight:900;color:#334155;text-transform:uppercase;">Aparelhos</div>
-            <div style="font-size:9px;color:#64748b;margin-top:2px;">${aparelhos.length} itens vendidos · fator ${(aparelhos[0].fator_remuneracao_aplicado * 100).toFixed(2)}%</div>
-          </td>
-          <td style="background:#f8fafc;padding:10px 12px;border-radius:6px;text-align:right;width:180px;">
-            <div style="font-size:15px;font-weight:900;color:#0f172a;">R$ ${fmt(e.total_comissao_aparelhos)}</div>
-          </td>
-        </tr>
-      </table>` : ''}
-
-      ${portabilidadePdf}
-
-      <table style="width:100%; margin-top:16px; margin-bottom:36px;">
-        <tr>
-          <td style="background:#000033;padding:14px 20px;border-radius:8px;">
-            ${aceleradorPortPdf > 0 ? `
-            <table style="width:100%; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
-              <tr>
-                <td style="vertical-align:middle;">
-                  <div style="font-size:10px;color:#94a3b8;">Subtotal base</div>
-                </td>
-                <td style="text-align:right;vertical-align:middle;">
-                  <div style="font-size:14px;font-weight:900;color:#cbd5e1;">R$ ${fmt(e.total_liquido_receber)}</div>
-                </td>
-              </tr>
-            </table>
-            <table style="width:100%; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
-              <tr>
-                <td style="vertical-align:middle;">
-                  <div style="font-size:10px;color:#6ee7b7;">⚡ Acelerador Portabilidade (15%)</div>
-                </td>
-                <td style="text-align:right;vertical-align:middle;">
-                  <div style="font-size:14px;font-weight:900;color:#6ee7b7;">+ R$ ${fmt(aceleradorPortPdf)}</div>
-                </td>
-              </tr>
-            </table>
-            ` : ''}
-            <table style="width:100%;">
-              <tr>
-                <td style="vertical-align:middle;">
-                  <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Total Líquido a Receber</div>
-                  <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Competência ${competencia}</div>
-                </td>
-                <td style="text-align:right;vertical-align:middle;">
-                  <div style="font-size:24px;font-weight:900;color:#fff;">R$ ${fmt(totalFinalPdf)}</div>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-
-      <table style="width:100%; margin-top:44px;">
-        <tr>
-          <td style="width:45%; text-align:center; vertical-align:bottom;">
-            <div style="border-top:1px solid #334155; padding-top:8px; margin-top:50px;">
-              <div style="font-size:10px;font-weight:900;color:#0f172a;text-transform:uppercase;">${vendedor}</div>
-              <div style="font-size:9px;color:#64748b;margin-top:2px;">Consultor de Vendas</div>
-            </div>
-          </td>
-          <td style="width:10%;"></td>
-          <td style="width:45%; text-align:center; vertical-align:bottom;">
-            <div style="border-top:1px solid #334155; padding-top:8px; margin-top:50px;">
-              <div style="font-size:10px;font-weight:900;color:#0f172a;text-transform:uppercase;">INFORTECA LTDA</div>
-              <div style="font-size:9px;color:#64748b;margin-top:2px;">Representante Legal</div>
-            </div>
-          </td>
-        </tr>
-      </table>
-
-      <div style="margin-top:32px; padding-top:14px; border-top:1px solid #cbd5e1; text-align:center;">
-        <div style="font-size:9px; color:#64748b; line-height:1.7;">
-          <strong style="color:#0f172a;">INFORTECA LTDA</strong> · CNPJ 45.765.640/0001-20<br>
-          Rua Dom José, 198 · Centro · Garanhuns/PE<br>
-          Documento gerado eletronicamente em ${dataEmissao}
-        </div>
-      </div>
-    </div>
-  `;
-
-  const wrapper = document.createElement('div');
-  wrapper.id = 'pdf-wrapper';
-  wrapper.style.cssText = 'position:fixed; top:0; left:-10000px; width:210mm; background:#ffffff; padding:0; margin:0; z-index:99999;';
-  wrapper.innerHTML = html;
-  document.body.appendChild(wrapper);
-
-  try {
-    const img = wrapper.querySelector('img');
-    if (img && !img.complete) {
-      await new Promise(r => {
-        img.onload = r;
-        img.onerror = r;
-        setTimeout(r, 2000);
-      });
-    }
-
-    await new Promise(r => setTimeout(r, 400));
-
-    const canvas = await html2canvas(wrapper, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: wrapper.scrollWidth,
-      height: wrapper.scrollHeight,
-      windowWidth: wrapper.scrollWidth,
-      windowHeight: wrapper.scrollHeight,
-      scrollX: 0,
-      scrollY: 0
-    });
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    if (imgHeight <= pageHeight) {
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
-    } else {
-      const totalPages = Math.ceil(imgHeight / pageHeight);
-      const pxPerMm = canvas.height / imgHeight;
-      const sliceHeightMm = pageHeight;
-      const sliceHeightPx = sliceHeightMm * pxPerMm;
-
-      for (let p = 0; p < totalPages; p++) {
-        if (p > 0) pdf.addPage();
-
-        const yStartPx = p * sliceHeightPx;
-        const currentSliceHeightPx = Math.min(sliceHeightPx, canvas.height - yStartPx);
-
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = currentSliceHeightPx;
-
-        const ctx = sliceCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-        ctx.drawImage(
-          canvas,
-          0, yStartPx, canvas.width, currentSliceHeightPx,
-          0, 0, sliceCanvas.width, sliceCanvas.height
-        );
-
-        const sliceHeightMmActual = currentSliceHeightPx / pxPerMm;
-        pdf.addImage(
-          sliceCanvas.toDataURL('image/jpeg', 0.95),
-          'JPEG', 0, 0, imgWidth, sliceHeightMmActual
-        );
-      }
-    }
-
-    const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
-    pdf.save(nomeArquivo);
-  } catch (err) {
-    console.error('[PDF]', err);
-    alert('Erro ao gerar PDF: ' + err.message);
-  } finally {
-    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
-  }
-}
-
-/* ============================================================
-   POLÍTICAS
-   ============================================================ */
-
-async function carregarPoliticas() {
-  invalidarCachePoliticas();
-  await obterPoliticas();
-  renderizarPoliticas();
-}
-
-function renderizarPoliticas() {
-  const tbody = document.getElementById('politicasTbody');
-  tbody.innerHTML = finState.politicas.lista.map(p => `<tr class="border-b border-slate-100">
-    <td class="px-4 py-2 text-xs font-bold">${p.categoria}</td>
-    <td class="px-4 py-2 text-xs">${p.faixa_atingimento}</td>
-    <td class="px-4 py-2 text-right font-bold">${(p.fator_remuneracao * 100).toFixed(2)}%</td>
-    <td class="px-4 py-2 text-xs text-slate-400">${p.vigencia_inicio || '—'}</td>
-  </tr>`).join('');
-}
-
-/* ============================================================
-   BOTÕES DE AÇÃO
-   ============================================================ */
-
-async function gerarEspelhosCompetencia() {
-  const mes = document.getElementById('concMes').value;
-
-  if (!confirm(`⚡ Gerar espelhos de TODOS os consultores para ${mes}?\n\nIsso recalcula os espelhos com base na conciliação atual.`)) return;
-
-  const btn = document.getElementById('concBtnGerarEspelhos');
-  const htmlOrig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<svg class="animate-spin inline-block w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Gerando...';
-
-  try {
-    const { data, error } = await supabaseClient.rpc('gerar_espelhos_competencia', {
-      p_mes_competencia: `${mes}-01`
-    });
-
-    if (error) throw error;
-    if (!data.sucesso) throw new Error('Erro ao gerar');
-
-    let msg = `✅ ${data.total_gerado} espelho(s) gerado(s) para ${mes}`;
-    if (data.erros && data.erros.length > 0) {
-      msg += `\n\n⚠️ ${data.erros.length} erro(s):\n` + data.erros.slice(0, 5).join('\n');
-    }
-    alert(msg);
-
-  } catch (err) {
-    console.error('[Gerar Espelhos]', err);
-    alert('❌ Erro: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = htmlOrig;
-    if (window.lucide) lucide.createIcons();
-  }
-}
-
-async function cancelarVenda(interacaoId, nomeCliente) {
-  if (!confirm(`⚠️ Cancelar a venda de ${nomeCliente}?\n\nA venda NÃO entrará em nenhum espelho futuro.`)) return;
-
-  try {
-    const { error } = await supabaseClient
-      .from('interacoes')
-      .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
-      .eq('id', interacaoId);
-
-    if (error) throw error;
-
-    alert('✅ Venda cancelada. Regenere o espelho do vendedor para refletir.');
-    carregarVendasNaoPagas();
-  } catch (err) {
-    alert('Erro: ' + err.message);
-  }
-}
-
-/* ============================================================
-   MODO PREVISÃO — dia a dia enquanto não há conciliação
-   ============================================================ */
 
 async function renderizarPrevisao() {
   const p = finState.espelho.previsao;
@@ -1634,29 +955,8 @@ async function renderizarPrevisao() {
   const comissaoAparelhos  = Number((valorAparelhosVendidos  * fatorAparelho ).toFixed(2));
   const comissaoAcessorios = Number((valorAcessoriosVendidos * fatorAcessorio).toFixed(2));
 
-  // 🆕 RECALCULAR SERVIÇOS APLICANDO A QT DINÂMICA DO ACOMPANHAMENTO
-  let totalServicosRecalculado = 0;
-  
-  // Puxa do metaInfo, se não existir usa o padrão
-  const qtControle = Number(meta?.qtControle) || 0.7308;
-  const qtPos = Number(meta?.qtPos) || 1.0;
-  
-  const itensServicosAjustados = (p.itens_servicos || []).map(it => {
-    const isControle = String(it.plano || '').toUpperCase().includes('CONTROLE');
-    
-    const qtCorreta = isControle ? qtControle : qtPos;
-    
-    const totalLinha = Number((it.qtd * it.vr * qtCorreta * it.fator).toFixed(2));
-    totalServicosRecalculado += totalLinha;
-
-    return {
-      ...it,
-      qt: qtCorreta,
-      total: totalLinha
-    };
-  });
-
-  const comissaoServicos = totalServicosRecalculado;
+  // Agora confiamos no SQL que já arrumamos
+  const comissaoServicos = Number(p.total_servicos || 0);
   const totalGeralComExtras = comissaoServicos + comissaoAcessorios + comissaoAparelhos;
 
   const aceleradorPortP = portEstadoP === 'LIBERADO'
@@ -1673,8 +973,8 @@ async function renderizarPrevisao() {
     const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pctFat >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
     const emoji = meta.bateuPessoal ? '🎉' : meta.pctFat >= 70 ? '💪' : '📈';
     const faltaFat = Math.max(0, meta.metaFatTotal - meta.realizadoFatTotal);
-
     const pctFatFmt = (fatorServico * 100).toFixed(0);
+
     const msg = meta.bateuPessoal
       ? `Parabéns! Você bateu sua meta de faturamento (fator ${pctFatFmt}%)`
       : `Faltam <strong>${fmtR(faltaFat)}</strong> em faturamento para bater a meta (fator ${pctFatFmt}%)`;
@@ -1694,10 +994,6 @@ async function renderizarPrevisao() {
         <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
           <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
         </div>
-        <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
-          <span>Tier aplicado: <strong>${tier}</strong> · Serviço <strong>${(fatorServico * 100).toFixed(0)}%</strong></span>
-          <span>Meta loja: <strong>${meta.pctLoja.toFixed(0)}%</strong> ${meta.bateuLoja ? '✅' : ''}</span>
-        </div>
       </div>`;
   }
 
@@ -1710,9 +1006,7 @@ async function renderizarPrevisao() {
       { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
     ].filter(l => l.meta > 0);
 
-    const fmtV = (v, tipo) => tipo === 'moeda'
-      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
-      : Math.round(v||0);
+    const fmtV = (v, tipo) => tipo === 'moeda' ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : Math.round(v||0);
 
     const linhasHTML = linhas.map(l => {
       const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
@@ -1740,14 +1034,12 @@ async function renderizarPrevisao() {
       <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-6 shadow-sm">
         <div class="flex items-center justify-between mb-3">
           <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">📊 Sua Performance (Projeção)</h3>
-          <span class="text-[10px] text-slate-400 font-bold">${meta.diasTrabalhados} dias trabalhados · faltam ${meta.diasRestantes}</span>
         </div>
         ${linhasHTML}
-      </div>
-    `;
+      </div>`;
   }
 
-  const linhasServicos = itensServicosAjustados.map(it => `
+  const linhasServicos = (p.itens_servicos || []).map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
       <td class="px-4 py-3 text-center text-sm text-slate-600">${it.qtd}</td>
@@ -1765,13 +1057,7 @@ async function renderizarPrevisao() {
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
-              <p class="text-sm font-bold mt-1 text-slate-700">
-                Faltam <strong>${metaPort - realPort}</strong> portabilidade${(metaPort - realPort) > 1 ? 's' : ''} para bater a meta
-              </p>
-            </div>
-            <div class="text-right shrink-0 ml-4">
-              <div class="text-sm font-bold text-slate-500 mb-1">${realPort} / ${metaPort}</div>
-              <div class="text-2xl font-black text-slate-400">—</div>
+              <p class="text-sm font-bold mt-1 text-slate-700">Faltam <strong>${metaPort - realPort}</strong> portabilidade${(metaPort - realPort) > 1 ? 's' : ''} para bater a meta</p>
             </div>
           </div>
         </div>`;
@@ -1781,18 +1067,8 @@ async function renderizarPrevisao() {
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎯 meta batida!</p>
-              <p class="text-sm font-bold mt-1 text-white">
-                Você bateu a portabilidade! Agora falta bater a <strong>meta de faturamento</strong> para liberar o Acelerador (bônus de ${(fatorAcelerador * 100).toFixed(0)}% sobre a comissão de serviços).
-              </p>
-              <p class="text-[11px] text-white/80 mt-1">
-                ${metaFatP > 0
-                  ? `Faltam <strong>${fmtR(faltaFatPortP)}</strong> em faturamento`
-                  : 'Cadastre a meta de faturamento para ver quanto falta'}
-              </p>
-            </div>
-            <div class="text-right shrink-0 ml-4">
-              <div class="text-sm font-bold text-white/90 mb-1">${realPort} / ${metaPort}</div>
-              <div class="text-2xl font-black text-white">🔒</div>
+              <p class="text-sm font-bold mt-1 text-white">Falta bater a <strong>meta de faturamento</strong> para liberar o Acelerador.</p>
+              <p class="text-[11px] text-white/80 mt-1">${metaFatP > 0 ? `Faltam <strong>${fmtR(faltaFatPortP)}</strong> em faturamento` : 'Cadastre a meta de faturamento'}</p>
             </div>
           </div>
         </div>`;
@@ -1802,16 +1078,8 @@ async function renderizarPrevisao() {
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎉 ACELERADOR LIBERADO</p>
-              <p class="text-sm font-bold mt-1 text-white">
-                Meta de portabilidade e faturamento batidas! Bônus de <strong>${(fatorAcelerador * 100).toFixed(0)}%</strong> aplicado sobre a comissão de serviços.
-              </p>
-              <p class="text-[11px] text-white/90 mt-1">
-                Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(comissaoServicos)} de serviços
-              </p>
-            </div>
-            <div class="text-right shrink-0 ml-4">
-              <div class="text-sm font-bold text-white/90 mb-1">${realPort} / ${metaPort}</div>
-              <div class="text-xl font-black text-white">+ R$ ${fmt(aceleradorPortP)}</div>
+              <p class="text-sm font-bold mt-1 text-white">Bônus de <strong>${(fatorAcelerador * 100).toFixed(0)}%</strong> aplicado sobre a comissão de serviços.</p>
+              <p class="text-[11px] text-white/90 mt-1">Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(comissaoServicos)}</p>
             </div>
           </div>
         </div>`;
@@ -1855,18 +1123,14 @@ async function renderizarPrevisao() {
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAcessorios)}</p>
         <p class="text-[10px] text-slate-400 mt-1">
-          ${valorAcessoriosVendidos > 0
-            ? `Base R$ ${fmt(valorAcessoriosVendidos)} × ${(fatorAcessorio * 100).toFixed(2)}%`
-            : `${p.qtd_acessorios || 0} itens`}
+          ${valorAcessoriosVendidos > 0 ? `Base R$ ${fmt(valorAcessoriosVendidos)} × ${(fatorAcessorio * 100).toFixed(2)}%` : `${p.qtd_acessorios || 0} itens`}
         </p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAparelhos)}</p>
         <p class="text-[10px] text-slate-400 mt-1">
-          ${valorAparelhosVendidos > 0
-            ? `Base R$ ${fmt(valorAparelhosVendidos)} × ${(fatorAparelho * 100).toFixed(2)}%`
-            : `${p.qtd_aparelhos || 0} itens`}
+          ${valorAparelhosVendidos > 0 ? `Base R$ ${fmt(valorAparelhosVendidos)} × ${(fatorAparelho * 100).toFixed(2)}%` : `${p.qtd_aparelhos || 0} itens`}
         </p>
       </div>
       <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
@@ -1876,8 +1140,7 @@ async function renderizarPrevisao() {
       </div>
     </div>
 
-    ${gamificacaoHTML}
-    ${performanceHTML}
+    ${gamificacaoHTML}${performanceHTML}
 
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
@@ -1895,9 +1158,7 @@ async function renderizarPrevisao() {
               <th class="px-4 py-3 text-right font-black">Comissão</th>
             </tr>
           </thead>
-          <tbody>
-            ${linhasServicos || '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">Nenhuma venda ainda</td></tr>'}
-          </tbody>
+          <tbody>${linhasServicos}</tbody>
           <tfoot class="bg-slate-50 border-t-2 border-slate-200">
             <tr>
               <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
@@ -1923,24 +1184,18 @@ async function renderizarPrevisao() {
           <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">⚡ Acelerador Portabilidade (${(fatorAcelerador * 100).toFixed(0)}%)</p>
         </div>
         <p class="text-lg font-black text-white">+ R$ ${fmt(aceleradorPortP)}</p>
-      </div>
-      ` : ''}
+      </div>` : ''}
       <div class="flex justify-between items-center">
         <div>
           <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
-          <p class="text-xs text-white/70 mt-0.5">Sujeito a alterações após conciliação com a base oficial da TIM</p>
+          <p class="text-xs text-white/70 mt-0.5">Sujeito a alterações após conciliação</p>
         </div>
         <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalP)}</p>
       </div>
     </div>
   `;
-
   if (window.lucide) lucide.createIcons();
 }
-
-/* ============================================================
-   BOOT
-   ============================================================ */
 
 window.inicializarModuloFinanceiro = function(view) {
   if (view === 'conciliacao') inicializarConciliacao();
