@@ -967,41 +967,55 @@ function renderizarEspelho() {
     </div>` : ''}
 
     <!-- PORTABILIDADE -->
-     ${metaPort > 0 ? `
+    ${metaPort > 0 ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${
-      portEstadoP === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
-      portEstadoP === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+      portEstado === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
+      portEstado === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
                                    'bg-white border border-slate-200'
     }">
       <div class="flex justify-between items-center">
         <div class="flex-1 min-w-0">
           <p class="text-[10px] font-black uppercase tracking-widest ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
           }">
             ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
-            ${portEstadoP === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
+            ${portEstado === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
           </p>
           <p class="text-sm font-bold mt-1 ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
           }">
-            ${portEstadoP === 'FALTAM_PORT'
+            ${portEstado === 'FALTAM_PORT'
               ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
-              : portEstadoP === 'FALTA_FAT'
-                ? `✅ Portabilidade batida! Falta <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento para liberar o Acelerador`
+              : portEstado === 'FALTA_FAT'
+                ? `✅ Portabilidade batida! Falta <strong>${fmtRPort(faltaFatPort)}</strong> em faturamento para liberar o Acelerador`
                 : `🎉 Meta batida! Bônus será aplicado em ${realPort} acessos`
             }
           </p>
         </div>
         <div class="text-right shrink-0 ml-4">
           <div class="text-sm font-bold ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
           } mb-1">${realPort} / ${metaPort}</div>
           <div class="text-2xl font-black ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
-          }">${portEstadoP === 'LIBERADO' ? '15% aplicável' : '—'}</div>
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
+          }">${portEstado === 'LIBERADO' ? 'R$ ' + fmt(portTotal) : '—'}</div>
         </div>
       </div>
     </div>` : ''}
+
+    <!-- TOTAL FINAL -->
+    <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
+      <div>
+        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
+        <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
+      </div>
+      <p class="text-3xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
 /* ============================================================
    EXPORTAR PDF
    ============================================================ */
