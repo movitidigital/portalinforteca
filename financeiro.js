@@ -1627,7 +1627,7 @@ async function renderizarPrevisao() {
   const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
   /* ============================================================
-     🆕 1) POLÍTICAS — lê fatores do banco aplicando o tier correto
+     1) POLÍTICAS — lê fatores do banco aplicando o tier correto
      ============================================================ */
   const politicas = await obterPoliticas();
   const tier = resolverTier(meta);
@@ -1661,7 +1661,7 @@ async function renderizarPrevisao() {
   else portEstadoP = 'LIBERADO';
 
   /* ============================================================
-     🆕 2) COMISSÕES — calculadas localmente com o fator do tier
+     2) COMISSÕES — calculadas localmente com o fator do tier
      ============================================================ */
   const valorAparelhosVendidos  = Number(meta?.realizadoAparelho)   || 0;
   const valorAcessoriosVendidos = Number(meta?.realizadoAcessorios) || 0;
@@ -1669,13 +1669,34 @@ async function renderizarPrevisao() {
   const comissaoAparelhos  = Number((valorAparelhosVendidos  * fatorAparelho ).toFixed(2));
   const comissaoAcessorios = Number((valorAcessoriosVendidos * fatorAcessorio).toFixed(2));
 
-  const comissaoServicos = Number(p.total_servicos || 0);
+  // 🆕 RECALCULAR SERVIÇOS APLICANDO A QT CORRETA (Pós 100% / Controle 73,08%)
+  let totalServicosRecalculado = 0;
+  
+  const itensServicosAjustados = (p.itens_servicos || []).map(it => {
+    // Detecta Controle vs Pós pelo nome do plano
+    const isControle = String(it.plano || '').toUpperCase().includes('CONTROLE');
+    
+    // Define a QT correta (Controle 73.08% / Pós 100%)
+    const qtCorreta = isControle ? 0.7308 : 1.0;
+    
+    // Recalcula a comissão da linha (Qtd × VR × QT × Fator)
+    const totalLinha = Number((it.qtd * it.vr * qtCorreta * it.fator).toFixed(2));
+    totalServicosRecalculado += totalLinha;
 
-  // 🆕 Total = serviços + acessórios + aparelhos (reconstruído, não confia na RPC)
+    return {
+      ...it,
+      qt: qtCorreta,      // Substitui a QT vinda errada da RPC
+      total: totalLinha   // Substitui o total vindo errado da RPC
+    };
+  });
+
+  const comissaoServicos = totalServicosRecalculado;
+
+  // Total = serviços + acessórios + aparelhos
   const totalGeralComExtras = comissaoServicos + comissaoAcessorios + comissaoAparelhos;
 
   /* ============================================================
-     🆕 3) ACELERADOR DE PORTABILIDADE (fator lido das políticas)
+     3) ACELERADOR DE PORTABILIDADE (fator lido das políticas)
      ============================================================ */
   const aceleradorPortP = portEstadoP === 'LIBERADO'
     ? Number((comissaoServicos * fatorAcelerador).toFixed(2))
@@ -1782,9 +1803,9 @@ async function renderizarPrevisao() {
   }
 
   /* ============================================================
-     SERVIÇOS
+     SERVIÇOS (Agora usando os itens com a QT ajustada)
      ============================================================ */
-  const linhasServicos = (p.itens_servicos || []).map(it => `
+  const linhasServicos = itensServicosAjustados.map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
       <td class="px-4 py-3 text-center text-sm text-slate-600">${it.qtd}</td>
