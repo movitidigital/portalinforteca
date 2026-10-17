@@ -757,6 +757,10 @@ function renderizarEspelho() {
     portEstado = 'LIBERADO';
   }
 
+     // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
+  const aceleradorPort = portEstado === 'LIBERADO' ? (e.total_comissao_servicos || 0) * 0.15 : 0;
+  const totalFinalEspelho = (e.total_liquido_receber || 0) + aceleradorPort;
+
   const servicosAgrupados = {};
   servicos.forEach(i => {
     if (!servicosAgrupados[i.tipo_item]) {
@@ -988,7 +992,7 @@ function renderizarEspelho() {
               ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
               : portEstado === 'FALTA_FAT'
                 ? `✅ Portabilidade batida! Falta <strong>${fmtRPort(faltaFatPort)}</strong> em faturamento para liberar o Acelerador`
-                : `🎉 Meta batida! Bônus será aplicado em ${realPort} acessos`
+                : `🎉 Meta batida! Acelerador de <strong>15%</strong> aplicado sobre R$ ${fmt(e.total_comissao_servicos)} de serviços`
             }
           </p>
         </div>
@@ -996,25 +1000,33 @@ function renderizarEspelho() {
           <div class="text-sm font-bold ${
             portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
           } mb-1">${realPort} / ${metaPort}</div>
-          <div class="text-2xl font-black ${
+          <div class="text-xl font-black ${
             portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
-          }">${portEstado === 'LIBERADO' ? 'R$ ' + fmt(portTotal) : '—'}</div>
+          }">${portEstado === 'LIBERADO' ? '+ R$ ' + fmt(aceleradorPort) : '—'}</div>
         </div>
       </div>
     </div>` : ''}
-
+    
     <!-- TOTAL FINAL -->
-    <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
-      <div>
-        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
-        <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
+    <div class="bg-[#000033] rounded-2xl p-6 shadow-xl mb-6">
+      ${aceleradorPort > 0 ? `
+      <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/10">
+        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Subtotal base</p>
+        <p class="text-lg font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
       </div>
-      <p class="text-3xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
+      <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/10">
+        <p class="text-[10px] font-black text-emerald-300 uppercase tracking-widest">⚡ Acelerador Portabilidade (15%)</p>
+        <p class="text-lg font-black text-emerald-300">+ R$ ${fmt(aceleradorPort)}</p>
+      </div>
+      ` : ''}
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
+          <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
+        </div>
+        <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalEspelho)}</p>
+      </div>
     </div>
-  `;
-
-  if (window.lucide) lucide.createIcons();
-}
 
 /* ============================================================
    EXPORTAR PDF
@@ -1043,6 +1055,13 @@ async function exportarEspelhoPdf() {
   const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
+
+  // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
+  const metaFatPdf = meta?.metaFatTotal || 0;
+  const realFatPdf = meta?.realizadoFatTotal || 0;
+  const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
+  const aceleradorPortPdf = (bateuPort && bateuFatPdf) ? (e.total_comissao_servicos || 0) * 0.15 : 0;
+  const totalFinalPdf = (e.total_liquido_receber || 0) + aceleradorPortPdf;
 
   const agrupados = {};
   servicos.forEach(i => {
@@ -1170,9 +1189,8 @@ async function exportarEspelhoPdf() {
       msgPdf = `✅ Portabilidade batida! Falta ${fmt(faltaFatPdf)} em faturamento para liberar o Acelerador`;
       valorMostrarPdf = '—';
     } else {
-      const portTotalPdf = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
-      msgPdf = `Parabéns! Meta de portabilidade e faturamento batidas. Bônus aplicado em ${realPort} acessos`;
-      valorMostrarPdf = `R$ ${fmt(portTotalPdf)}`;
+      msgPdf = `Parabéns! Acelerador de 15% sobre R$ ${fmt(e.total_comissao_servicos)} de serviços`;
+      valorMostrarPdf = `+ R$ ${fmt(aceleradorPortPdf)}`;
     }
 
     const tituloMetaPdf = metaPort > 0 ? `— ${pctPort.toFixed(0)}% da meta` : '';
@@ -1228,9 +1246,9 @@ async function exportarEspelhoPdf() {
           </td>
           <td style="background:#0e8890; padding:12px; border-radius:6px; width:25%;">
             <div style="font-size:9px; color:#d1fae5; text-transform:uppercase; font-weight:700;">Total a Receber</div>
-            <div style="font-size:17px; font-weight:900; color:#fff; margin-top:4px;">R$ ${fmt(e.total_liquido_receber)}</div>
+            <div style="font-size:17px; font-weight:900; color:#fff; margin-top:4px;">R$ ${fmt(totalFinalPdf)}</div>
           </td>
-        </tr>
+          </tr>
       </table>
 
       ${performancePdf}
@@ -1287,6 +1305,28 @@ async function exportarEspelhoPdf() {
       <table style="width:100%; margin-top:16px; margin-bottom:36px;">
         <tr>
           <td style="background:#000033;padding:14px 20px;border-radius:8px;">
+            ${aceleradorPortPdf > 0 ? `
+            <table style="width:100%; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:10px;color:#94a3b8;">Subtotal base</div>
+                </td>
+                <td style="text-align:right;vertical-align:middle;">
+                  <div style="font-size:14px;font-weight:900;color:#cbd5e1;">R$ ${fmt(e.total_liquido_receber)}</div>
+                </td>
+              </tr>
+            </table>
+            <table style="width:100%; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.1);">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:10px;color:#6ee7b7;">⚡ Acelerador Portabilidade (15%)</div>
+                </td>
+                <td style="text-align:right;vertical-align:middle;">
+                  <div style="font-size:14px;font-weight:900;color:#6ee7b7;">+ R$ ${fmt(aceleradorPortPdf)}</div>
+                </td>
+              </tr>
+            </table>
+            ` : ''}
             <table style="width:100%;">
               <tr>
                 <td style="vertical-align:middle;">
@@ -1294,7 +1334,7 @@ async function exportarEspelhoPdf() {
                   <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Competência ${competencia}</div>
                 </td>
                 <td style="text-align:right;vertical-align:middle;">
-                  <div style="font-size:24px;font-weight:900;color:#fff;">R$ ${fmt(e.total_liquido_receber)}</div>
+                  <div style="font-size:24px;font-weight:900;color:#fff;">R$ ${fmt(totalFinalPdf)}</div>
                 </td>
               </tr>
             </table>
@@ -1523,6 +1563,10 @@ function renderizarPrevisao() {
   else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
   else portEstadoP = 'LIBERADO';
 
+  // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
+  const aceleradorPortP = portEstadoP === 'LIBERADO' ? (p.total_servicos || 0) * 0.15 : 0;
+  const totalFinalP = (p.total_geral || 0) + aceleradorPortP;
+
   console.log('[Previsão] Debug:', {
     metaPort, realPort, pctPort, bateuPort,
     metaFatP, realFatP, bateuFatP,
@@ -1671,12 +1715,15 @@ function renderizarPrevisao() {
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎉 ACELERADOR LIBERADO</p>
               <p class="text-sm font-bold mt-1 text-white">
-                Meta de portabilidade e faturamento batidas! Bônus de 15% será aplicado sobre a comissão de serviços.
+                Meta de portabilidade e faturamento batidas! Bônus de <strong>15%</strong> aplicado sobre a comissão de serviços.
+              </p>
+              <p class="text-[11px] text-white/90 mt-1">
+                Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(p.total_servicos)} de serviços
               </p>
             </div>
             <div class="text-right shrink-0 ml-4">
               <div class="text-sm font-bold text-white/90 mb-1">${realPort} / ${metaPort}</div>
-              <div class="text-2xl font-black text-white">✅</div>
+              <div class="text-xl font-black text-white">+ R$ ${fmt(aceleradorPortP)}</div>
             </div>
           </div>
         </div>`;
@@ -1767,12 +1814,28 @@ function renderizarPrevisao() {
 
     ${portabilidadeHTML}
 
-    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
-      <div>
-        <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
-        <p class="text-xs text-white/70 mt-0.5">Sujeito a alterações após conciliação com a base oficial da TIM</p>
+    <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl mb-6">
+      ${aceleradorPortP > 0 ? `
+      <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/20">
+        <div>
+          <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Subtotal base</p>
+        </div>
+        <p class="text-lg font-black text-white">R$ ${fmt(p.total_geral)}</p>
       </div>
-      <p class="text-3xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
+      <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/20">
+        <div>
+          <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">⚡ Acelerador Portabilidade (15%)</p>
+        </div>
+        <p class="text-lg font-black text-white">+ R$ ${fmt(aceleradorPortP)}</p>
+      </div>
+      ` : ''}
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
+          <p class="text-xs text-white/70 mt-0.5">Sujeito a alterações após conciliação com a base oficial da TIM</p>
+        </div>
+        <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalP)}</p>
+      </div>
     </div>
   `;
 
