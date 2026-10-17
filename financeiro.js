@@ -967,63 +967,41 @@ function renderizarEspelho() {
     </div>` : ''}
 
     <!-- PORTABILIDADE -->
-    ${(metaPort > 0 || realPort > 0) ? `
+     ${metaPort > 0 ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${
-      portEstado === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
-      portEstado === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+      portEstadoP === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
+      portEstadoP === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
                                    'bg-white border border-slate-200'
     }">
       <div class="flex justify-between items-center">
         <div class="flex-1 min-w-0">
           <p class="text-[10px] font-black uppercase tracking-widest ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
           }">
-            ⚡ Portabilidade ${metaPort > 0 ? '— ' + pctPort.toFixed(0) + '% da meta' : ''}
-            ${portEstado === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
+            ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
+            ${portEstadoP === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
           </p>
           <p class="text-sm font-bold mt-1 ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
           }">
-            ${portEstado === 'SEM_META'
-              ? `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`
-              : portEstado === 'FALTAM_PORT'
-                ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
-                : portEstado === 'FALTA_FAT'
-                  ? `✅ Portabilidade batida! Falta <strong>${fmtRPort(faltaFatPort)}</strong> em faturamento para liberar o Acelerador`
-                  : `Parabéns! Meta de portabilidade e faturamento batidas. Bônus será aplicado em ${realPort} acessos`
+            ${portEstadoP === 'FALTAM_PORT'
+              ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
+              : portEstadoP === 'FALTA_FAT'
+                ? `✅ Portabilidade batida! Falta <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento para liberar o Acelerador`
+                : `🎉 Meta batida! Bônus será aplicado em ${realPort} acessos`
             }
           </p>
-          ${portEstado === 'LIBERADO' && portabilidade.length > 0
-            ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>`
-            : ''}
         </div>
         <div class="text-right shrink-0 ml-4">
           <div class="text-sm font-bold ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
-          } mb-1">
-            ${metaPort > 0 ? realPort + ' / ' + metaPort : realPort}
-          </div>
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+          } mb-1">${realPort} / ${metaPort}</div>
           <div class="text-2xl font-black ${
-            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
-          }">
-            ${portEstado === 'LIBERADO' ? 'R$ ' + fmt(portTotal) : '—'}
-          </div>
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
+          }">${portEstadoP === 'LIBERADO' ? '15% aplicável' : '—'}</div>
         </div>
       </div>
     </div>` : ''}
-
-    <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
-      <div>
-        <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
-        <p class="text-xs text-slate-400 mt-0.5">Competência ${fmtMes(e.mes_competencia_venda)}</p>
-      </div>
-      <p class="text-3xl font-black text-white">R$ ${fmt(e.total_liquido_receber)}</p>
-    </div>
-  `;
-
-  if (window.lucide) lucide.createIcons();
-}
-
 /* ============================================================
    EXPORTAR PDF
    ============================================================ */
