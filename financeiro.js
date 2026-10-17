@@ -1567,9 +1567,21 @@ function renderizarPrevisao() {
   else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
   else portEstadoP = 'LIBERADO';
 
+  // 🆕 Aparelhos vendidos (fonte: Acompanhamento de Vendas Diário)
+  // A RPC de previsão não computa aparelhos — calculamos localmente
+  // a partir do valor vendido registrado no Acompanhamento Diário.
+  const valorAparelhosVendidos = Number(meta?.realizadoAparelho) || 0;
+  const comissaoAparelhos = p.total_aparelhos > 0
+    ? Number(p.total_aparelhos)
+    : Number((valorAparelhosVendidos * FATOR_APARELHO_PREVIEW).toFixed(2));
+
+  // Ajusta o total geral para incluir aparelhos quando a RPC não incluiu
+  const totalGeralComAparelhos = Number(p.total_geral || 0)
+    + (p.total_aparelhos > 0 ? 0 : comissaoAparelhos);
+
   // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
   const aceleradorPortP = portEstadoP === 'LIBERADO' ? (p.total_servicos || 0) * 0.15 : 0;
-  const totalFinalP = (p.total_geral || 0) + aceleradorPortP;
+  const totalFinalP = totalGeralComAparelhos + aceleradorPortP;
 
   console.log('[Previsão] Debug:', {
     metaPort, realPort, pctPort, bateuPort,
@@ -1774,8 +1786,12 @@ function renderizarPrevisao() {
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
-        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_aparelhos)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">${p.qtd_aparelhos} itens</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAparelhos)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">
+          ${valorAparelhosVendidos > 0
+            ? `Base: R$ ${fmt(valorAparelhosVendidos)} vendidos`
+            : `${p.qtd_aparelhos || 0} itens`}
+        </p>
       </div>
       <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
         <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção a Receber</p>
@@ -1824,7 +1840,7 @@ function renderizarPrevisao() {
         <div>
           <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Subtotal base</p>
         </div>
-        <p class="text-lg font-black text-white">R$ ${fmt(p.total_geral)}</p>
+        <p class="text-lg font-black text-white">R$ ${fmt(totalGeralComAparelhos)}</p>
       </div>
       <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/20">
         <div>
