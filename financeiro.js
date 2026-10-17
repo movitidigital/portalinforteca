@@ -9,6 +9,85 @@ const finState = {
 };
 
 /* ============================================================
+   POLÍTICAS DE COMISSÃO — leitura com cache + resolução de tier
+   ============================================================ */
+
+const _politicasCache = {
+  mapa: null,          // { APARELHO: { ATIVOU_GANHOU: 0.01, META_PESSOAL: 0.015, META_LOJA: 0.02 }, ... }
+  carregadoEm: 0,
+  TTL_MS: 5 * 60 * 1000 // 5 min
+};
+
+/**
+ * Carrega políticas vigentes e retorna mapa aninhado [categoria][faixa] = fator.
+ * Faz cache em memória pra não bater no banco a cada render.
+ */
+async function obterPoliticas() {
+  const agora = Date.now();
+  const expirado = (agora - _politicasCache.carregadoEm) > _politicasCache.TTL_MS;
+
+  if (!_politicasCache.mapa || expirado) {
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    const { data, error } = await supabaseClient
+      .from('financeiro_politicas_b2c')
+      .select('categoria, faixa_atingimento, fator_remuneracao, vigencia_inicio, vigencia_fim')
+      .lte('vigencia_inicio', hoje)
+      .or(`vigencia_fim.is.null,vigencia_fim.gte.${hoje}`)
+      .order('categoria')
+      .order('faixa_atingimento')
+      .order('vigencia_inicio', { ascending: false });
+
+    if (error) {
+      console.error('[Políticas] Falha ao carregar:', error);
+      return {};
+    }
+
+    // Monta mapa[categoria][faixa] = fator, mantendo SEMPRE a vigência mais recente.
+    // Como ordenamos por vigencia_inicio DESC, a primeira ocorrência de cada
+    // (categoria, faixa) é a mais nova — então NÃO sobrescrevemos.
+    const mapa = {};
+    for (const p of (data || [])) {
+      if (!mapa[p.categoria]) mapa[p.categoria] = {};
+      if (mapa[p.categoria][p.faixa_atingimento] == null) {
+        mapa[p.categoria][p.faixa_atingimento] = Number(p.fator_remuneracao);
+      }
+    }
+
+    _politicasCache.mapa = mapa;
+    _politicasCache.carregadoEm = agora;
+    finState.politicas.lista = data || []; // mantém a lista crua pro render de tabela
+  }
+
+  return _politicasCache.mapa;
+}
+
+function invalidarCachePoliticas() {
+  _politicasCache.mapa = null;
+  _politicasCache.carregadoEm = 0;
+}
+
+/**
+ * Resolve o tier de atingimento do consultor.
+ * Hierarquia (maior fator vence): LOJA > PESSOAL > ATIVOU_GANHOU.
+ */
+function resolverTier(metaInfo) {
+  if (metaInfo?.bateuLoja)    return 'META_LOJA';
+  if (metaInfo?.bateuPessoal) return 'META_PESSOAL';
+  return 'ATIVOU_GANHOU';
+}
+
+/** Pega o fator de uma categoria aplicando o tier resolvido. */
+function resolverFator(mapaPoliticas, categoria, tier) {
+  const fator = mapaPoliticas?.[categoria]?.[tier];
+  if (fator == null) {
+    console.warn(`[Políticas] Sem fator para ${categoria} / ${tier}`);
+    return 0;
+  }
+  return fator;
+}
+
+/* ============================================================
    HELPERS DE DATA
    ============================================================ */
 
@@ -1539,7 +1618,7 @@ async function cancelarVenda(interacaoId, nomeCliente) {
    MODO PREVISÃO — dia a dia enquanto não há conciliação
    ============================================================ */
 
-function renderizarPrevisao() {
+async function renderizarPrevisao() {
   const p = finState.espelho.previsao;
   const meta = finState.espelho.metaInfo;
   const vendedor = finState.espelho.vendedor;
@@ -1547,19 +1626,33 @@ function renderizarPrevisao() {
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
+  /* ============================================================
+     🆕 1) POLÍTICAS — lê fatores do banco aplicando o tier correto
+     ============================================================ */
+  const politicas = await obterPoliticas();
+  const tier = resolverTier(meta);
+
+  const fatorAparelho   = resolverFator(politicas, 'APARELHO',    tier);
+  const fatorAcessorio  = resolverFator(politicas, 'ACESSORIO',   tier);
+  const fatorServico    = resolverFator(politicas, 'SERVICO_TIM', tier);
+  const fatorAcelerador = politicas?.SERVICO_TIM?.ACELERADOR_PORTABILIDADE ?? 0.15;
+
+  console.log('[Previsão] Políticas aplicadas:', {
+    tier, fatorAparelho, fatorAcessorio, fatorServico, fatorAcelerador
+  });
+
+  /* ============================================================
+     PORTABILIDADE / FATURAMENTO
+     ============================================================ */
   const metaPort = p.portabilidade_meta || meta?.metaPortabilidade || 0;
   const realPort = meta?.realizadoPortabilidade || p.portabilidade_realizado || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
-
-  // 🆕 Recalcula localmente (não confia na RPC)
   const bateuPort = metaPort > 0 && realPort >= metaPort;
 
-  // 🆕 Faturamento para saber se o acelerador está liberado
   const metaFatP = meta?.metaFatTotal || 0;
   const realFatP = meta?.realizadoFatTotal || 0;
   const bateuFatP = metaFatP > 0 && realFatP >= metaFatP;
   const faltaFatPortP = metaFatP > 0 ? Math.max(0, metaFatP - realFatP) : 0;
-  const fmtRPortP = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
   let portEstadoP;
   if (metaPort === 0) portEstadoP = 'SEM_META';
@@ -1567,30 +1660,42 @@ function renderizarPrevisao() {
   else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
   else portEstadoP = 'LIBERADO';
 
-  // 🆕 Aparelhos vendidos (fonte: Acompanhamento de Vendas Diário)
-  // A RPC de previsão não computa aparelhos — calculamos localmente
-  // a partir do valor vendido registrado no Acompanhamento Diário.
-  const valorAparelhosVendidos = Number(meta?.realizadoAparelho) || 0;
-  const comissaoAparelhos = p.total_aparelhos > 0
-    ? Number(p.total_aparelhos)
-    : Number((valorAparelhosVendidos * FATOR_APARELHO_PREVIEW).toFixed(2));
+  /* ============================================================
+     🆕 2) COMISSÕES — calculadas localmente com o fator do tier
+     ============================================================ */
+  const valorAparelhosVendidos  = Number(meta?.realizadoAparelho)   || 0;
+  const valorAcessoriosVendidos = Number(meta?.realizadoAcessorios) || 0;
 
-  // Ajusta o total geral para incluir aparelhos quando a RPC não incluiu
-  const totalGeralComAparelhos = Number(p.total_geral || 0)
-    + (p.total_aparelhos > 0 ? 0 : comissaoAparelhos);
+  const comissaoAparelhos  = Number((valorAparelhosVendidos  * fatorAparelho ).toFixed(2));
+  const comissaoAcessorios = Number((valorAcessoriosVendidos * fatorAcessorio).toFixed(2));
 
-  // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
-  const aceleradorPortP = portEstadoP === 'LIBERADO' ? (p.total_servicos || 0) * 0.15 : 0;
-  const totalFinalP = totalGeralComAparelhos + aceleradorPortP;
+  const comissaoServicos = Number(p.total_servicos || 0);
+
+  // 🆕 Total = serviços + acessórios + aparelhos (reconstruído, não confia na RPC)
+  const totalGeralComExtras = comissaoServicos + comissaoAcessorios + comissaoAparelhos;
+
+  /* ============================================================
+     🆕 3) ACELERADOR DE PORTABILIDADE (fator lido das políticas)
+     ============================================================ */
+  const aceleradorPortP = portEstadoP === 'LIBERADO'
+    ? Number((comissaoServicos * fatorAcelerador).toFixed(2))
+    : 0;
+
+  const totalFinalP = totalGeralComExtras + aceleradorPortP;
 
   console.log('[Previsão] Debug:', {
     metaPort, realPort, pctPort, bateuPort,
     metaFatP, realFatP, bateuFatP,
+    valorAparelhosVendidos, valorAcessoriosVendidos,
+    comissaoAparelhos, comissaoAcessorios, comissaoServicos,
+    totalGeralComExtras, aceleradorPortP, totalFinalP,
     metaNull: !meta,
     portEstadoP
   });
 
-  // Gamificação (FATURAMENTO)
+  /* ============================================================
+     GAMIFICAÇÃO (usa fatorServico dinâmico)
+     ============================================================ */
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pctFat);
@@ -1600,9 +1705,10 @@ function renderizarPrevisao() {
     const emoji = meta.bateuPessoal ? '🎉' : meta.pctFat >= 70 ? '💪' : '📈';
     const faltaFat = Math.max(0, meta.metaFatTotal - meta.realizadoFatTotal);
 
+    const pctFatFmt = (fatorServico * 100).toFixed(0);
     const msg = meta.bateuPessoal
-      ? `Parabéns! Você bateu sua meta de faturamento (fator 30%)`
-      : `Faltam <strong>${fmtR(faltaFat)}</strong> em faturamento para bater a meta (fator 30%)`;
+      ? `Parabéns! Você bateu sua meta de faturamento (fator ${pctFatFmt}%)`
+      : `Faltam <strong>${fmtR(faltaFat)}</strong> em faturamento para bater a meta (fator ${pctFatFmt}%)`;
 
     gamificacaoHTML = `
       <div class="rounded-2xl border-2 ${corBorder} p-5 mb-6">
@@ -1620,13 +1726,15 @@ function renderizarPrevisao() {
           <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
         </div>
         <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
-          <span>Fator atual: <strong>20% (ativou ganhou)</strong></span>
+          <span>Tier aplicado: <strong>${tier}</strong> · Serviço <strong>${(fatorServico * 100).toFixed(0)}%</strong></span>
           <span>Meta loja: <strong>${meta.pctLoja.toFixed(0)}%</strong> ${meta.bateuLoja ? '✅' : ''}</span>
         </div>
       </div>`;
   }
 
-  // Performance (FATURAMENTO)
+  /* ============================================================
+     PERFORMANCE (4 indicadores)
+     ============================================================ */
   let performanceHTML = '';
   if (meta) {
     const linhas = [
@@ -1673,6 +1781,9 @@ function renderizarPrevisao() {
     `;
   }
 
+  /* ============================================================
+     SERVIÇOS
+     ============================================================ */
   const linhasServicos = (p.itens_servicos || []).map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
@@ -1683,7 +1794,9 @@ function renderizarPrevisao() {
       <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(it.total)}</td>
     </tr>`).join('');
 
-  // 🆕 Bloco de portabilidade com lógica clara
+  /* ============================================================
+     PORTABILIDADE (4 estados)
+     ============================================================ */
   let portabilidadeHTML = '';
   if (metaPort > 0) {
     if (portEstadoP === 'FALTAM_PORT') {
@@ -1709,11 +1822,11 @@ function renderizarPrevisao() {
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎯 meta batida!</p>
               <p class="text-sm font-bold mt-1 text-white">
-                Você bateu a portabilidade! Agora falta bater a <strong>meta de faturamento</strong> para liberar o Acelerador (bônus de 15% sobre a comissão de serviços).
+                Você bateu a portabilidade! Agora falta bater a <strong>meta de faturamento</strong> para liberar o Acelerador (bônus de ${(fatorAcelerador * 100).toFixed(0)}% sobre a comissão de serviços).
               </p>
               <p class="text-[11px] text-white/80 mt-1">
-                ${metaFatP > 0 
-                  ? `Faltam <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento` 
+                ${metaFatP > 0
+                  ? `Faltam <strong>${fmtR(faltaFatPortP)}</strong> em faturamento`
                   : 'Cadastre a meta de faturamento para ver quanto falta'}
               </p>
             </div>
@@ -1724,17 +1837,16 @@ function renderizarPrevisao() {
           </div>
         </div>`;
     } else {
-      // LIBERADO
       portabilidadeHTML = `
         <div class="rounded-2xl p-5 mb-6 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600">
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎉 ACELERADOR LIBERADO</p>
               <p class="text-sm font-bold mt-1 text-white">
-                Meta de portabilidade e faturamento batidas! Bônus de <strong>15%</strong> aplicado sobre a comissão de serviços.
+                Meta de portabilidade e faturamento batidas! Bônus de <strong>${(fatorAcelerador * 100).toFixed(0)}%</strong> aplicado sobre a comissão de serviços.
               </p>
               <p class="text-[11px] text-white/90 mt-1">
-                Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(p.total_servicos)} de serviços
+                Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(comissaoServicos)} de serviços
               </p>
             </div>
             <div class="text-right shrink-0 ml-4">
@@ -1746,6 +1858,9 @@ function renderizarPrevisao() {
     }
   }
 
+  /* ============================================================
+     RENDER FINAL
+     ============================================================ */
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
     <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-4 text-white shadow-lg">
@@ -1776,26 +1891,30 @@ function renderizarPrevisao() {
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
-        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_servicos)}</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoServicos)}</p>
         <p class="text-[10px] text-slate-400 mt-1">${p.qtd_servicos} itens</p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
-        <p class="text-xl font-black text-slate-800">R$ ${fmt(p.total_acessorios)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">${p.qtd_acessorios} itens</p>
+        <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAcessorios)}</p>
+        <p class="text-[10px] text-slate-400 mt-1">
+          ${valorAcessoriosVendidos > 0
+            ? `Base R$ ${fmt(valorAcessoriosVendidos)} × ${(fatorAcessorio * 100).toFixed(2)}%`
+            : `${p.qtd_acessorios || 0} itens`}
+        </p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAparelhos)}</p>
         <p class="text-[10px] text-slate-400 mt-1">
           ${valorAparelhosVendidos > 0
-            ? `Base: R$ ${fmt(valorAparelhosVendidos)} vendidos`
+            ? `Base R$ ${fmt(valorAparelhosVendidos)} × ${(fatorAparelho * 100).toFixed(2)}%`
             : `${p.qtd_aparelhos || 0} itens`}
         </p>
       </div>
       <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
         <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção a Receber</p>
-        <p class="text-2xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
+        <p class="text-2xl font-black text-white">R$ ${fmt(totalGeralComExtras)}</p>
         <p class="text-[10px] text-white/80 mt-1">Sujeito a glosa</p>
       </div>
     </div>
@@ -1825,7 +1944,7 @@ function renderizarPrevisao() {
           <tfoot class="bg-slate-50 border-t-2 border-slate-200">
             <tr>
               <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
-              <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(p.total_servicos)}</td>
+              <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(comissaoServicos)}</td>
             </tr>
           </tfoot>
         </table>
@@ -1840,11 +1959,11 @@ function renderizarPrevisao() {
         <div>
           <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Subtotal base</p>
         </div>
-        <p class="text-lg font-black text-white">R$ ${fmt(totalGeralComAparelhos)}</p>
+        <p class="text-lg font-black text-white">R$ ${fmt(totalGeralComExtras)}</p>
       </div>
       <div class="flex justify-between items-center pb-3 mb-3 border-b border-white/20">
         <div>
-          <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">⚡ Acelerador Portabilidade (15%)</p>
+          <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">⚡ Acelerador Portabilidade (${(fatorAcelerador * 100).toFixed(0)}%)</p>
         </div>
         <p class="text-lg font-black text-white">+ R$ ${fmt(aceleradorPortP)}</p>
       </div>
