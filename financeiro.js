@@ -1202,3 +1202,180 @@ window.inicializarModuloFinanceiro = function(view) {
   if (view === 'espelho')     carregarEspelho();
   if (view === 'politicas')   carregarPoliticas();
 };
+
+
+
+/* ============================================================
+   POLÍTICAS DE COMISSÃO — CRUD COMPLETO
+   ============================================================ */
+
+async function carregarPoliticas() {
+  const tbody = document.getElementById('politicasTbody');
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">
+      <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      Carregando políticas...
+    </td></tr>`;
+  }
+
+  try {
+    // Busca TODAS as políticas (sem filtro de vigência) para exibir no painel
+    const { data, error } = await supabaseClient
+      .from('financeiro_politicas_b2c')
+      .select('*')
+      .order('categoria')
+      .order('faixa_atingimento');
+
+    if (error) throw error;
+
+    finState.politicas.lista = data || [];
+    renderizarPoliticas();
+    
+  } catch (err) {
+    console.error('[Políticas]', err);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-red-500">Erro ao carregar: ${err.message}</td></tr>`;
+    }
+  }
+}
+
+function renderizarPoliticas() {
+  const tbody = document.getElementById('politicasTbody');
+  if (!tbody) return;
+
+  if (finState.politicas.lista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Nenhuma política cadastrada no banco.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = finState.politicas.lista.map(p => {
+    const dataVig = p.vigencia_inicio ? p.vigencia_inicio.split('-').reverse().join('/') : '—';
+    const dataFim = p.vigencia_fim ? p.vigencia_fim.split('-').reverse().join('/') : 'Atual';
+    
+    // Transforma o objeto em string para passar no botão de editar com segurança
+    const polString = encodeURIComponent(JSON.stringify(p));
+
+    // Cores por categoria para ficar mais visual
+    const corCat = {
+      'SERVICO_TIM': 'bg-blue-50 text-blue-700 border-blue-200',
+      'APARELHO': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'ACESSORIO': 'bg-purple-50 text-purple-700 border-purple-200'
+    }[p.categoria] || 'bg-slate-50 text-slate-700 border-slate-200';
+
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-6 py-4">
+        <span class="px-2 py-1 rounded-md text-[10px] font-black border uppercase tracking-wider ${corCat}">
+          ${p.categoria}
+        </span>
+      </td>
+      <td class="px-6 py-4 text-xs font-bold text-slate-700">${p.faixa_atingimento}</td>
+      <td class="px-6 py-4 text-right font-black text-[#0e8890]">${(p.fator_remuneracao * 100).toFixed(2)}%</td>
+      <td class="px-6 py-4 text-xs text-slate-500">${dataVig} até ${dataFim}</td>
+      <td class="px-6 py-4 text-center">
+        <div class="flex justify-center gap-2">
+          <button onclick="abrirModalPolitica(JSON.parse(decodeURIComponent('${polString}')))" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+            <i data-lucide="edit-2" class="w-4 h-4"></i>
+          </button>
+          <button onclick="excluirPolitica('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Excluir">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function abrirModalPolitica(politica = null) {
+  document.getElementById('modalPolitica').classList.remove('hidden');
+  document.getElementById('modalPoliticaContent').classList.replace('scale-95', 'scale-100');
+
+  if (politica) {
+    document.getElementById('pol_id').value = politica.id;
+    document.getElementById('pol_categoria').value = politica.categoria;
+    document.getElementById('pol_faixa').value = politica.faixa_atingimento;
+    document.getElementById('pol_fator').value = (politica.fator_remuneracao * 100).toFixed(2);
+    document.getElementById('pol_inicio').value = politica.vigencia_inicio || '';
+    document.getElementById('pol_fim').value = politica.vigencia_fim || '';
+  } else {
+    document.getElementById('pol_id').value = '';
+    document.getElementById('pol_categoria').value = 'SERVICO_TIM';
+    document.getElementById('pol_faixa').value = '';
+    document.getElementById('pol_fator').value = '';
+    document.getElementById('pol_inicio').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('pol_fim').value = '';
+  }
+}
+
+function fecharModalPolitica() {
+  document.getElementById('modalPoliticaContent').classList.replace('scale-100', 'scale-95');
+  setTimeout(() => document.getElementById('modalPolitica').classList.add('hidden'), 200);
+}
+
+async function salvarPolitica() {
+  const btn = document.getElementById('btnSalvarPolitica');
+  const id = document.getElementById('pol_id').value;
+  const categoria = document.getElementById('pol_categoria').value;
+  const faixa = document.getElementById('pol_faixa').value.toUpperCase().trim();
+  const fatorInput = parseFloat(document.getElementById('pol_fator').value);
+  const inicio = document.getElementById('pol_inicio').value || null;
+  const fim = document.getElementById('pol_fim').value || null;
+
+  if (!faixa || isNaN(fatorInput)) {
+    return alert('Preencha a faixa e o fator corretamente.');
+  }
+
+  // Converte 15.5 (na tela) para 0.155 (no banco)
+  const fator = fatorInput / 100;
+
+  const payload = {
+    categoria,
+    faixa_atingimento: faixa,
+    fator_remuneracao: fator,
+    vigencia_inicio: inicio,
+    vigencia_fim: fim
+  };
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Salvando...';
+
+  try {
+    if (id) {
+      // Atualizar
+      const { error } = await supabaseClient.from('financeiro_politicas_b2c').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      // Criar
+      const { error } = await supabaseClient.from('financeiro_politicas_b2c').insert([payload]);
+      if (error) throw error;
+    }
+
+    // Limpa o cache de políticas para o espelho puxar os dados novos
+    if (typeof invalidarCachePoliticas === 'function') invalidarCachePoliticas(); 
+    
+    fecharModalPolitica();
+    await carregarPoliticas(); 
+    alert('✅ Política salva com sucesso!');
+
+  } catch (err) {
+    alert('Erro ao salvar: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Salvar Política';
+  }
+}
+
+async function excluirPolitica(id) {
+  if (!confirm('Tem certeza que deseja excluir esta política?\n\nOs espelhos futuros não usarão mais este fator.')) return;
+
+  try {
+    const { error } = await supabaseClient.from('financeiro_politicas_b2c').delete().eq('id', id);
+    if (error) throw error;
+
+    if (typeof invalidarCachePoliticas === 'function') invalidarCachePoliticas();
+    await carregarPoliticas();
+  } catch (err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
+}
