@@ -29,7 +29,7 @@ function fmtMesExtenso(iso) {
 function formatarMesMeta(competencia) {
   const [y, m] = competencia.split('-');
   const meses = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-  return `${meses[+m - 1]}/${y}`;  // ← sem espaços (formato nativo do portal)
+  return `${meses[+m - 1]}/${y}`;
 }
 
 /* ============================================================
@@ -532,7 +532,6 @@ async function carregarEspelho() {
         if (lista.length) {
           selectVend.innerHTML = lista.map(v => `<option value="${v}">${v}</option>`).join('');
         } else {
-          // Sem espelhos gerados: lista consultores das interacoes
           const { data: inter } = await supabaseClient
             .from('interacoes')
             .select('vendedor')
@@ -556,7 +555,7 @@ async function carregarEspelho() {
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
     }
 
-    // ── 1. Busca meta (compatível com 2 formatos) ──
+    // Busca meta (compatível com 2 formatos)
     const nomeMesA = formatarMesMeta(competencia);
     const nomeMesB = nomeMesA.replace('/', ' / ');
     let { data: metaData } = await supabaseClient
@@ -567,7 +566,6 @@ async function carregarEspelho() {
       metaData = alt;
     }
 
-    // Extrai metaInfo + flags de meta pessoal/loja
     let metaInfo = null;
     let bateuPessoal = false;
     let lojaBateu = false;
@@ -587,40 +585,63 @@ async function carregarEspelho() {
         const soma = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
         const d = consultor.diario || {};
 
+        // Gross (contagem) — mantido para compatibilidade
         const realizadoPos = soma(d['PÓS']);
         const realizadoControle = soma(d['CONTROLE']);
-        const realizadoServicos = realizadoPos + realizadoControle;
+        const realizadoGross = realizadoPos + realizadoControle;
+        const metaPos = Number(metaCons['PÓS'] || 0);
+        const metaControle = Number(metaCons['CONTROLE'] || 0);
+        const metaGross = metaPos + metaControle;
+
+        // Faturamento (principal)
+        const realizadoFatPos = soma(d['PÓS FAT.']);
+        const realizadoFatControle = soma(d['CONTROLE FAT.']);
+        const realizadoFatTotal = realizadoFatPos + realizadoFatControle;
+        const metaFatPos = Number(metaCons['PÓS FAT.'] || 0);
+        const metaFatControle = Number(metaCons['CONTROLE FAT.'] || 0);
+        const metaFatTotal = Number(metaCons['FAT TOTAL TIM'] || (metaFatPos + metaFatControle));
+
         const realizadoAparelho = soma(d['APARELHO']);
         const realizadoAcessorios = soma(d['ACESSÓRIOS']);
 
-        const metaPos = Number(metaCons['PÓS'] || 0);
-        const metaControle = Number(metaCons['CONTROLE'] || 0);
-        const metaServicos = metaPos + metaControle;
+        // Percentual pelo FATURAMENTO (principal)
+        const pctFat = metaFatTotal > 0 ? (realizadoFatTotal / metaFatTotal) * 100 : 0;
+        bateuPessoal = pctFat >= 100;
 
-        const pct = metaServicos > 0 ? (realizadoServicos / metaServicos) * 100 : 0;
-        bateuPessoal = pct >= 100;
-
-        const realizadoLojaPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS']), 0);
-        const realizadoLojaCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE']), 0);
-        const realizadoLoja = realizadoLojaPos + realizadoLojaCtrl;
-        const metaLojaTotal = Number(metaLoja['PÓS'] || 0) + Number(metaLoja['CONTROLE'] || 0);
-        const pctLoja = metaLojaTotal > 0 ? (realizadoLoja / metaLojaTotal) * 100 : 0;
+        // Loja pelo faturamento
+        const realizadoLojaFatPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS FAT.']), 0);
+        const realizadoLojaFatCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE FAT.']), 0);
+        const realizadoLojaFat = realizadoLojaFatPos + realizadoLojaFatCtrl;
+        const metaLojaFatTotal = Number(metaLoja['FAT TOTAL TIM'] || 0)
+                              || (Number(metaLoja['PÓS FAT.'] || 0) + Number(metaLoja['CONTROLE FAT.'] || 0));
+        const pctLoja = metaLojaFatTotal > 0 ? (realizadoLojaFat / metaLojaFatTotal) * 100 : 0;
         lojaBateu = pctLoja >= 100;
 
         metaInfo = {
-          realizadoServicos, metaServicos, pct, bateuPessoal,
+          // Faturamento (principal)
+          realizadoFatTotal, metaFatTotal, pctFat,
+          realizadoFatPos, realizadoFatControle,
+          metaFatPos, metaFatControle,
+
+          // Gross (compatibilidade)
+          realizadoServicos: realizadoGross, metaServicos: metaGross,
           metaPos, realizadoPos, metaControle, realizadoControle,
+
+          pct: pctFat,
+          bateuPessoal,
+
           metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
           metaAparelho: Number(metaCons['APARELHO'] || 0), realizadoAparelho,
           metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0), realizadoAcessorios,
-          realizadoLoja, metaLoja: metaLojaTotal, pctLoja, bateuLoja: lojaBateu,
+
+          realizadoLoja: realizadoLojaFat, metaLoja: metaLojaFatTotal, pctLoja, bateuLoja: lojaBateu,
           diasTrabalhados: Number(parametros.diasTrabalhados) || 0,
           diasRestantes: Number(parametros.diasRestantes) || 0
         };
       }
     }
 
-    // Contagem de portabilidade (frontend)
+    // Contagem de portabilidade
     const { data: interPort } = await supabaseClient
       .from('interacoes')
       .select('id, conciliacao_status, modalidade')
@@ -632,7 +653,7 @@ async function carregarEspelho() {
       String(i.modalidade || '').toUpperCase().includes('PORTADO')
     ).length;
 
-    // ── 2. Tenta espelho OFICIAL ──
+    // Tenta espelho OFICIAL
     const { data: espelho } = await supabaseClient
       .from('financeiro_espelhos_b2c')
       .select('*')
@@ -641,7 +662,6 @@ async function carregarEspelho() {
       .maybeSingle();
 
     if (espelho) {
-      // ── MODO OFICIAL ──
       const { data: itens } = await supabaseClient
         .from('financeiro_espelho_itens')
         .select('*')
@@ -659,7 +679,7 @@ async function carregarEspelho() {
       return;
     }
 
-    // ── 3. MODO PREVISÃO ──
+    // MODO PREVISÃO
     const { data: previsao, error: preErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
       p_mes_competencia: mes,
       p_vendedor_id: vendedor,
@@ -704,7 +724,6 @@ function mensagemEspelhoVazio(vendedor, competencia) {
 }
 
 function renderizarEspelho() {
-  // 🆕 Se for modo PREVISÃO, renderiza outro layout
   if (finState.espelho.modo === 'PREVISAO') {
     renderizarPrevisao();
     return;
@@ -721,7 +740,6 @@ function renderizarEspelho() {
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-  // Info de portabilidade (meta pode ser null, mas portCount existe sempre)
   const metaPort = meta?.metaPortabilidade || 0;
   const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
@@ -737,28 +755,31 @@ function renderizarEspelho() {
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
-  // Gamificação (meta pessoal)
+  // Gamificação (FATURAMENTO)
   let gamificacaoHTML = '';
   if (meta) {
-    const pct = Math.min(100, meta.pct);
-    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
-    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pct >= 70 ? 'text-amber-700' : 'text-red-700';
-    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pct >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
-    const emoji = meta.bateuPessoal ? '🎉' : meta.pct >= 70 ? '💪' : '📈';
+    const pct = Math.min(100, meta.pctFat);
+    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pctFat >= 70 ? 'bg-amber-500' : 'bg-red-500';
+    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pctFat >= 70 ? 'text-amber-700' : 'text-red-700';
+    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pctFat >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
+    const emoji = meta.bateuPessoal ? '🎉' : meta.pctFat >= 70 ? '💪' : '📈';
+    const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const faltaFat = Math.max(0, meta.metaFatTotal - meta.realizadoFatTotal);
+
     const msg = meta.bateuPessoal
-      ? `Parabéns! Você bateu sua meta pessoal (fator 30%)`
-      : `Faltam <strong>${meta.metaServicos - meta.realizadoServicos}</strong> vendas para bater meta pessoal (fator 30%)`;
+      ? `Parabéns! Você bateu sua meta de faturamento (fator 30%)`
+      : `Faltam <strong>${fmtR(faltaFat)}</strong> em faturamento para bater a meta (fator 30%)`;
 
     gamificacaoHTML = `
       <div class="rounded-2xl border-2 ${corBorder} p-5 mb-6">
         <div class="flex justify-between items-start mb-3">
           <div>
-            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal</p>
+            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal — Faturamento</p>
             <p class="text-sm ${corTexto} font-bold mt-1">${msg}</p>
           </div>
           <div class="text-right">
-            <div class="text-3xl font-black ${corTexto}">${meta.pct.toFixed(0)}%</div>
-            <div class="text-xs text-slate-500">${meta.realizadoServicos} / ${meta.metaServicos}</div>
+            <div class="text-3xl font-black ${corTexto}">${meta.pctFat.toFixed(0)}%</div>
+            <div class="text-xs text-slate-500">${fmtR(meta.realizadoFatTotal)} / ${fmtR(meta.metaFatTotal)}</div>
           </div>
         </div>
         <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
@@ -782,12 +803,12 @@ function renderizarEspelho() {
       </div>`;
   }
 
-  // Performance (meta vs realizado)
+  // Performance (FATURAMENTO)
   let performanceHTML = '';
-  if (meta && meta.metaServicos > 0) {
+  if (meta && meta.metaFatTotal > 0) {
     const linhas = [
-      { label: 'Serviços TIM (Controle + Pós)', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
-      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
+      { label: 'Faturamento TIM', meta: meta.metaFatTotal, real: meta.realizadoFatTotal, tipo: 'moeda' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
       { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
       { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
     ].filter(l => l.meta > 0);
@@ -831,7 +852,6 @@ function renderizarEspelho() {
     `;
   }
 
-  // Itens agrupados
   const linhasServicos = Object.entries(servicosAgrupados)
     .sort(([, a], [, b]) => b.total - a.total)
     .map(([nome, d]) => `
@@ -846,7 +866,6 @@ function renderizarEspelho() {
 
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
-    <!-- HEADER -->
     <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-6 text-white shadow-lg">
       <div class="flex justify-between items-start flex-wrap gap-4">
         <div>
@@ -862,7 +881,6 @@ function renderizarEspelho() {
       </div>
     </div>
 
-    <!-- CARDS DE TOTAL -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
@@ -886,13 +904,10 @@ function renderizarEspelho() {
       </div>
     </div>
 
-    <!-- GAMIFICAÇÃO -->
     ${gamificacaoHTML}
 
-    <!-- PERFORMANCE -->
     ${performanceHTML}
 
-    <!-- TABELA DE SERVIÇOS -->
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
         <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM</h3>
@@ -922,7 +937,6 @@ function renderizarEspelho() {
       </div>
     </div>
 
-    <!-- ACESSÓRIOS -->
     ${acessorios.length > 0 ? `
     <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
       <div>
@@ -932,7 +946,6 @@ function renderizarEspelho() {
       <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
     </div>` : ''}
 
-    <!-- APARELHOS -->
     ${aparelhos.length > 0 ? `
     <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-4 shadow-sm flex justify-between items-center">
       <div>
@@ -942,7 +955,6 @@ function renderizarEspelho() {
       <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
     </div>` : ''}
 
-    <!-- PORTABILIDADE -->
     ${(metaPort > 0 || realPort > 0) ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
       <div class="flex justify-between items-center">
@@ -970,7 +982,6 @@ function renderizarEspelho() {
       </div>
     </div>` : ''}
 
-    <!-- TOTAL FINAL -->
     <div class="bg-[#000033] rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
       <div>
         <p class="text-[10px] font-black text-slate-300 uppercase tracking-widest">Total Líquido a Receber</p>
@@ -1005,7 +1016,6 @@ async function exportarEspelhoPdf() {
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
-  // Info de portabilidade
   const meta = finState.espelho.metaInfo;
   const metaPort = meta?.metaPortabilidade || 0;
   const realPort = finState.espelho.portCount || meta?.portCount || 0;
@@ -1037,12 +1047,12 @@ async function exportarEspelhoPdf() {
       </tr>
     `).join('');
 
-  // Performance PDF
+  // Performance PDF (FATURAMENTO)
   let performancePdf = '';
-  if (meta && meta.metaServicos > 0) {
+  if (meta && meta.metaFatTotal > 0) {
     const linhas = [
-      { label: 'Serviços TIM', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
-      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: meta.portCount, tipo: 'numero' },
+      { label: 'Faturamento TIM', meta: meta.metaFatTotal, real: meta.realizadoFatTotal, tipo: 'moeda' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
       { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
       { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
     ].filter(l => l.meta > 0);
@@ -1079,7 +1089,6 @@ async function exportarEspelhoPdf() {
       </table>
     `;
   } else if (metaPort > 0) {
-    // Card alternativo quando não há meta cadastrada mas há portabilidade
     performancePdf = `
       <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
       <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
@@ -1106,7 +1115,7 @@ async function exportarEspelhoPdf() {
     `;
   }
 
-  // Portabilidade PDF (sempre visível se tiver meta OU realizado)
+  // Portabilidade PDF
   let portabilidadePdf = '';
   if (metaPort > 0 || realPort > 0) {
     const corBg = bateuPort ? '#fef3c7' : '#f1f5f9';
@@ -1447,47 +1456,54 @@ function renderizarPrevisao() {
   const vendedor = finState.espelho.vendedor;
   const competencia = finState.espelho.competencia;
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
   const metaPort = p.portabilidade_meta || 0;
   const realPort = p.portabilidade_realizado || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = p.portabilidade_bateu;
 
-  // Gamificação (reaproveita o padrão)
+  // Gamificação (FATURAMENTO)
   let gamificacaoHTML = '';
   if (meta) {
-    const pct = Math.min(100, meta.pct);
-    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pct >= 70 ? 'bg-amber-500' : 'bg-red-500';
-    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pct >= 70 ? 'text-amber-700' : 'text-red-700';
-    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pct >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
-    const emoji = meta.bateuPessoal ? '🎉' : meta.pct >= 70 ? '💪' : '📈';
+    const pct = Math.min(100, meta.pctFat);
+    const corBg = meta.bateuPessoal ? 'bg-emerald-500' : meta.pctFat >= 70 ? 'bg-amber-500' : 'bg-red-500';
+    const corTexto = meta.bateuPessoal ? 'text-emerald-700' : meta.pctFat >= 70 ? 'text-amber-700' : 'text-red-700';
+    const corBorder = meta.bateuPessoal ? 'border-emerald-200 bg-emerald-50' : meta.pctFat >= 70 ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-red-50';
+    const emoji = meta.bateuPessoal ? '🎉' : meta.pctFat >= 70 ? '💪' : '📈';
+    const faltaFat = Math.max(0, meta.metaFatTotal - meta.realizadoFatTotal);
+
     const msg = meta.bateuPessoal
-      ? `Parabéns! Você bateu sua meta pessoal (fator 30%)`
-      : `Faltam <strong>${meta.metaServicos - meta.realizadoServicos}</strong> vendas para bater meta pessoal (fator 30%)`;
+      ? `Parabéns! Você bateu sua meta de faturamento (fator 30%)`
+      : `Faltam <strong>${fmtR(faltaFat)}</strong> em faturamento para bater a meta (fator 30%)`;
 
     gamificacaoHTML = `
       <div class="rounded-2xl border-2 ${corBorder} p-5 mb-6">
         <div class="flex justify-between items-start mb-3">
           <div>
-            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal</p>
+            <p class="text-[10px] font-black ${corTexto} uppercase tracking-widest">${emoji} Meta Pessoal — Faturamento</p>
             <p class="text-sm ${corTexto} font-bold mt-1">${msg}</p>
           </div>
           <div class="text-right">
-            <div class="text-3xl font-black ${corTexto}">${meta.pct.toFixed(0)}%</div>
-            <div class="text-xs text-slate-500">${meta.realizadoServicos} / ${meta.metaServicos}</div>
+            <div class="text-3xl font-black ${corTexto}">${meta.pctFat.toFixed(0)}%</div>
+            <div class="text-xs text-slate-500">${fmtR(meta.realizadoFatTotal)} / ${fmtR(meta.metaFatTotal)}</div>
           </div>
         </div>
         <div class="w-full bg-white rounded-full h-3 overflow-hidden border border-slate-200">
           <div class="${corBg} h-3 rounded-full transition-all" style="width:${pct}%"></div>
         </div>
+        <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
+          <span>Fator atual: <strong>20% (ativou ganhou)</strong></span>
+          <span>Meta loja: <strong>${meta.pctLoja.toFixed(0)}%</strong> ${meta.bateuLoja ? '✅' : ''}</span>
+        </div>
       </div>`;
   }
 
-  // Performance
+  // Performance (FATURAMENTO)
   let performanceHTML = '';
   if (meta) {
     const linhas = [
-      { label: 'Serviços TIM (Controle + Pós)', meta: meta.metaServicos, real: meta.realizadoServicos, tipo: 'numero' },
+      { label: 'Faturamento TIM', meta: meta.metaFatTotal, real: meta.realizadoFatTotal, tipo: 'moeda' },
       { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
       { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
       { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
@@ -1543,7 +1559,6 @@ function renderizarPrevisao() {
 
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
-    <!-- HEADER COM BADGE PRÉVIA -->
     <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-4 text-white shadow-lg">
       <div class="flex justify-between items-start flex-wrap gap-4">
         <div>
@@ -1557,7 +1572,6 @@ function renderizarPrevisao() {
       </div>
     </div>
 
-    <!-- AVISO -->
     <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
       <div class="p-2 bg-amber-100 rounded-lg shrink-0">
         <i data-lucide="info" class="w-5 h-5 text-amber-600"></i>
@@ -1570,7 +1584,6 @@ function renderizarPrevisao() {
       </div>
     </div>
 
-    <!-- CARDS DE TOTAL -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
@@ -1588,22 +1601,19 @@ function renderizarPrevisao() {
         <p class="text-[10px] text-slate-400 mt-1">${p.qtd_aparelhos} itens</p>
       </div>
       <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg">
-        <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção à Receber</p>
+        <p class="text-[10px] font-black text-white/90 uppercase tracking-widest mb-1">Projeção a Receber</p>
         <p class="text-2xl font-black text-white">R$ ${fmt(p.total_geral)}</p>
         <p class="text-[10px] text-white/80 mt-1">Sujeito a glosa</p>
       </div>
     </div>
 
-    <!-- GAMIFICAÇÃO -->
     ${gamificacaoHTML}
 
-    <!-- PERFORMANCE -->
     ${performanceHTML}
 
-    <!-- TABELA DE SERVIÇOS -->
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
       <div class="px-6 py-4 border-b bg-slate-50">
-        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM (Projeção de Recebimento)</h3>
+        <h3 class="text-sm font-black text-[#000033] uppercase tracking-wide">Serviços TIM (Projeção)</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full">
@@ -1630,7 +1640,6 @@ function renderizarPrevisao() {
       </div>
     </div>
 
-    <!-- PORTABILIDADE -->
     ${metaPort > 0 ? `
     <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
       <div class="flex justify-between items-center">
@@ -1649,7 +1658,6 @@ function renderizarPrevisao() {
       </div>
     </div>` : ''}
 
-    <!-- TOTAL FINAL -->
     <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
       <div>
         <p class="text-[10px] font-black text-white/80 uppercase tracking-widest">Projeção Total a Receber</p>
