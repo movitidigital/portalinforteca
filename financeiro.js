@@ -1506,13 +1506,15 @@ function renderizarPrevisao() {
   const metaPort = p.portabilidade_meta || meta?.metaPortabilidade || 0;
   const realPort = meta?.realizadoPortabilidade || p.portabilidade_realizado || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
-  const bateuPort = p.portabilidade_bateu;
 
-  // 🆕 Estado do Acelerador na previsão
+  // 🆕 Recalcula localmente (não confia na RPC)
+  const bateuPort = metaPort > 0 && realPort >= metaPort;
+
+  // 🆕 Faturamento para saber se o acelerador está liberado
   const metaFatP = meta?.metaFatTotal || 0;
   const realFatP = meta?.realizadoFatTotal || 0;
   const bateuFatP = metaFatP > 0 && realFatP >= metaFatP;
-  const faltaFatPortP = Math.max(0, metaFatP - realFatP);
+  const faltaFatPortP = metaFatP > 0 ? Math.max(0, metaFatP - realFatP) : 0;
   const fmtRPortP = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
   let portEstadoP;
@@ -1520,6 +1522,13 @@ function renderizarPrevisao() {
   else if (!bateuPort) portEstadoP = 'FALTAM_PORT';
   else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
   else portEstadoP = 'LIBERADO';
+
+  console.log('[Previsão] Debug:', {
+    metaPort, realPort, pctPort, bateuPort,
+    metaFatP, realFatP, bateuFatP,
+    metaNull: !meta,
+    portEstadoP
+  });
 
   // Gamificação (FATURAMENTO)
   let gamificacaoHTML = '';
@@ -1604,7 +1613,6 @@ function renderizarPrevisao() {
     `;
   }
 
-  // Linhas de serviços da previsão
   const linhasServicos = (p.itens_servicos || []).map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
@@ -1614,6 +1622,66 @@ function renderizarPrevisao() {
       <td class="px-4 py-3 text-center text-xs text-slate-500">${(it.fator * 100).toFixed(1)}%</td>
       <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(it.total)}</td>
     </tr>`).join('');
+
+  // 🆕 Bloco de portabilidade com lógica clara
+  let portabilidadeHTML = '';
+  if (metaPort > 0) {
+    if (portEstadoP === 'FALTAM_PORT') {
+      portabilidadeHTML = `
+        <div class="rounded-2xl p-5 mb-6 shadow-md bg-white border border-slate-200">
+          <div class="flex justify-between items-center">
+            <div class="flex-1 min-w-0">
+              <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
+              <p class="text-sm font-bold mt-1 text-slate-700">
+                Faltam <strong>${metaPort - realPort}</strong> portabilidade${(metaPort - realPort) > 1 ? 's' : ''} para bater a meta
+              </p>
+            </div>
+            <div class="text-right shrink-0 ml-4">
+              <div class="text-sm font-bold text-slate-500 mb-1">${realPort} / ${metaPort}</div>
+              <div class="text-2xl font-black text-slate-400">—</div>
+            </div>
+          </div>
+        </div>`;
+    } else if (portEstadoP === 'FALTA_FAT') {
+      portabilidadeHTML = `
+        <div class="rounded-2xl p-5 mb-6 shadow-md bg-gradient-to-r from-blue-500 to-blue-600">
+          <div class="flex justify-between items-center">
+            <div class="flex-1 min-w-0">
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎯 meta batida!</p>
+              <p class="text-sm font-bold mt-1 text-white">
+                Você bateu a portabilidade! Agora falta bater a <strong>meta de faturamento</strong> para liberar o Acelerador (bônus de 15% sobre a comissão de serviços).
+              </p>
+              <p class="text-[11px] text-white/80 mt-1">
+                ${metaFatP > 0 
+                  ? `Faltam <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento` 
+                  : 'Cadastre a meta de faturamento para ver quanto falta'}
+              </p>
+            </div>
+            <div class="text-right shrink-0 ml-4">
+              <div class="text-sm font-bold text-white/90 mb-1">${realPort} / ${metaPort}</div>
+              <div class="text-2xl font-black text-white">🔒</div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      // LIBERADO
+      portabilidadeHTML = `
+        <div class="rounded-2xl p-5 mb-6 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600">
+          <div class="flex justify-between items-center">
+            <div class="flex-1 min-w-0">
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎉 ACELERADOR LIBERADO</p>
+              <p class="text-sm font-bold mt-1 text-white">
+                Meta de portabilidade e faturamento batidas! Bônus de 15% será aplicado sobre a comissão de serviços.
+              </p>
+            </div>
+            <div class="text-right shrink-0 ml-4">
+              <div class="text-sm font-bold text-white/90 mb-1">${realPort} / ${metaPort}</div>
+              <div class="text-2xl font-black text-white">✅</div>
+            </div>
+          </div>
+        </div>`;
+    }
+  }
 
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
@@ -1666,7 +1734,6 @@ function renderizarPrevisao() {
     </div>
 
     ${gamificacaoHTML}
-
     ${performanceHTML}
 
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6 shadow-sm">
@@ -1698,41 +1765,7 @@ function renderizarPrevisao() {
       </div>
     </div>
 
-    ${metaPort > 0 ? `
-    <div class="rounded-2xl p-5 mb-6 shadow-md ${
-      portEstadoP === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
-      portEstadoP === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-                                   'bg-white border border-slate-200'
-    }">
-      <div class="flex justify-between items-center">
-        <div class="flex-1 min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-widest ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
-          }">
-            ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
-            ${portEstadoP === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
-          </p>
-          <p class="text-sm font-bold mt-1 ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
-          }">
-            ${portEstadoP === 'FALTAM_PORT'
-              ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
-              : portEstadoP === 'FALTA_FAT'
-                ? `✅ Portabilidade batida! Falta <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento para liberar o Acelerador`
-                : `🎉 Meta batida! Bônus será aplicado em ${realPort} acessos`
-            }
-          </p>
-        </div>
-        <div class="text-right shrink-0 ml-4">
-          <div class="text-sm font-bold ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
-          } mb-1">${realPort} / ${metaPort}</div>
-          <div class="text-2xl font-black ${
-            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
-          }">${portEstadoP === 'LIBERADO' ? '15% aplicável' : '—'}</div>
-        </div>
-      </div>
-    </div>` : ''}
+    ${portabilidadeHTML}
 
     <div class="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-6 shadow-xl flex justify-between items-center mb-6">
       <div>
