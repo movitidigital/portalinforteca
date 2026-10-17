@@ -595,6 +595,7 @@ async function carregarEspelho() {
 
         // Faturamento (principal)
         const realizadoFatPos = soma(d['PÓS FAT.']);
+        const realizadoPortabilidade = soma(d['PORTABILIDADE']);
         const realizadoFatControle = soma(d['CONTROLE FAT.']);
         const realizadoFatTotal = realizadoFatPos + realizadoFatControle;
         const metaFatPos = Number(metaCons['PÓS FAT.'] || 0);
@@ -631,6 +632,7 @@ async function carregarEspelho() {
           bateuPessoal,
 
           metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
+          realizadoPortabilidade,  // 🆕
           metaAparelho: Number(metaCons['APARELHO'] || 0), realizadoAparelho,
           metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0), realizadoAcessorios,
 
@@ -641,17 +643,8 @@ async function carregarEspelho() {
       }
     }
 
-    // Contagem de portabilidade
-    const { data: interPort } = await supabaseClient
-      .from('interacoes')
-      .select('id, conciliacao_status, modalidade')
-      .eq('vendedor', vendedor)
-      .gte('data_venda', mes)
-      .lte('data_venda', competencia + '-31');
-    const portCount = (interPort || []).filter(i =>
-      String(i.modalidade || '').toUpperCase().includes('PORTABILIDADE') ||
-      String(i.modalidade || '').toUpperCase().includes('PORTADO')
-    ).length;
+    // 🆕 Contagem de portabilidade vem do Acompanhamento de Metas (fonte única de verdade)
+    const portCount = metaInfo?.realizadoPortabilidade || 0;
 
     // Tenta espelho OFICIAL
     const { data: espelho } = await supabaseClient
@@ -741,7 +734,7 @@ function renderizarEspelho() {
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
   const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = finState.espelho.portCount || meta?.portCount || 0;
+  const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
   const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
@@ -1018,7 +1011,7 @@ async function exportarEspelhoPdf() {
 
   const meta = finState.espelho.metaInfo;
   const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = finState.espelho.portCount || meta?.portCount || 0;
+  const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
 
@@ -1458,8 +1451,8 @@ function renderizarPrevisao() {
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-  const metaPort = p.portabilidade_meta || 0;
-  const realPort = p.portabilidade_realizado || 0;
+  const metaPort = p.portabilidade_meta || meta?.metaPortabilidade || 0;
+  const realPort = meta?.realizadoPortabilidade || p.portabilidade_realizado || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = p.portabilidade_bateu;
 
