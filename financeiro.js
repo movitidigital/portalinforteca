@@ -734,10 +734,28 @@ function renderizarEspelho() {
   const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
 
   const metaPort = meta?.metaPortabilidade || 0;
-  const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
+  const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
   const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
+
+  // 🆕 Estado do Acelerador de Portabilidade (4 cenários)
+  const metaFatA = meta?.metaFatTotal || 0;
+  const realFatA = meta?.realizadoFatTotal || 0;
+  const bateuFatA = metaFatA > 0 && realFatA >= metaFatA;
+  const faltaFatPort = Math.max(0, metaFatA - realFatA);
+  const fmtRPort = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  let portEstado;
+  if (metaPort === 0) {
+    portEstado = 'SEM_META';
+  } else if (!bateuPort) {
+    portEstado = 'FALTAM_PORT';
+  } else if (bateuPort && !bateuFatA) {
+    portEstado = 'FALTA_FAT';
+  } else {
+    portEstado = 'LIBERADO';
+  }
 
   const servicosAgrupados = {};
   servicos.forEach(i => {
@@ -948,28 +966,47 @@ function renderizarEspelho() {
       <p class="text-lg font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
     </div>` : ''}
 
+    <!-- PORTABILIDADE -->
     ${(metaPort > 0 || realPort > 0) ? `
-    <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
+    <div class="rounded-2xl p-5 mb-6 shadow-md ${
+      portEstado === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
+      portEstado === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                                   'bg-white border border-slate-200'
+    }">
       <div class="flex justify-between items-center">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest ${
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+          }">
             ⚡ Portabilidade ${metaPort > 0 ? '— ' + pctPort.toFixed(0) + '% da meta' : ''}
+            ${portEstado === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
           </p>
-          <p class="text-sm font-bold mt-1 ${bateuPort ? 'text-white' : 'text-slate-700'}">
-            ${metaPort === 0
+          <p class="text-sm font-bold mt-1 ${
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
+          }">
+            ${portEstado === 'SEM_META'
               ? `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`
-              : bateuPort
-                ? `Meta batida! Bônus aplicado em ${realPort} acessos portados`
-                : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
+              : portEstado === 'FALTAM_PORT'
+                ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
+                : portEstado === 'FALTA_FAT'
+                  ? `✅ Portabilidade batida! Falta <strong>${fmtRPort(faltaFatPort)}</strong> em faturamento para liberar o Acelerador`
+                  : `Parabéns! Meta de portabilidade e faturamento batidas. Bônus será aplicado em ${realPort} acessos`
+            }
           </p>
-          ${bateuPort && portabilidade.length > 0 ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>` : ''}
+          ${portEstado === 'LIBERADO' && portabilidade.length > 0
+            ? `<p class="text-[10px] text-white/80 mt-1">Fator: ${(portabilidade[0].fator_remuneracao_aplicado * 100).toFixed(2)}% sobre VR × QT</p>`
+            : ''}
         </div>
-        <div class="text-right">
-          <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">
+        <div class="text-right shrink-0 ml-4">
+          <div class="text-sm font-bold ${
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+          } mb-1">
             ${metaPort > 0 ? realPort + ' / ' + metaPort : realPort}
           </div>
-          <div class="text-2xl font-black ${bateuPort ? 'text-white' : 'text-slate-400'}">
-            ${bateuPort ? 'R$ ' + fmt(portTotal) : '—'}
+          <div class="text-2xl font-black ${
+            portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
+          }">
+            ${portEstado === 'LIBERADO' ? 'R$ ' + fmt(portTotal) : '—'}
           </div>
         </div>
       </div>
@@ -1111,31 +1148,54 @@ async function exportarEspelhoPdf() {
   // Portabilidade PDF
   let portabilidadePdf = '';
   if (metaPort > 0 || realPort > 0) {
-    const corBg = bateuPort ? '#fef3c7' : '#f1f5f9';
-    const corBorda = bateuPort ? '#f59e0b' : '#cbd5e1';
-    const corTexto = bateuPort ? '#92400e' : '#475569';
-    const corTextoSub = bateuPort ? '#78350f' : '#64748b';
-    const emoji = bateuPort ? '✅' : (metaPort > 0 ? '❌' : '⚡');
-    const msg = metaPort === 0
-      ? `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`
-      : bateuPort
-        ? `Meta batida! Acelerador aplicado em ${realPort} acessos`
-        : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`;
-    const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
-    const valorMostrar = bateuPort ? `R$ ${fmt(portTotal)}` : '—';
-    const tituloMeta = metaPort > 0 ? `— ${emoji} ${pctPort.toFixed(0)}% da meta` : '';
-    const contador = metaPort > 0 ? `${realPort} / ${metaPort}` : `${realPort}`;
+    const metaFatPdf = meta?.metaFatTotal || 0;
+    const realFatPdf = meta?.realizadoFatTotal || 0;
+    const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
+    const faltaFatPdf = Math.max(0, metaFatPdf - realFatPdf);
+
+    let estadoPdf;
+    if (metaPort === 0) estadoPdf = 'SEM_META';
+    else if (!bateuPort) estadoPdf = 'FALTAM_PORT';
+    else if (bateuPort && !bateuFatPdf) estadoPdf = 'FALTA_FAT';
+    else estadoPdf = 'LIBERADO';
+
+    const cores = {
+      LIBERADO:    { bg: '#d1fae5', borda: '#10b981', texto: '#065f46', textoSub: '#047857', emoji: '🎉' },
+      FALTA_FAT:   { bg: '#dbeafe', borda: '#3b82f6', texto: '#1e40af', textoSub: '#1d4ed8', emoji: '⚠️' },
+      FALTAM_PORT: { bg: '#f1f5f9', borda: '#cbd5e1', texto: '#475569', textoSub: '#64748b', emoji: '⚡' },
+      SEM_META:    { bg: '#f1f5f9', borda: '#cbd5e1', texto: '#475569', textoSub: '#64748b', emoji: '⚡' }
+    };
+    const c = cores[estadoPdf];
+
+    let msgPdf, valorMostrarPdf;
+    if (estadoPdf === 'SEM_META') {
+      msgPdf = `${realPort} acesso${realPort > 1 ? 's' : ''} portado${realPort > 1 ? 's' : ''} no mês`;
+      valorMostrarPdf = '—';
+    } else if (estadoPdf === 'FALTAM_PORT') {
+      msgPdf = `Faltam ${metaPort - realPort} portabilidades para bater a meta`;
+      valorMostrarPdf = '—';
+    } else if (estadoPdf === 'FALTA_FAT') {
+      msgPdf = `✅ Portabilidade batida! Falta ${fmt(faltaFatPdf)} em faturamento para liberar o Acelerador`;
+      valorMostrarPdf = '—';
+    } else {
+      const portTotalPdf = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
+      msgPdf = `Parabéns! Meta de portabilidade e faturamento batidas. Bônus aplicado em ${realPort} acessos`;
+      valorMostrarPdf = `R$ ${fmt(portTotalPdf)}`;
+    }
+
+    const tituloMetaPdf = metaPort > 0 ? `— ${pctPort.toFixed(0)}% da meta` : '';
+    const contadorPdf = metaPort > 0 ? `${realPort} / ${metaPort}` : `${realPort}`;
 
     portabilidadePdf = `
       <table style="width:100%; margin-top:12px; margin-bottom:6px;">
         <tr>
-          <td style="background:${corBg};padding:10px 12px;border-radius:6px;border-left:4px solid ${corBorda};">
-            <div style="font-size:11px;font-weight:900;color:${corTexto};text-transform:uppercase;">⚡ Portabilidade ${tituloMeta}</div>
-            <div style="font-size:9px;color:${corTextoSub};margin-top:2px;">${msg}</div>
+          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;border-left:4px solid ${c.borda};">
+            <div style="font-size:11px;font-weight:900;color:${c.texto};text-transform:uppercase;">⚡ Portabilidade ${tituloMetaPdf}</div>
+            <div style="font-size:9px;color:${c.textoSub};margin-top:2px;">${msgPdf}</div>
           </td>
-          <td style="background:${corBg};padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid ${corBorda};">
-            <div style="font-size:9px;color:${corTextoSub};">${contador}</div>
-            <div style="font-size:15px;font-weight:900;color:${corTexto};">${valorMostrar}</div>
+          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid ${c.borda};">
+            <div style="font-size:9px;color:${c.textoSub};">${contadorPdf}</div>
+            <div style="font-size:15px;font-weight:900;color:${c.texto};">${valorMostrarPdf}</div>
           </td>
         </tr>
       </table>
@@ -1456,6 +1516,19 @@ function renderizarPrevisao() {
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = p.portabilidade_bateu;
 
+  // 🆕 Estado do Acelerador na previsão
+  const metaFatP = meta?.metaFatTotal || 0;
+  const realFatP = meta?.realizadoFatTotal || 0;
+  const bateuFatP = metaFatP > 0 && realFatP >= metaFatP;
+  const faltaFatPortP = Math.max(0, metaFatP - realFatP);
+  const fmtRPortP = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  let portEstadoP;
+  if (metaPort === 0) portEstadoP = 'SEM_META';
+  else if (!bateuPort) portEstadoP = 'FALTAM_PORT';
+  else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
+  else portEstadoP = 'LIBERADO';
+
   // Gamificação (FATURAMENTO)
   let gamificacaoHTML = '';
   if (meta) {
@@ -1634,19 +1707,37 @@ function renderizarPrevisao() {
     </div>
 
     ${metaPort > 0 ? `
-    <div class="rounded-2xl p-5 mb-6 shadow-md ${bateuPort ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-white border border-slate-200'}">
+    <div class="rounded-2xl p-5 mb-6 shadow-md ${
+      portEstadoP === 'LIBERADO'  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600' :
+      portEstadoP === 'FALTA_FAT' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                                   'bg-white border border-slate-200'
+    }">
       <div class="flex justify-between items-center">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest ${bateuPort ? 'text-white/90' : 'text-slate-500'}">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</p>
-          <p class="text-sm font-bold mt-1 ${bateuPort ? 'text-white' : 'text-slate-700'}">
-            ${bateuPort 
-              ? `Meta batida! Bônus será aplicado em ${realPort} acessos portados` 
-              : `Faltam ${metaPort - realPort} portabilidades para ativar o Acelerador`}
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest ${
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+          }">
+            ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
+            ${portEstadoP === 'LIBERADO' ? ' · 🎉 ACELERADOR LIBERADO' : ''}
+          </p>
+          <p class="text-sm font-bold mt-1 ${
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'
+          }">
+            ${portEstadoP === 'FALTAM_PORT'
+              ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta`
+              : portEstadoP === 'FALTA_FAT'
+                ? `✅ Portabilidade batida! Falta <strong>${fmtRPortP(faltaFatPortP)}</strong> em faturamento para liberar o Acelerador`
+                : `🎉 Meta batida! Bônus será aplicado em ${realPort} acessos`
+            }
           </p>
         </div>
-        <div class="text-right">
-          <div class="text-sm font-bold ${bateuPort ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
-          <div class="text-2xl font-black ${bateuPort ? 'text-white' : 'text-slate-400'}">${bateuPort ? '15% aplicável' : '—'}</div>
+        <div class="text-right shrink-0 ml-4">
+          <div class="text-sm font-bold ${
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'
+          } mb-1">${realPort} / ${metaPort}</div>
+          <div class="text-2xl font-black ${
+            portEstadoP === 'LIBERADO' || portEstadoP === 'FALTA_FAT' ? 'text-white' : 'text-slate-400'
+          }">${portEstadoP === 'LIBERADO' ? '15% aplicável' : '—'}</div>
         </div>
       </div>
     </div>` : ''}
