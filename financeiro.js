@@ -13,15 +13,11 @@ const finState = {
    ============================================================ */
 
 const _politicasCache = {
-  mapa: null,          // { APARELHO: { ATIVOU_GANHOU: 0.01, META_PESSOAL: 0.015, META_LOJA: 0.02 }, ... }
+  mapa: null,
   carregadoEm: 0,
-  TTL_MS: 5 * 60 * 1000 // 5 min
+  TTL_MS: 5 * 60 * 1000
 };
 
-/**
- * Carrega políticas vigentes e retorna mapa aninhado [categoria][faixa] = fator.
- * Faz cache em memória pra não bater no banco a cada render.
- */
 async function obterPoliticas() {
   const agora = Date.now();
   const expirado = (agora - _politicasCache.carregadoEm) > _politicasCache.TTL_MS;
@@ -43,9 +39,6 @@ async function obterPoliticas() {
       return {};
     }
 
-    // Monta mapa[categoria][faixa] = fator, mantendo SEMPRE a vigência mais recente.
-    // Como ordenamos por vigencia_inicio DESC, a primeira ocorrência de cada
-    // (categoria, faixa) é a mais nova — então NÃO sobrescrevemos.
     const mapa = {};
     for (const p of (data || [])) {
       if (!mapa[p.categoria]) mapa[p.categoria] = {};
@@ -56,7 +49,7 @@ async function obterPoliticas() {
 
     _politicasCache.mapa = mapa;
     _politicasCache.carregadoEm = agora;
-    finState.politicas.lista = data || []; // mantém a lista crua pro render de tabela
+    finState.politicas.lista = data || [];
   }
 
   return _politicasCache.mapa;
@@ -67,17 +60,12 @@ function invalidarCachePoliticas() {
   _politicasCache.carregadoEm = 0;
 }
 
-/**
- * Resolve o tier de atingimento do consultor.
- * Hierarquia (maior fator vence): LOJA > PESSOAL > ATIVOU_GANHOU.
- */
 function resolverTier(metaInfo) {
   if (metaInfo?.bateuLoja)    return 'META_LOJA';
   if (metaInfo?.bateuPessoal) return 'META_PESSOAL';
   return 'ATIVOU_GANHOU';
 }
 
-/** Pega o fator de uma categoria aplicando o tier resolvido. */
 function resolverFator(mapaPoliticas, categoria, tier) {
   const fator = mapaPoliticas?.[categoria]?.[tier];
   if (fator == null) {
@@ -634,7 +622,7 @@ async function carregarEspelho() {
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
     }
 
-    // Busca meta (compatível com 2 formatos)
+    // Busca meta
     const nomeMesA = formatarMesMeta(competencia);
     const nomeMesB = nomeMesA.replace('/', ' / ');
     let { data: metaData } = await supabaseClient
@@ -664,7 +652,6 @@ async function carregarEspelho() {
         const soma = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
         const d = consultor.diario || {};
 
-        // Gross (contagem) — mantido para compatibilidade
         const realizadoPos = soma(d['PÓS']);
         const realizadoControle = soma(d['CONTROLE']);
         const realizadoGross = realizadoPos + realizadoControle;
@@ -672,7 +659,6 @@ async function carregarEspelho() {
         const metaControle = Number(metaCons['CONTROLE'] || 0);
         const metaGross = metaPos + metaControle;
 
-        // Faturamento (principal)
         const realizadoFatPos = soma(d['PÓS FAT.']);
         const realizadoPortabilidade = soma(d['PORTABILIDADE']);
         const realizadoFatControle = soma(d['CONTROLE FAT.']);
@@ -684,11 +670,9 @@ async function carregarEspelho() {
         const realizadoAparelho = soma(d['APARELHO']);
         const realizadoAcessorios = soma(d['ACESSÓRIOS']);
 
-        // Percentual pelo FATURAMENTO (principal)
         const pctFat = metaFatTotal > 0 ? (realizadoFatTotal / metaFatTotal) * 100 : 0;
         bateuPessoal = pctFat >= 100;
 
-        // Loja pelo faturamento
         const realizadoLojaFatPos = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS FAT.']), 0);
         const realizadoLojaFatCtrl = consultores.reduce((s, c) => s + soma((c.diario || {})['CONTROLE FAT.']), 0);
         const realizadoLojaFat = realizadoLojaFatPos + realizadoLojaFatCtrl;
@@ -698,12 +682,10 @@ async function carregarEspelho() {
         lojaBateu = pctLoja >= 100;
 
         metaInfo = {
-          // Faturamento (principal)
           realizadoFatTotal, metaFatTotal, pctFat,
           realizadoFatPos, realizadoFatControle,
           metaFatPos, metaFatControle,
 
-          // Gross (compatibilidade)
           realizadoServicos: realizadoGross, metaServicos: metaGross,
           metaPos, realizadoPos, metaControle, realizadoControle,
 
@@ -711,18 +693,21 @@ async function carregarEspelho() {
           bateuPessoal,
 
           metaPortabilidade: Number(metaCons['PORTABILIDADE'] || 0),
-          realizadoPortabilidade,  // 🆕
+          realizadoPortabilidade,
           metaAparelho: Number(metaCons['APARELHO'] || 0), realizadoAparelho,
           metaAcessorios: Number(metaCons['ACESSÓRIOS'] || 0), realizadoAcessorios,
 
           realizadoLoja: realizadoLojaFat, metaLoja: metaLojaFatTotal, pctLoja, bateuLoja: lojaBateu,
           diasTrabalhados: Number(parametros.diasTrabalhados) || 0,
-          diasRestantes: Number(parametros.diasRestantes) || 0
+          diasRestantes: Number(parametros.diasRestantes) || 0,
+
+          // 🆕 LÊ AS QTs DO ACOMPANHAMENTO DE METAS
+          qtControle: Number(parametros.qt_controle ?? metaData.dados.qt_controle) || 0.7308,
+          qtPos: Number(parametros.qt_pos ?? metaData.dados.qt_pos) || 1.0
         };
       }
     }
 
-    // 🆕 Contagem de portabilidade vem do Acompanhamento de Metas (fonte única de verdade)
     const portCount = metaInfo?.realizadoPortabilidade || 0;
 
     // Tenta espelho OFICIAL
@@ -747,7 +732,7 @@ async function carregarEspelho() {
       finState.espelho.portCount = portCount;
       finState.espelho.modo = 'OFICIAL';
       finState.espelho.previsao = null;
-      renderizarEspelho();
+      await renderizarEspelho();
       return;
     }
 
@@ -767,7 +752,7 @@ async function carregarEspelho() {
     finState.espelho.portCount = portCount;
     finState.espelho.dados = null;
     finState.espelho.itens = [];
-    renderizarEspelho();
+    await renderizarEspelho();
 
   } catch (err) {
     console.error('[Espelho]', err);
@@ -795,9 +780,9 @@ function mensagemEspelhoVazio(vendedor, competencia) {
   </div>`;
 }
 
-function renderizarEspelho() {
+async function renderizarEspelho() {
   if (finState.espelho.modo === 'PREVISAO') {
-    renderizarPrevisao();
+    await renderizarPrevisao();
     return;
   }
 
@@ -818,7 +803,6 @@ function renderizarEspelho() {
   const bateuPort = realPort >= metaPort && metaPort > 0;
   const portTotal = portabilidade.reduce((s, p) => s + Number(p.valor_comissao_final), 0);
 
-  // 🆕 Estado do Acelerador de Portabilidade (4 cenários)
   const metaFatA = meta?.metaFatTotal || 0;
   const realFatA = meta?.realizadoFatTotal || 0;
   const bateuFatA = metaFatA > 0 && realFatA >= metaFatA;
@@ -836,7 +820,6 @@ function renderizarEspelho() {
     portEstado = 'LIBERADO';
   }
 
-     // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
   const aceleradorPort = portEstado === 'LIBERADO' ? (e.total_comissao_servicos || 0) * 0.15 : 0;
   const totalFinalEspelho = (e.total_liquido_receber || 0) + aceleradorPort;
 
@@ -849,7 +832,6 @@ function renderizarEspelho() {
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
-  // Gamificação (FATURAMENTO)
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pctFat);
@@ -897,7 +879,6 @@ function renderizarEspelho() {
       </div>`;
   }
 
-  // Performance (FATURAMENTO)
   let performanceHTML = '';
   if (meta && meta.metaFatTotal > 0) {
     const linhas = [
@@ -1106,10 +1087,10 @@ function renderizarEspelho() {
         <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalEspelho)}</p>
       </div>
     </div>
-  `;                    
+  `;
 
-  if (window.lucide) lucide.createIcons();  // <-- e isso (consistente com outras funções)
-}                                
+  if (window.lucide) lucide.createIcons();
+}
 
 /* ============================================================
    EXPORTAR PDF
@@ -1139,7 +1120,6 @@ async function exportarEspelhoPdf() {
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
   const bateuPort = realPort >= metaPort && metaPort > 0;
 
-  // 🆕 Acelerador de Portabilidade (15% sobre a comissão de serviços)
   const metaFatPdf = meta?.metaFatTotal || 0;
   const realFatPdf = meta?.realizadoFatTotal || 0;
   const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
@@ -1171,7 +1151,6 @@ async function exportarEspelhoPdf() {
       </tr>
     `).join('');
 
-  // Performance PDF (FATURAMENTO)
   let performancePdf = '';
   if (meta && meta.metaFatTotal > 0) {
     const linhas = [
@@ -1239,7 +1218,6 @@ async function exportarEspelhoPdf() {
     `;
   }
 
-  // Portabilidade PDF
   let portabilidadePdf = '';
   if (metaPort > 0 || realPort > 0) {
     const metaFatPdf = meta?.metaFatTotal || 0;
@@ -1543,8 +1521,8 @@ async function exportarEspelhoPdf() {
    ============================================================ */
 
 async function carregarPoliticas() {
-  const { data } = await supabaseClient.from('financeiro_politicas_b2c').select('*').order('categoria').order('faixa_atingimento');
-  finState.politicas.lista = data || [];
+  invalidarCachePoliticas();
+  await obterPoliticas();
   renderizarPoliticas();
 }
 
@@ -1626,9 +1604,6 @@ async function renderizarPrevisao() {
   const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const fmtR = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-  /* ============================================================
-     1) POLÍTICAS — lê fatores do banco aplicando o tier correto
-     ============================================================ */
   const politicas = await obterPoliticas();
   const tier = resolverTier(meta);
 
@@ -1637,13 +1612,6 @@ async function renderizarPrevisao() {
   const fatorServico    = resolverFator(politicas, 'SERVICO_TIM', tier);
   const fatorAcelerador = politicas?.SERVICO_TIM?.ACELERADOR_PORTABILIDADE ?? 0.15;
 
-  console.log('[Previsão] Políticas aplicadas:', {
-    tier, fatorAparelho, fatorAcessorio, fatorServico, fatorAcelerador
-  });
-
-  /* ============================================================
-     PORTABILIDADE / FATURAMENTO
-     ============================================================ */
   const metaPort = p.portabilidade_meta || meta?.metaPortabilidade || 0;
   const realPort = meta?.realizadoPortabilidade || p.portabilidade_realizado || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
@@ -1660,63 +1628,43 @@ async function renderizarPrevisao() {
   else if (bateuPort && !bateuFatP) portEstadoP = 'FALTA_FAT';
   else portEstadoP = 'LIBERADO';
 
-  /* ============================================================
-     2) COMISSÕES — calculadas localmente com o fator do tier
-     ============================================================ */
   const valorAparelhosVendidos  = Number(meta?.realizadoAparelho)   || 0;
   const valorAcessoriosVendidos = Number(meta?.realizadoAcessorios) || 0;
 
   const comissaoAparelhos  = Number((valorAparelhosVendidos  * fatorAparelho ).toFixed(2));
   const comissaoAcessorios = Number((valorAcessoriosVendidos * fatorAcessorio).toFixed(2));
 
-  // 🆕 RECALCULAR SERVIÇOS APLICANDO A QT CORRETA (Pós 100% / Controle 73,08%)
+  // 🆕 RECALCULAR SERVIÇOS APLICANDO A QT DINÂMICA DO ACOMPANHAMENTO
   let totalServicosRecalculado = 0;
   
+  // Puxa do metaInfo, se não existir usa o padrão
+  const qtControle = Number(meta?.qtControle) || 0.7308;
+  const qtPos = Number(meta?.qtPos) || 1.0;
+  
   const itensServicosAjustados = (p.itens_servicos || []).map(it => {
-    // Detecta Controle vs Pós pelo nome do plano
     const isControle = String(it.plano || '').toUpperCase().includes('CONTROLE');
     
-    // Define a QT correta (Controle 73.08% / Pós 100%)
-    const qtCorreta = isControle ? 0.7308 : 1.0;
+    const qtCorreta = isControle ? qtControle : qtPos;
     
-    // Recalcula a comissão da linha (Qtd × VR × QT × Fator)
     const totalLinha = Number((it.qtd * it.vr * qtCorreta * it.fator).toFixed(2));
     totalServicosRecalculado += totalLinha;
 
     return {
       ...it,
-      qt: qtCorreta,      // Substitui a QT vinda errada da RPC
-      total: totalLinha   // Substitui o total vindo errado da RPC
+      qt: qtCorreta,
+      total: totalLinha
     };
   });
 
   const comissaoServicos = totalServicosRecalculado;
-
-  // Total = serviços + acessórios + aparelhos
   const totalGeralComExtras = comissaoServicos + comissaoAcessorios + comissaoAparelhos;
 
-  /* ============================================================
-     3) ACELERADOR DE PORTABILIDADE (fator lido das políticas)
-     ============================================================ */
   const aceleradorPortP = portEstadoP === 'LIBERADO'
     ? Number((comissaoServicos * fatorAcelerador).toFixed(2))
     : 0;
 
   const totalFinalP = totalGeralComExtras + aceleradorPortP;
 
-  console.log('[Previsão] Debug:', {
-    metaPort, realPort, pctPort, bateuPort,
-    metaFatP, realFatP, bateuFatP,
-    valorAparelhosVendidos, valorAcessoriosVendidos,
-    comissaoAparelhos, comissaoAcessorios, comissaoServicos,
-    totalGeralComExtras, aceleradorPortP, totalFinalP,
-    metaNull: !meta,
-    portEstadoP
-  });
-
-  /* ============================================================
-     GAMIFICAÇÃO (usa fatorServico dinâmico)
-     ============================================================ */
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pctFat);
@@ -1753,9 +1701,6 @@ async function renderizarPrevisao() {
       </div>`;
   }
 
-  /* ============================================================
-     PERFORMANCE (4 indicadores)
-     ============================================================ */
   let performanceHTML = '';
   if (meta) {
     const linhas = [
@@ -1802,9 +1747,6 @@ async function renderizarPrevisao() {
     `;
   }
 
-  /* ============================================================
-     SERVIÇOS (Agora usando os itens com a QT ajustada)
-     ============================================================ */
   const linhasServicos = itensServicosAjustados.map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
       <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
@@ -1815,9 +1757,6 @@ async function renderizarPrevisao() {
       <td class="px-4 py-3 text-right text-sm font-bold text-slate-800">R$ ${fmt(it.total)}</td>
     </tr>`).join('');
 
-  /* ============================================================
-     PORTABILIDADE (4 estados)
-     ============================================================ */
   let portabilidadeHTML = '';
   if (metaPort > 0) {
     if (portEstadoP === 'FALTAM_PORT') {
@@ -1879,9 +1818,6 @@ async function renderizarPrevisao() {
     }
   }
 
-  /* ============================================================
-     RENDER FINAL
-     ============================================================ */
   const container = document.getElementById('espelhoConteudo');
   container.innerHTML = `
     <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] rounded-2xl p-6 mb-4 text-white shadow-lg">
