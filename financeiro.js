@@ -1027,6 +1027,10 @@ function renderizarEspelho() {
         <p class="text-3xl font-black text-white">R$ ${fmt(totalFinalEspelho)}</p>
       </div>
     </div>
+  `;                    
+
+  if (window.lucide) lucide.createIcons();  // <-- e isso (consistente com outras funções)
+}                                
 
 /* ============================================================
    EXPORTAR PDF
