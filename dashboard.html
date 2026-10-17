@@ -268,18 +268,33 @@
 
 <!-- ===== POLÍTICAS ===== -->
 <div id="view-politicas" class="hidden animate-fade-in">
-  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-xs uppercase text-slate-500">
-        <tr>
-          <th class="px-4 py-3 text-left">Categoria</th>
-          <th class="px-4 py-3 text-left">Faixa</th>
-          <th class="px-4 py-3 text-right">Fator</th>
-          <th class="px-4 py-3 text-left">Vigência</th>
-        </tr>
-      </thead>
-      <tbody id="politicasTbody"></tbody>
-    </table>
+  <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div>
+      <h1 class="text-2xl font-black text-[#000033]">Políticas de Comissão</h1>
+      <p class="text-sm text-slate-500 mt-1">Gerencie os fatores, faixas e vigências de remuneração</p>
+    </div>
+    <button onclick="abrirModalPolitica()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+      <i data-lucide="plus" class="w-4 h-4"></i> Nova Política
+    </button>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left whitespace-nowrap">
+        <thead class="bg-slate-50 text-[10px] uppercase text-slate-500 border-b border-slate-200">
+          <tr>
+            <th class="px-6 py-4 font-black">Categoria</th>
+            <th class="px-6 py-4 font-black">Faixa</th>
+            <th class="px-6 py-4 font-black text-right">Fator</th>
+            <th class="px-6 py-4 font-black">Vigência</th>
+            <th class="px-6 py-4 font-black text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="politicasTbody" class="divide-y divide-slate-100">
+          <!-- Preenchido via JS -->
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
       
@@ -1427,7 +1442,61 @@
     </div>
   </div>
 </div>
-  
+
+
+  <!-- ============ MODAL NOVA POLÍTICA ============ -->
+<div id="modalPolitica" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="modalPoliticaContent">
+    <div class="bg-[#000033] px-6 py-4 flex justify-between items-center">
+      <h3 class="text-white font-semibold flex items-center gap-2">
+        <i data-lucide="settings-2" class="w-5 h-5 text-[#0e8890]"></i> Cadastrar Política
+      </h3>
+      <button onclick="fecharModalPolitica()" class="text-slate-400 hover:text-white transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="pol_id">
+      
+      <div>
+        <label class="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">Categoria</label>
+        <select id="pol_categoria" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-[#0e8890]">
+          <option value="SERVICO_TIM">SERVICO_TIM (Planos)</option>
+          <option value="APARELHO">APARELHO</option>
+          <option value="ACESSORIO">ACESSORIO</option>
+        </select>
+      </div>
+      
+      <div>
+        <label class="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">Faixa de Atingimento</label>
+        <input type="text" id="pol_faixa" placeholder="Ex: META_LOJA, ATIVOU_GANHOU" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm uppercase focus:outline-none focus:border-[#0e8890]">
+      </div>
+      
+      <div>
+        <label class="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">Fator de Remuneração (%)</label>
+        <input type="number" id="pol_fator" step="0.01" min="0" placeholder="Ex: 15.5 para 15,5%" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+      </div>
+      
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">Início Vigência</label>
+          <input type="date" id="pol_inicio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+        </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1.5">Fim Vigência</label>
+          <input type="date" id="pol_fim" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-400 italic">Deixe a data de fim em branco para uma política "Atual".</p>
+    </div>
+    
+    <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+      <button onclick="fecharModalPolitica()" class="px-4 py-2 text-sm text-slate-600 font-medium hover:text-slate-800 transition-colors">Cancelar</button>
+      <button onclick="salvarPolitica()" id="btnSalvarPolitica" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">Salvar Política</button>
+    </div>
+  </div>
+</div>
   <!-- ============ SCRIPTS ============ -->
   <script>
     /* ==========================================================
