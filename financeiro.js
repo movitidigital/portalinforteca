@@ -752,6 +752,14 @@ async function renderizarEspelho() {
   const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
   const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
 
+  // 🆕 CÁLCULO DA BASE PARA MOSTRAR NO CARD (ACESSÓRIOS E APARELHOS)
+  const baseAcessorios = acessorios.reduce((s, i) => s + Number(i.valor_referencia_base || 0), 0);
+  const fatorAcessorios = acessorios.length > 0 ? acessorios[0].fator_remuneracao_aplicado : 0;
+
+  const baseAparelhos = aparelhos.reduce((s, i) => s + Number(i.valor_referencia_base || 0), 0);
+  const fatorAparelhos = aparelhos.length > 0 ? aparelhos[0].fator_remuneracao_aplicado : 0;
+  // =========================================================
+
   const metaPort = meta?.metaPortabilidade || 0;
   const realPort = finState.espelho.portCount || meta?.portCount || 0;
   const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
@@ -900,12 +908,20 @@ async function renderizarEspelho() {
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">${acessorios.length} itens</p>
+        <p class="text-[10px] text-slate-400 mt-1">
+          ${acessorios.length > 0 
+            ? `Base R$ ${fmt(baseAcessorios)} × ${(fatorAcessorios * 100).toFixed(2)}%` 
+            : `0 itens`}
+        </p>
       </div>
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">${aparelhos.length} itens</p>
+        <p class="text-[10px] text-slate-400 mt-1">
+          ${aparelhos.length > 0 
+            ? `Base R$ ${fmt(baseAparelhos)} × ${(fatorAparelhos * 100).toFixed(2)}%` 
+            : `0 itens`}
+        </p>
       </div>
       <div class="bg-emerald-500 rounded-2xl p-5 shadow-lg">
         <p class="text-[10px] font-black text-emerald-100 uppercase tracking-widest mb-1">Total a Receber</p>
