@@ -393,9 +393,9 @@
               </table>
             </div>
             <div>
-              <h4 class="bg-indigo-600 text-white text-xs font-bold uppercase text-center py-2 rounded-t">Meta Pós</h4>
+              <h4 class="bg-indigo-600 text-white text-xs font-bold uppercase text-center py-2 rounded-t">Meta Plus (Experiência)</h4>
               <table class="w-full border-collapse border border-slate-300 text-xs">
-                <tbody id="tbody-meta-pos"></tbody>
+                <tbody id="tbody-meta-plus"></tbody>
               </table>
             </div>
           </div>
@@ -438,7 +438,7 @@
       const metas = baseMetas || {
         metaLoja:      { 'FAT TOTAL TIM': 5700, 'CONTROLE FAT.': 3600, 'PÓS FAT.': 2100, 'CONTROLE': 60, 'PÓS': 18, 'PORTABILIDADE': 24, 'APARELHO': 22500, 'ACESSÓRIOS': 18000 },
         metaConsultor: { 'FAT TOTAL TIM': 1900, 'CONTROLE FAT.': 1200, 'PÓS FAT.': 700, 'CONTROLE': 20, 'PÓS': 6, 'PORTABILIDADE': 8, 'APARELHO': 7500, 'ACESSÓRIOS': 6000 },
-        metaPos:       { 'FAT TOTAL TIM': 1900, 'CONTROLE FAT.': 1200, 'PÓS FAT.': 700, 'CONTROLE': 20, 'PÓS': 6, 'PORTABILIDADE': 8, 'APARELHO': 7500, 'ACESSÓRIOS': 6000 },
+        metaPlus:      { 'FAT TOTAL TIM': 1000, 'CONTROLE FAT.': 600, 'PÓS FAT.': 400, 'CONTROLE': 10, 'PÓS': 3, 'PORTABILIDADE': 4, 'APARELHO': 3000, 'ACESSÓRIOS': 2000 }, // 🚀 Meta menor para novatos
         diasTrabalhados: 29, diasRestantes: 1, qualControle: '58,18%', qualPos: '85%',
         consultoresNomes: ['DANIEL ALVES FERREIRA', 'GABRIEL VALENÇA DE LIMA', 'JEAN BRENO CARNEIRO DA SILVA'],
       };
@@ -446,8 +446,9 @@
         parametros: { mes: nomeMes, diasTrabalhados: metas.diasTrabalhados, diasRestantes: metas.diasRestantes, qualControle: metas.qualControle, qualPos: metas.qualPos },
         metaLoja: { ...metas.metaLoja },
         metaConsultor: { ...metas.metaConsultor },
-        metaPos: { ...metas.metaPos },
-        consultores: metas.consultoresNomes.map((nome, i) => ({ id: 'c' + Date.now() + '_' + i, nome, diario: criarDiarioZerado() }))
+        metaPlus: { ...metas.metaPlus },
+        // 🚀 Adicionado o emExperiencia: false
+        consultores: metas.consultoresNomes.map((nome, i) => ({ id: 'c' + Date.now() + '_' + i, nome, emExperiencia: false, diario: criarDiarioZerado() }))
       };
     }
 
@@ -574,96 +575,103 @@ function calcTendencia(realV, metaV, diasTrabalhados, diasRestantes) {
   return { pct, projecao, mediaDiaria };
 }
     
-    function gerarTabelaExcel(titulo, objMeta, isLoja, consultorObj) {
-      const m = mesAtivo();
-      const txtMeta = "META LOJA"; 
+function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
+  const m = mesAtivo();
+  
+  // 🚀 VERIFICA SE O CONSULTOR ESTÁ EM EXPERIÊNCIA
+  const isExp = !isLoja && consultorObj?.emExperiencia === true;
+  
+  // 🚀 SE ESTIVER EM EXPERIÊNCIA, USA A META PLUS
+  const objMeta = isExp ? m.metaPlus : objMetaOriginal;
+
+  // Cabeçalho da coluna dinâmico
+  const txtMeta = isLoja ? "META LOJA" : (isExp ? "META PLUS" : "META CONSULTOR");
+  
+  const icon = isLoja ? '🏢 ' : '👨‍💼 ';
+  // Adiciona a tag (EXP) no título se for novato
+  const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
+
+  let html = `
+  <table class="excel-table">
+    <colgroup>
+      <col style="width:28px;">
+      <col style="width:140px;">
+      <col style="width:110px;">
+      <col style="width:110px;">
+      <col style="width:70px;">
+      <col style="width:110px;">
+      <col style="width:110px;">
+    </colgroup>
+    <thead>
+      <tr><th colspan="7" class="card-title">${titleWithIcon}</th></tr>
+      <tr class="col-headers">
+        <th></th><th></th>
+        <th>${txtMeta}</th>
+        <th>REALIZADO</th>
+        <th>PERCENT.<br>REAL %</th>
+        <th>FALTA</th>
+        <th>FAZER POR DIA</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  CATEGORIAS.forEach(cat => {
+    cat.keys.forEach((key, idx) => {
+      const metaV = objMeta[key] || 0;
+      const realV = isLoja ? calcLoja(key) : calcReal(consultorObj, key);
+      const tipo  = TIPO_VALOR[key];
+      const pct   = metaV ? (realV / metaV) * 100 : 0;   // % REAL (atual)
+      const falta = Math.max(0, metaV - realV);
+      const fzdia = m.parametros.diasRestantes > 0 ? falta / m.parametros.diasRestantes : falta;
+
+      // 👇 Tendência (projeção com base no ritmo atual)
+      const tend     = calcTendencia(realV, metaV, m.parametros.diasTrabalhados, m.parametros.diasRestantes);
+      const pctTend  = tend.pct;
+
+      const pctText = pct.toFixed(0) + '%';
+
+      // 👇 A COR agora segue a TENDÊNCIA, não o % atual
+      const stsCls  = getStatusClass(pctTend);
+      const rowCls  = (key === 'FAT TOTAL TIM') ? 'row-destaque' : '';
+
+      html += `<tr class="${rowCls}">`;
       
-      const icon = isLoja ? '🏢 ' : '👨‍💼 ';
-      const titleWithIcon = icon + titulo;
+      if (idx === 0) {
+        html += `<td rowspan="${cat.rows}" class="cat-vertical ${cat.cls}"><div class="cat-content">${cat.nome}</div></td>`;
+      }
+      
+      html += `<td class="td-label">${key}</td>`;
+      html += `<td class="td-value" style="padding:0;">${fmtVal(metaV, tipo)}</td>`;
+      
+      if(realV === 0 && tipo === 'moeda') {
+        html += `<td class="td-value" style="text-align:center;">-</td>`;
+      } else {
+        html += `<td class="td-value" style="padding:0;">${fmtVal(realV, tipo)}</td>`;
+      }
 
-      let html = `
-      <table class="excel-table">
-        <colgroup>
-          <col style="width:28px;">
-          <col style="width:140px;">
-          <col style="width:110px;">
-          <col style="width:110px;">
-          <col style="width:70px;">
-          <col style="width:110px;">
-          <col style="width:110px;">
-        </colgroup>
-        <thead>
-          <tr><th colspan="7" class="card-title">${titleWithIcon}</th></tr>
-          <tr class="col-headers">
-            <th></th><th></th>
-            <th>${txtMeta}</th>
-            <th>REALIZADO</th>
-            <th>PERCENT.<br>REAL %</th>
-            <th>FALTA</th>
-            <th>FAZER POR DIA</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      // % atual em destaque + tendência como subtítulo
+      html += `<td class="${stsCls}" style="padding:4px 2px;line-height:1.15;">
+        <div style="font-weight:800;font-size:11px;">${pctText}</div>
+        <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
+      </td>`;
+      
+      if (pct >= 100) {
+        html += `<td colspan="2" class="meta-entregue">META ENTREGUE</td>`;
+      } else {
+        if(falta === 0 && tipo === 'moeda') {
+           html += `<td class="${stsCls}" style="text-align:center;">-</td><td class="${stsCls}" style="text-align:center;">-</td>`;
+        } else {
+           html += `<td class="${stsCls}" style="padding:0;">${fmtVal(falta, tipo)}</td>`;
+           html += `<td class="${stsCls}" style="padding:0;">${fmtVal(fzdia, tipo)}</td>`;
+        }
+      }
+      html += `</tr>`;
+    });
+  });
 
-      CATEGORIAS.forEach(cat => {
-        cat.keys.forEach((key, idx) => {
-          const metaV = objMeta[key] || 0;
-          const realV = isLoja ? calcLoja(key) : calcReal(consultorObj, key);
-          const tipo  = TIPO_VALOR[key];
-const pct   = metaV ? (realV / metaV) * 100 : 0;   // % REAL (atual)
-const falta = Math.max(0, metaV - realV);
-const fzdia = m.parametros.diasRestantes > 0 ? falta / m.parametros.diasRestantes : falta;
-
-// 👇 NOVO: tendência (projeção com base no ritmo atual)
-const tend     = calcTendencia(realV, metaV, m.parametros.diasTrabalhados, m.parametros.diasRestantes);
-const pctTend  = tend.pct;
-
-const pctText = pct.toFixed(0) + '%';
-
-// 👇 A COR agora segue a TENDÊNCIA, não o % atual
-const stsCls  = getStatusClass(pctTend);
-const rowCls  = (key === 'FAT TOTAL TIM') ? 'row-destaque' : '';
-
-          html += `<tr class="${rowCls}">`;
-          
-          if (idx === 0) {
-            html += `<td rowspan="${cat.rows}" class="cat-vertical ${cat.cls}"><div class="cat-content">${cat.nome}</div></td>`;
-          }
-          
-          html += `<td class="td-label">${key}</td>`;
-          html += `<td class="td-value" style="padding:0;">${fmtVal(metaV, tipo)}</td>`;
-          
-          if(realV === 0 && tipo === 'moeda') {
-            html += `<td class="td-value" style="text-align:center;">-</td>`;
-          } else {
-            html += `<td class="td-value" style="padding:0;">${fmtVal(realV, tipo)}</td>`;
-          }
-
-          // MODIFICAÇÃO 1: Cores aplicadas para as colunas Percent %, Falta e Fazer Por Dia
-// % atual em destaque + tendência como subtítulo
-html += `<td class="${stsCls}" style="padding:4px 2px;line-height:1.15;">
-  <div style="font-weight:800;font-size:11px;">${pctText}</div>
-  <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
-</td>`;
-          
-          if (pct >= 100) {
-            html += `<td colspan="2" class="meta-entregue">META ENTREGUE</td>`;
-          } else {
-            if(falta === 0 && tipo === 'moeda') {
-               html += `<td class="${stsCls}" style="text-align:center;">-</td><td class="${stsCls}" style="text-align:center;">-</td>`;
-            } else {
-               html += `<td class="${stsCls}" style="padding:0;">${fmtVal(falta, tipo)}</td>`;
-               html += `<td class="${stsCls}" style="padding:0;">${fmtVal(fzdia, tipo)}</td>`;
-            }
-          }
-          html += `</tr>`;
-        });
-      });
-
-      html += `</tbody></table>`;
-      return html;
-    }
-
+  html += `</tbody></table>`;
+  return html;
+}
 function renderDashboardExcel() {
   const grid = document.getElementById('dashboard-grid');
   const m = mesAtivo();
@@ -913,6 +921,7 @@ function onCellInput(e) {
       }
     }
 
+
     function renderConfig() {
       const p = mesAtivo().parametros;
       document.getElementById('cfgMes').value = p.mes;
@@ -938,18 +947,36 @@ function onCellInput(e) {
       renderConsList();
       renderConfigMeta('tbody-meta-loja', 'metaLoja');
       renderConfigMeta('tbody-meta-consultor', 'metaConsultor');
-      renderConfigMeta('tbody-meta-pos', 'metaPos');
+      // 🚀 ALTERADO AQUI: Puxa a tabela da Meta Plus
+      renderConfigMeta('tbody-meta-plus', 'metaPlus');
     }
 
     function renderConsList() {
       const c = document.getElementById('listaConsultores');
       c.innerHTML = mesAtivo().consultores.map((x,i) => `
-        <div class="flex items-center gap-2 border border-slate-300 p-1.5 rounded">
+        <div class="flex items-center justify-between gap-2 border border-slate-300 p-1.5 rounded">
           <input type="text" class="flex-1 text-xs font-bold outline-none px-1 bg-transparent" value="${x.nome}" onchange="renomearC('${x.id}', this.value)">
+          
+          <!-- 🚀 CHECKBOX DE EXPERIÊNCIA -->
+          <label class="flex items-center gap-1 cursor-pointer text-[10px] text-slate-600 font-bold bg-slate-100 px-2 py-1 rounded hover:bg-slate-200 transition" title="Marcar se estiver em período de experiência">
+            <input type="checkbox" ${x.emExperiencia ? 'checked' : ''} onchange="toggleExperiencia('${x.id}', this.checked)" class="accent-indigo-600 w-3 h-3">
+            EM EXP.
+          </label>
+
           <button onclick="removerC('${x.id}')" class="text-red-500 px-1 hover:bg-red-50 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
         </div>
       `).join('');
       lucide.createIcons();
+    }
+
+    // 🚀 NOVA FUNÇÃO PARA SALVAR O CHECKBOX
+    function toggleExperiencia(id, isChecked) {
+      const c = mesAtivo().consultores.find(x => x.id === id);
+      if (c) {
+        c.emExperiencia = isChecked;
+        salvarEstado();
+        renderDashboardExcel(); // Atualiza o dashboard na hora para refletir a mudança
+      }
     }
     
     function adicionarConsultor() { mesAtivo().consultores.push({id:'c'+Date.now(), nome:'NOVO', diario:criarDiarioZerado()}); salvarEstado(); recalcAll(); }
