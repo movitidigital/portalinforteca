@@ -253,7 +253,7 @@ async function processarArquivoTim(file) {
       .map(l => {
         let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
         
-        // 🛡️ PROTEÇÃO 1: Se vier 0, -, ou vazio, anula o valor.
+        // 🛡️ PROTEÇÃO 1: Limpa valores zerados ou vazios (ex: "0", "-", "")
         if (gsmRaw === 0 || gsmRaw === '0' || gsmRaw === '-' || String(gsmRaw).trim() === '') {
             gsmRaw = null;
         }
@@ -268,25 +268,33 @@ async function processarArquivoTim(file) {
         };
       })
       .filter(l => {
-          // 🛡️ PROTEÇÃO 2: Descarta o Bônus PDV e vendas sem telefone
-          if (!l.gsm) return false;
-          
           const planoMaiusculo = l.plano.toUpperCase();
-          
-          // 🛡️ PROTEÇÃO 3: Descarta planos de Bônus / Outros
-          if (planoMaiusculo.includes('OUTROS')) return false;
-          
-          // 🛡️ PROTEÇÃO 4: Descarta o Pré-Pago, pois você definiu que não é comissionável
-          if (planoMaiusculo.includes('PRE TOP') || planoMaiusculo.includes('PRÉ-PAGO')) return false;
-          
-          // 🛡️ PROTEÇÃO 5: Descarta linhas de Saldo Negativo
           const motivoMaiusculo = l.motivo_glosa.toUpperCase();
-          if (motivoMaiusculo.includes('SALDO NEGATIVO')) return false;
+
+          // 🚫 1. Exclui Pré-Pago (não é comissionável)
+          if (planoMaiusculo.includes('PRE TOP') || planoMaiusculo.includes('PRÉ-PAGO')) {
+              return false;
+          }
+          
+          // 🚫 2. Exclui Saldo Negativo
+          if (motivoMaiusculo.includes('SALDO NEGATIVO')) {
+              return false;
+          }
+
+          // ✅ 3. SE FOR O BÔNUS DA LOJA ("OUTROS"), MANTÉM MESMO SEM TELEFONE
+          if (planoMaiusculo.includes('OUTROS')) {
+              return true; 
+          }
+          
+          // 🚫 4. Se for venda normal (planos de celular), exige que tenha um telefone válido
+          if (!l.gsm) {
+              return false;
+          }
           
           return true;
       });
 
-    if (!payload.length) throw new Error('Nenhuma venda válida encontrada (todas foram filtradas por serem Pré-Pago, Bônus ou sem número).');
+    if (!payload.length) throw new Error('Nenhuma linha válida encontrada.');
 
     const mes = document.getElementById('concMes').value;
     finState.conciliacao.mes = mes;
