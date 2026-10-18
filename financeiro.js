@@ -852,7 +852,7 @@ async function renderizarEspelho() {
     if (!servicosAgrupados[i.tipo_item]) {
       servicosAgrupados[i.tipo_item] = { qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada, fator: i.fator_remuneracao_aplicado, total: 0 };
     }
-    servicosAgrupados[i.tipo_item].qtd += 1;
+    servicosAgrupados[i.tipo_item].qtd += (Number(i.quantidade) || 1); // 🚀 Usa a quantidade salva
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
@@ -2013,8 +2013,6 @@ async function gerarEspelhosCompetencia() {
     if (vendedores.length === 0) throw new Error('Nenhum vendedor encontrado para as vendas conciliadas.');
 
     const [ano, m] = mes.split('-');
-    
-    // 🚀 BUSCA DA META PRINCIPAL COM FALLBACK DE ESPAÇO
     const nomeMesA = formatarMesMeta(mes);
     const nomeMesB = nomeMesA.replace('/', ' / ');
     let { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
@@ -2025,7 +2023,6 @@ async function gerarEspelhosCompetencia() {
 
     const politicas = await obterPoliticas();
 
-    // 🚀 BUSCA DA META DE ACESSÓRIOS (M+1) COM FALLBACK DE ESPAÇO
     let metaAcessData = null;
     try {
       let proxAno = parseInt(ano); let proxMes = parseInt(m) + 1;
@@ -2119,14 +2116,23 @@ async function gerarEspelhosCompetencia() {
       const itens = [];
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => itens.push({
-           espelho_id: espelho.id, tipo_item: it.plano, valor_referencia_base: it.vr, qualidade_aplicada: it.qt, fator_remuneracao_aplicado: it.fator, valor_comissao_final: it.total
+           espelho_id: espelho.id, 
+           tipo_item: it.plano, 
+           quantidade: it.qtd, // 🚀 SALVANDO A QUANTIDADE
+           valor_referencia_base: it.vr, 
+           qualidade_aplicada: it.qt, 
+           fator_remuneracao_aplicado: it.fator, 
+           valor_comissao_final: it.total
          }));
       }
-      if (comissaoAparelhos > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'APARELHO', valor_referencia_base: valAparelhos, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAparelho, valor_comissao_final: comissaoAparelhos });
-      if (comissaoAcessorios > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACESSORIO', valor_referencia_base: valAcessorios, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAcessorio, valor_comissao_final: comissaoAcessorios });
-      if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
+      if (comissaoAparelhos > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'APARELHO', quantidade: 1, valor_referencia_base: valAparelhos, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAparelho, valor_comissao_final: comissaoAparelhos });
+      if (comissaoAcessorios > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACESSORIO', quantidade: 1, valor_referencia_base: valAcessorios, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAcessorio, valor_comissao_final: comissaoAcessorios });
+      if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', quantidade: 1, valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
 
-      if (itens.length > 0) await supabaseClient.from('financeiro_espelho_itens').insert(itens);
+      if (itens.length > 0) {
+         const { error: itemErr } = await supabaseClient.from('financeiro_espelho_itens').insert(itens);
+         if (itemErr) throw new Error(`Erro ao salvar itens de ${vend}: ${itemErr.message}`);
+      }
     }
 
     alert(`✅ Espelhos oficiais gerados com sucesso para ${vendedores.length} vendedores!`);
