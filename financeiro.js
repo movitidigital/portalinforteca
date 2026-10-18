@@ -200,6 +200,8 @@ async function carregarConciliacaoExistente() {
   cards.style.display = 'block';
 
   renderizarResultadoConciliacao();
+  
+  renderizarResumoConsolidado(document.getElementById('concMes').value); 
 }
 
 async function processarArquivoTim(file) {
@@ -342,6 +344,10 @@ async function processarArquivoTim(file) {
     });
 
     renderizarResultadoConciliacao();
+
+    // 🚀 CHAMADA DO NOVO RESUMO CONSOLIDADO AQUI:
+    renderizarResumoConsolidado(mes);
+
   } catch (err) {
     console.error('[Conciliação]', err);
     status.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-sm font-bold">
@@ -412,6 +418,10 @@ function resetarConciliacao() {
   document.getElementById('concDrop').style.display = 'block';
   document.getElementById('concCards').style.display = 'none';
   document.getElementById('concStatus').innerHTML = '';
+  
+  const boxResumo = document.getElementById('concResumoConsolidado');
+  if (boxResumo) boxResumo.style.display = 'none';
+
   const fi = document.getElementById('concFileInput');
   if (fi) fi.value = '';
 }
@@ -1916,5 +1926,60 @@ async function cancelarVenda(id, nomeCliente, event) {
   } catch (err) {
     console.error('[Cancelar Venda]', err);
     alert('Erro ao cancelar venda: ' + err.message);
+  }
+}
+/* ==========================================================
+   RESUMO CONSOLIDADO DA CONCILIAÇÃO TIM (KPIs e Vendedores)
+   ========================================================== */
+async function renderizarResumoConsolidado(mesCompetencia) {
+  const boxResumo = document.getElementById('concResumoConsolidado');
+  const listKpi = document.getElementById('concKpiList');
+  const listVendedor = document.getElementById('concVendedorList');
+  
+  if (!boxResumo || !listKpi || !listVendedor || !mesCompetencia) return;
+
+  try {
+    const { data, error } = await supabaseClient.rpc('obter_resumo_espelho_tim', {
+      p_mes_competencia: mesCompetencia
+    });
+
+    if (error) throw error;
+
+    // Se não houver dados, esconde o bloco
+    if (!data || (!data.kpis?.length && !data.vendedores?.length)) {
+      boxResumo.style.display = 'none';
+      return;
+    }
+
+    boxResumo.style.display = 'grid'; // Mostra os blocos
+
+    const fmtMoeda = (val) => Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const getCor = (val) => val >= 0 ? 'text-emerald-600' : 'text-red-600';
+
+    // 1. Renderiza KPIs (Canvass)
+    listKpi.innerHTML = (data.kpis || []).map(k => `
+      <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
+        <span class="text-sm font-semibold text-slate-700">${k.tipo}</span>
+        <span class="font-black ${getCor(k.total)}">${fmtMoeda(k.total)}</span>
+      </div>
+    `).join('');
+
+    // 2. Renderiza Vendedores
+    listVendedor.innerHTML = (data.vendedores || []).map(v => `
+      <div class="flex justify-between items-center p-2 rounded-lg bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center text-[10px] font-black text-teal-700 uppercase">
+            ${v.vendedor.substring(0, 2)}
+          </div>
+          <span class="text-sm font-semibold text-slate-700 uppercase">${v.vendedor}</span>
+        </div>
+        <span class="font-black ${getCor(v.total)}">${fmtMoeda(v.total)}</span>
+      </div>
+    `).join('');
+
+    lucide.createIcons();
+
+  } catch (err) {
+    console.error('[Resumo Consolidado] Erro:', err);
   }
 }
