@@ -73,12 +73,13 @@
       font-size: 11px;
       border: 2px solid var(--excel-border);
     }
-    .excel-table th, .excel-table td {
-      border: 1px solid var(--excel-border);
-      padding: 0 !important; /* 🚀 Remove o padding padrão */
-      vertical-align: middle !important; /* 🚀 Força o centro */
-      white-space: nowrap;
-    }
+.excel-table th, .excel-table td {
+  border: 1px solid var(--excel-border);
+  padding: 0 !important;
+  vertical-align: middle !important; 
+  white-space: nowrap;
+  height: 26px; 
+}
 
     .excel-table thead .card-title {
       background-color: var(--tim-blue);
@@ -124,8 +125,13 @@
 
     .td-value { font-weight: 700; text-align: center; background: #ffffff; font-variant-numeric: tabular-nums; }
     
-    .td-money { display: flex; justify-content: space-between; padding: 0 8px !important; }
-    
+.td-money { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; /* Adicionado para forçar o centro vertical */
+  padding: 0 8px !important; 
+  height: 100%; /* Garante expansão total */
+}    
     .row-destaque td { background-color: #F2F2F2; }
    .row-success td {
       background-color: var(--status-green) !important;
@@ -592,14 +598,12 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
   const icon = isLoja ? '🏢 ' : '👨‍💼 ';
   const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
 
-  // 🚀 O SEGREDO ESTÁ AQUI: Envelope mágico para centralizar o conteúdo no html2canvas
-  const wrap = (content, padding = '0') => `
-    <div style="display: table; width: 100%; height: 100%;">
-      <div style="display: table-cell; vertical-align: middle; padding: ${padding};">
-        ${content}
-      </div>
-    </div>
-  `;
+// 🚀 O SEGREDO ESTÁ AQUI: Atualizado para Flexbox focado no html2canvas
+const wrap = (content, padding = '0') => `
+  <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 26px; padding: ${padding}; box-sizing: border-box;">
+    <div style="width: 100%;">${content}</div>
+  </div>
+`;
 
   let html = `
   <table class="excel-table">
