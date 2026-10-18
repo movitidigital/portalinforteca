@@ -386,6 +386,64 @@ function resetarConciliacao() {
   if (fi) fi.value = '';
 }
 
+async function excluirConciliacaoMes() {
+  const mes = finState.conciliacao.mes;
+  if (!mes) return;
+
+  // Primeira trava de segurança
+  if (!confirm(`⚠️ ATENÇÃO: Você está prestes a apagar TUDO de ${fmtMes(mes + '-01')}.\n\nIsso removerá todas as linhas importadas do banco de dados. Tem certeza?`)) {
+    return;
+  }
+
+  // Segunda trava (à prova de cliques errados)
+  if (!confirm(`🚨 ÚLTIMA CHANCE!\n\nEssa ação NÃO PODE ser desfeita. Deseja realmente limpar a conciliação deste mês?`)) {
+    return;
+  }
+
+  try {
+    // Pega o botão para mostrar o feedback visual
+    const btn = event.target.closest('button');
+    const htmlOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Apagando...';
+
+    // 1. Deleta as linhas da conciliação
+    const { error: errConc } = await supabaseClient
+      .from('financeiro_conciliacao_tim')
+      .delete()
+      .eq('mes_competencia', `${mes}-01`);
+
+    if (errConc) throw errConc;
+
+    // 2. (Opcional) Deleta o lote de importação, se essa tabela existir no seu banco
+    try {
+      await supabaseClient
+        .from('financeiro_lotes_importacao')
+        .delete()
+        .eq('mes_competencia', `${mes}-01`);
+    } catch (e) {
+      console.warn('Aviso: Tabela de lotes não encontrada ou erro ao apagar.', e);
+    }
+
+    // 3. Limpa o estado local e reseta a tela
+    finState.conciliacao.resumo = null;
+    finState.conciliacao.linhas = [];
+    resetarConciliacao();
+
+    alert('✅ Importação excluída com sucesso! O mês está limpo.');
+
+  } catch (err) {
+    console.error('[Conciliação] Erro ao excluir:', err);
+    
+    // Se o banco bloquear a exclusão (Foreign Key), avisa o usuário
+    if (err.message.includes('foreign key')) {
+      alert('❌ Não foi possível excluir pois existem Espelhos ou Comissões geradas para este mês.\n\nVocê precisa apagar os espelhos gerados primeiro.');
+    } else {
+      alert('❌ Erro ao excluir: ' + err.message);
+    }
+  }
+}
+
 function trocarAbaConc(aba) {
   const tabTim = document.getElementById('concTabTim');
   const tabVendas = document.getElementById('concTabVendas');
