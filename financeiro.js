@@ -476,7 +476,13 @@ async function carregarVendasNaoPagas() {
   const container = document.getElementById('concVendasTbody');
   const mes = document.getElementById('concMes').value;
 
-  container.innerHTML = `<div class="text-center py-12 text-slate-500">Carregando...</div>`;
+  container.innerHTML = `<div class="text-center py-12 text-slate-500">
+    <svg class="animate-spin w-5 h-5 text-indigo-600 inline-block" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/>
+      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg>
+    Carregando...
+  </div>`;
 
   try {
     const { data, error } = await supabaseClient.rpc('listar_vendas_consolidadas', { p_mes_competencia: `${mes}-01` });
@@ -536,6 +542,11 @@ async function carregarVendasNaoPagas() {
               </div>`;
           }).join('');
 
+      // 🟢 VARIÁVEL RESTAURADA AQUI
+      const provInfo = v.telefone_provisorio
+        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
+        : '';
+
       return `
         <div class="border border-slate-200 border-l-4 ${cardBorder} rounded-lg mb-3 overflow-hidden shadow-sm">
           <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -556,7 +567,7 @@ async function carregarVendasNaoPagas() {
               ${badge}
               
               <!-- 🆕 BOTÃO DE CANCELAR VENDA -->
-              <button onclick="cancelarVenda('${v.id || v.interacao_id}', '${v.nome || 'Cliente'}')" 
+              <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}')" 
                 class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200" 
                 title="Cancelar esta venda (Ela sumirá dos espelhos)">
                 <i data-lucide="x-circle" class="w-4 h-4"></i>
@@ -573,10 +584,10 @@ async function carregarVendasNaoPagas() {
 
     container.innerHTML = `<div class="rounded-lg overflow-hidden border border-slate-200">${header}<div class="p-3">${cards}</div></div>`;
   } catch (err) {
+    console.error('[Vendas]', err);
     container.innerHTML = `<div class="px-6 py-12 text-center text-red-500">Erro: ${err.message}</div>`;
   }
 }
-
 /* ============================================================
    ESPELHO DE COMISSÃO
    ============================================================ */
