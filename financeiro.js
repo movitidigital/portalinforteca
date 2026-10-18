@@ -669,7 +669,41 @@ async function carregarEspelho() {
         const metaFatTotal = Number(metaCons['FAT TOTAL TIM'] || (metaFatPos + metaFatControle));
 
         const realizadoAparelho = soma(d['APARELHO']);
-        const realizadoAcessorios = soma(d['ACESSÓRIOS']);
+
+        // 🆕 LÓGICA DE ACESSÓRIOS M+1 (Competência D+2)
+        let realizadoAcessorios = 0;
+        try {
+          const [anoComp, mesComp] = competencia.split('-');
+          let proxAno = parseInt(anoComp);
+          let proxMes = parseInt(mesComp) + 1;
+          if (proxMes > 12) { proxMes = 1; proxAno++; }
+          
+          const compAcessorios = `${proxAno}-${String(proxMes).padStart(2, '0')}`;
+          const nomeMesAcessA = formatarMesMeta(compAcessorios);
+          const nomeMesAcessB = nomeMesAcessA.replace('/', ' / ');
+          
+          // Busca a meta do mês seguinte
+          let { data: metaAcessData } = await supabaseClient
+            .from('metas_mensais').select('dados').eq('mes', nomeMesAcessA).maybeSingle();
+            
+          if (!metaAcessData) {
+            const { data: altAcess } = await supabaseClient
+              .from('metas_mensais').select('dados').eq('mes', nomeMesAcessB).maybeSingle();
+            metaAcessData = altAcess;
+          }
+          
+          if (metaAcessData?.dados) {
+            const consultoresAcess = metaAcessData.dados.consultores || [];
+            const consultorAcess = consultoresAcess.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
+            if (consultorAcess) {
+              realizadoAcessorios = soma(consultorAcess.diario?.['ACESSÓRIOS']);
+            }
+          }
+        } catch (e) {
+          console.warn('[Acessórios M+1] Erro ao buscar mês seguinte:', e);
+        }
+
+        // Percentual pelo FATURAMENTO (principal)
 
         const pctFat = metaFatTotal > 0 ? (realizadoFatTotal / metaFatTotal) * 100 : 0;
         bateuPessoal = pctFat >= 100;
