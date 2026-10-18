@@ -75,8 +75,8 @@
     }
     .excel-table th, .excel-table td {
       border: 1px solid var(--excel-border);
-      padding: 6px 4px;
-      vertical-align: middle !important; 
+      padding: 0 !important; /* 🚀 Remove o padding padrão */
+      vertical-align: middle !important; /* 🚀 Força o centro */
       white-space: nowrap;
     }
 
@@ -120,15 +120,11 @@
     .cat-gross   { background-color: var(--cat-gross); }
     .cat-produto { background-color: var(--cat-produto); }
 
-    .td-label { 
-      font-weight: 700; 
-      color: #000; 
-      text-align: right; 
-      background: #ffffff; 
-    }
+    .td-label { font-weight: 700; color: #000; background: #ffffff; }
+
     .td-value { font-weight: 700; text-align: center; background: #ffffff; font-variant-numeric: tabular-nums; }
     
-    .td-money { display: flex; justify-content: space-between; padding: 6px 8px !important; }
+    .td-money { display: flex; justify-content: space-between; padding: 0 8px !important; }
     
     .row-destaque td { background-color: #F2F2F2; }
    .row-success td {
@@ -596,8 +592,14 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
   const icon = isLoja ? '🏢 ' : '👨‍💼 ';
   const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
 
-  // 🚀 Altura mínima para garantir que a caixa flex funcione bem
-  const minH = "min-height: 26px;"; 
+  // 🚀 O SEGREDO ESTÁ AQUI: Envelope mágico para centralizar o conteúdo no html2canvas
+  const wrap = (content, padding = '0') => `
+    <div style="display: table; width: 100%; height: 100%;">
+      <div style="display: table-cell; vertical-align: middle; padding: ${padding};">
+        ${content}
+      </div>
+    </div>
+  `;
 
   let html = `
   <table class="excel-table">
@@ -647,51 +649,35 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
         html += `<td rowspan="${cat.rows}" class="cat-vertical ${cat.cls}"><div class="cat-content">${cat.nome}</div></td>`;
       }
       
-      // 🚀 WRAPPERS FLEXBOX (A MÁGICA ACONTECE AQUI)
-      html += `<td class="td-label" style="padding:0;">
-        <div style="display:flex; align-items:center; justify-content:flex-end; height:100%; ${minH} padding-right:8px;">${key}</div>
-      </td>`;
+      // 🚀 Aplicando o envelope mágico em todas as células
+      html += `<td class="td-label">${wrap(`<div style="text-align: right; padding-right: 8px;">${key}</div>`)}</td>`;
       
-      html += `<td class="td-value" style="padding:0;">
-        <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(metaV, tipo)}</div>
-      </td>`;
+      html += `<td class="td-value">${wrap(fmtVal(metaV, tipo), '2px 4px')}</td>`;
       
       if(realV === 0 && tipo === 'moeda') {
-        html += `<td class="td-value" style="padding:0;">
-          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
-        </td>`;
+        html += `<td class="td-value">${wrap('-', '2px 4px')}</td>`;
       } else {
-        html += `<td class="td-value" style="padding:0;">
-          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(realV, tipo)}</div>
-        </td>`;
+        html += `<td class="td-value">${wrap(fmtVal(realV, tipo), '2px 4px')}</td>`;
       }
 
-      html += `<td class="${stsCls}" style="padding:0;">
-        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; ${minH} line-height:1.15;">
-          <div style="font-weight:800;font-size:11px;">${pctText}</div>
-          <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
-        </div>
+      html += `<td class="${stsCls}">
+        ${wrap(`
+          <div style="line-height:1.15; text-align: center;">
+            <div style="font-weight:800;font-size:11px;">${pctText}</div>
+            <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
+          </div>
+        `, '2px')}
       </td>`;
       
       if (pct >= 100) {
-        html += `<td colspan="2" class="meta-entregue" style="padding:0;">
-          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">META ENTREGUE</div>
-        </td>`;
+        html += `<td colspan="2" class="meta-entregue">${wrap('META ENTREGUE')}</td>`;
       } else {
         if(falta === 0 && tipo === 'moeda') {
-           html += `<td class="${stsCls}" style="padding:0;">
-             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
-           </td>
-           <td class="${stsCls}" style="padding:0;">
-             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
-           </td>`;
+           html += `<td class="${stsCls}">${wrap('-')}</td>`;
+           html += `<td class="${stsCls}">${wrap('-')}</td>`;
         } else {
-           html += `<td class="${stsCls}" style="padding:0;">
-             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(falta, tipo)}</div>
-           </td>`;
-           html += `<td class="${stsCls}" style="padding:0;">
-             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(fzdia, tipo)}</div>
-           </td>`;
+           html += `<td class="${stsCls}">${wrap(fmtVal(falta, tipo), '2px 4px')}</td>`;
+           html += `<td class="${stsCls}">${wrap(fmtVal(fzdia, tipo), '2px 4px')}</td>`;
         }
       }
       html += `</tr>`;
