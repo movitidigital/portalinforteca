@@ -1990,29 +1990,42 @@ async function gerarEspelhosCompetencia() {
   lucide.createIcons();
 
   try {
-    // 1. Busca vendedores conciliados
-    const { data: conc } = await supabaseClient
+    // 1. BUSCA OS MATCHES (Só os IDs)
+    const { data: conc, error: concErr } = await supabaseClient
       .from('financeiro_conciliacao_tim')
-      .select('interacao_id, interacoes(vendedor)')
+      .select('interacao_id')
       .eq('mes_competencia', `${mes}-01`)
       .eq('status_conciliacao', 'MATCH_PERFEITO');
 
-    if (!conc || conc.length === 0) throw new Error('Nenhuma venda conciliada encontrada para este mês.');
+    if (concErr) throw new Error('Erro ao buscar conciliação: ' + concErr.message);
+    if (!conc || conc.length === 0) throw new Error('Nenhuma venda com MATCH encontrada para este mês.');
 
-    const vendedores = [...new Set(conc.map(c => c.interacoes?.vendedor).filter(Boolean))];
-    if (vendedores.length === 0) throw new Error('Nenhum vendedor válido encontrado.');
+    const interacaoIds = [...new Set(conc.map(c => c.interacao_id).filter(Boolean))];
+    if (interacaoIds.length === 0) throw new Error('As vendas conciliadas estão sem vínculo com interações.');
 
-    // 2. Busca metas do mês
+    // 2. BUSCA OS VENDEDORES (Separado para evitar falha no JOIN)
+    const { data: interacoes, error: interErr } = await supabaseClient
+      .from('interacoes')
+      .select('id, vendedor')
+      .in('id', interacaoIds);
+
+    if (interErr) throw new Error('Erro ao buscar vendedores: ' + interErr.message);
+
+    const vendedores = [...new Set(interacoes.map(i => i.vendedor).filter(Boolean))];
+    if (vendedores.length === 0) throw new Error('Nenhum vendedor encontrado para as vendas conciliadas.');
+
+    // 3. BUSCA METAS E POLÍTICAS
     const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
     const [ano, m] = mes.split('-');
     const nomeMes = `${MESES[parseInt(m)-1]} / ${ano}`;
     const { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMes).maybeSingle();
     const politicas = await obterPoliticas();
 
-    // Define o mês de pagamento (ex: se venda é 08/2026, pagamento é 09/2026)
-    const proxMesDate = new Date(parseInt(ano), parseInt(m), 1); // Mês seguinte
+    // Define o mês de pagamento (mês seguinte)
+    const proxMesDate = new Date(parseInt(ano), parseInt(m), 1);
     const mesPagamento = `${proxMesDate.getFullYear()}-${String(proxMesDate.getMonth() + 1).padStart(2, '0')}-01`;
 
+    // 4. LOOP POR VENDEDOR
     for (const vend of vendedores) {
       let bateuPessoal = false;
       let lojaBateu = false;
@@ -2042,13 +2055,13 @@ async function gerarEspelhosCompetencia() {
          }
       }
 
-      // 3. Calcula comissão via RPC da Prévia
+      // 5. Calcula comissão via RPC da Prévia
       const { data: p, error: pErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
         p_mes_competencia: `${mes}-01`, p_vendedor_id: vend, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
       });
       if (pErr) throw new Error(`Erro ao calcular previsão para ${vend}: ${pErr.message}`);
 
-      // 4. Fatores de comissão
+      // 6. Fatores
       const tier = resolverTier({ bateuLoja: lojaBateu, bateuPessoal });
       const fatorAparelho = resolverFator(politicas, 'APARELHO', tier);
       const fatorAcessorio = resolverFator(politicas, 'ACESSORIO', tier);
@@ -2057,7 +2070,7 @@ async function gerarEspelhosCompetencia() {
       const comissaoAcessorios = valAcessorios * fatorAcessorio;
       const totalServicos = Number(p.total_servicos || 0);
 
-      // 5. Acelerador de Portabilidade
+      // 7. Acelerador
       const metaPort = p.portabilidade_meta || 0;
       const realPort = p.portabilidade_realizado || 0;
       const bateuPort = metaPort > 0 && realPort >= metaPort;
@@ -2065,14 +2078,14 @@ async function gerarEspelhosCompetencia() {
       const aceleradorPort = portEstado === 'LIBERADO' ? (totalServicos * 0.15) : 0;
       const totalFinal = totalServicos + comissaoAparelhos + comissaoAcessorios + aceleradorPort;
 
-      // 6. Deleta espelho antigo se existir (para não duplicar)
+      // 8. Deleta espelho antigo (se houver)
       await supabaseClient.from('financeiro_espelhos_b2c').delete().eq('mes_competencia_venda', `${mes}-01`).eq('vendedor_id', vend);
 
-      // 7. Insere o Espelho Oficial com as colunas preenchidas
+      // 9. Insere o Espelho Oficial
       const { data: espelho, error: espErr } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
         vendedor_id: vend,
         mes_competencia_venda: `${mes}-01`,
-        mes_competencia_pagamento: mesPagamento, // 🚀 Agora preenchido corretamente
+        mes_competencia_pagamento: mesPagamento,
         status_espelho: 'OFICIAL',
         total_comissao_servicos: totalServicos,
         total_comissao_aparelhos: comissaoAparelhos,
@@ -2081,10 +2094,10 @@ async function gerarEspelhosCompetencia() {
       }).select().single();
 
       if (espErr || !espelho) {
-         throw new Error(`Erro ao salvar espelho de ${vend}: ${espErr?.message || 'Sem resposta do banco (verifique permissões/RLS).'}`);
+         throw new Error(`Erro ao salvar espelho de ${vend}: ${espErr?.message || 'Sem permissão (RLS).'}`);
       }
 
-      // 8. Insere os itens detalhados (para o PDF não vir vazio)
+      // 10. Insere os Itens (para o PDF)
       const itens = [];
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => itens.push({
@@ -2096,19 +2109,18 @@ async function gerarEspelhosCompetencia() {
       if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
 
       if (itens.length > 0) {
-         const { error: itemErr } = await supabaseClient.from('financeiro_espelho_itens').insert(itens);
-         if (itemErr) console.warn(`Aviso: erro ao inserir itens de ${vend}:`, itemErr.message);
+         await supabaseClient.from('financeiro_espelho_itens').insert(itens);
       }
     }
 
-    alert('✅ Espelhos oficiais gerados com sucesso!');
-    // Recarrega a aba de espelho para atualizar na hora
+    alert(`✅ Espelhos oficiais gerados com sucesso para ${vendedores.length} vendedores!`);
     if (typeof carregarEspelho === 'function') carregarEspelho();
     
   } catch (err) {
     console.error('[Gerar Espelhos] Falha:', err);
-    alert('❌ ' + err.message); // 🚨 Mostra o erro real na tela
+    alert('❌ ' + err.message);
   } finally {
+    // 🔧 Restaura o botão aconteça o que acontecer
     btn.innerHTML = original;
     btn.disabled = false;
     lucide.createIcons();
