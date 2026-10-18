@@ -1975,3 +1975,35 @@ function atualizarCardsConciliacao(resumo) {
   if (elGlosa) elGlosa.textContent = resumo.glosas || 0;
   if (elTotal) elTotal.textContent = 'R$ ' + fmt(resumo.totalPago);
 }
+/* ==========================================================
+   GERAR ESPELHOS DO MÊS (Consolidação Oficial)
+   ========================================================== */
+async function gerarEspelhosCompetencia() {
+  const mes = document.getElementById('concMes').value;
+  if (!mes) return;
+
+  if (!confirm(`Gerar os espelhos oficiais para ${mes}?\n\nIsso vai calcular as comissões de todos os vendedores com base na conciliação atual.`)) return;
+
+  const btn = document.getElementById('concBtnGerarEspelhos');
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gerando...`;
+  lucide.createIcons();
+
+  try {
+    const { data, error } = await supabaseClient.rpc('gerar_espelhos_mes', {
+      p_mes_competencia: `${mes}-01`
+    });
+    
+    if (error) throw error;
+    
+    alert(`✅ Espelhos gerados com sucesso!\n\n${data.espelhos_gerados || 0} espelhos criados/atualizados.`);
+  } catch (err) {
+    console.error('[Gerar Espelhos]', err);
+    alert('Erro ao gerar espelhos: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+    lucide.createIcons();
+  }
+}
