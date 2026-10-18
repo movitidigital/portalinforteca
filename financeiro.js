@@ -559,20 +559,22 @@ async function carregarVendasNaoPagas() {
               </div>
               ${provInfo}
             </div>
-            <div class="flex items-center gap-3 shrink-0">
+            
+            <div class="flex items-center gap-4 shrink-0">
               <div class="text-right">
                 <div class="text-[10px] text-slate-400 uppercase font-bold">Total</div>
                 <div class="text-base font-black ${totalCor}">R$ ${fmt(total)}</div>
               </div>
               ${badge}
               
-              <!-- 🆕 BOTÃO DE CANCELAR VENDA -->
+              <!-- 🆕 BOTÃO DE CANCELAR VENDA (BEM VISÍVEL) -->
               <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}')" 
-                class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200" 
-                title="Cancelar esta venda (Ela sumirá dos espelhos)">
-                <i data-lucide="x-circle" class="w-4 h-4"></i>
+                class="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors font-bold text-xs uppercase" 
+                title="Cancelar esta venda">
+                <i data-lucide="x" class="w-3 h-3"></i> Cancelar
               </button>
             </div>
+
           </div>
 
           <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
