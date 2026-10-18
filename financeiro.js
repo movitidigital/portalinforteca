@@ -642,19 +642,40 @@ async function carregarEspelho() {
       }
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
+        
+        // 1. Tenta buscar dos espelhos já gerados
         const { data: vendedores } = await supabaseClient
           .from('financeiro_espelhos_b2c').select('vendedor_id').eq('mes_competencia_venda', mes).order('vendedor_id');
-        const lista = (vendedores || []).map(v => v.vendedor_id);
+        let lista = (vendedores || []).map(v => v.vendedor_id);
+
+        // 2. Se não achou espelhos, busca os vendedores que tiveram vendas no mês
+        if (lista.length === 0) {
+          // 🚀 CORREÇÃO: Calcula o último dia do mês corretamente (ex: Setembro = 30, Fevereiro = 28/29)
+          const [anoStr, mesStr] = competencia.split('-');
+          const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
+          const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
+
+          const { data: inter } = await supabaseClient
+            .from('interacoes')
+            .select('vendedor')
+            .gte('data_venda', mes)
+            .lte('data_venda', dataFimMes);
+            
+          lista = [...new Set((inter || []).map(i => i.vendedor))]
+            .filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA'))
+            .sort();
+        }
+
         if (lista.length) {
           selectVend.innerHTML = lista.map(v => `<option value="${v}">${v}</option>`).join('');
         } else {
-          const { data: inter } = await supabaseClient
-            .from('interacoes').select('vendedor').gte('data_venda', mes).lte('data_venda', competencia + '-31');
-          const unicos = [...new Set((inter || []).map(i => i.vendedor))].filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA')).sort();
-          selectVend.innerHTML = unicos.length ? unicos.map(v => `<option value="${v}">${v}</option>`).join('') : '<option value="">— Sem dados —</option>';
+          selectVend.innerHTML = '<option value="">— Sem dados —</option>';
         }
+
         const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
-        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) selectVend.value = nomeUser;
+        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) {
+          selectVend.value = nomeUser;
+        }
       }
       vendedor = selectVend.value || (state.perfil?.nome_completo || '').toUpperCase();
     } else {
@@ -704,7 +725,7 @@ async function carregarEspelho() {
 
         const realizadoAparelho = soma(d['APARELHO']);
 
-        // 🆕 LÓGICA DE ACESSÓRIOS M+1 (Competência D+2)
+        // LÓGICA DE ACESSÓRIOS M+1 (Competência D+2)
         let realizadoAcessorios = 0;
         try {
           const [anoComp, mesComp] = competencia.split('-');
@@ -716,7 +737,6 @@ async function carregarEspelho() {
           const nomeMesAcessA = formatarMesMeta(compAcessorios);
           const nomeMesAcessB = nomeMesAcessA.replace('/', ' / ');
           
-          // Busca a meta do mês seguinte
           let { data: metaAcessData } = await supabaseClient
             .from('metas_mensais').select('dados').eq('mes', nomeMesAcessA).maybeSingle();
             
@@ -736,8 +756,6 @@ async function carregarEspelho() {
         } catch (e) {
           console.warn('[Acessórios M+1] Erro ao buscar mês seguinte:', e);
         }
-
-        // Percentual pelo FATURAMENTO (principal)
 
         const pctFat = metaFatTotal > 0 ? (realizadoFatTotal / metaFatTotal) * 100 : 0;
         bateuPessoal = pctFat >= 100;
