@@ -612,18 +612,60 @@ html += `<td class="${stsCls}" style="padding:4px 2px;line-height:1.15;">
 function renderDashboardExcel() {
   const grid = document.getElementById('dashboard-grid');
   const m = mesAtivo();
+  const nomeMesStr = m.parametros.mes; // Ex: "SETEMBRO / 2026"
 
-  // 👇 Calcula o dia anterior (ontem) automaticamente
-  const _hoje = new Date();
-  const _ontem = new Date(_hoje);
-  _ontem.setDate(_hoje.getDate() - 1);
+  // Mapeamento de meses para calcular o último dia corretamente
+  const MESES_MAP = {
+    'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 'MAIO': 4, 'JUNHO': 5,
+    'JULHO': 6, 'AGOSTO': 7, 'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11
+  };
 
-  // Se ontem caiu no mês passado (hoje é dia 1), mostra "01 A 01"
-  const _diaRef = _ontem.getMonth() === _hoje.getMonth() ? _ontem.getDate() : 1;
+  let diaRef = 1;
+  let isFechamento = false;
 
-  document.getElementById('headerSub1').textContent =
-    `RESULTADO LOJA DE 01 A ${String(_diaRef).padStart(2, '0')}`;
+  // Extrai o nome do mês e o ano da string (aceita "SETEMBRO / 2026" ou "SETEMBRO/2026")
+  const match = nomeMesStr.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
 
+  if (match) {
+    const nomeMes = match[1].toUpperCase();
+    const ano = parseInt(match[2]);
+    const mesIndex = MESES_MAP[nomeMes];
+
+    if (mesIndex !== undefined) {
+      const hoje = new Date();
+      const anoAtual = hoje.getFullYear();
+      const mesAtual = hoje.getMonth();
+
+      // Se o mês selecionado for no PASSADO
+      if (ano < anoAtual || (ano === anoAtual && mesIndex < mesAtual)) {
+        // Calcula o último dia do mês (ex: new Date(2026, 9, 0) retorna 30 de Setembro)
+        diaRef = new Date(ano, mesIndex + 1, 0).getDate(); 
+        isFechamento = true;
+      } 
+      // Se o mês selecionado for o MÊS ATUAL
+      else if (ano === anoAtual && mesIndex === mesAtual) {
+        const _ontem = new Date(hoje);
+        _ontem.setDate(hoje.getDate() - 1);
+        diaRef = _ontem.getMonth() === mesAtual ? _ontem.getDate() : 1;
+      } 
+      // Se for um mês FUTURO
+      else {
+        diaRef = 1; // Mostra dia 01
+      }
+    }
+  } else {
+    // Fallback de segurança (caso o nome do mês esteja num formato estranho)
+    const _hoje = new Date();
+    const _ontem = new Date(_hoje);
+    _ontem.setDate(_hoje.getDate() - 1);
+    diaRef = _ontem.getMonth() === _hoje.getMonth() ? _ontem.getDate() : 1;
+  }
+
+  // Monta o texto final do cabeçalho
+  const textoDia = String(diaRef).padStart(2, '0');
+  const textoFechamento = isFechamento ? ' (FECHAMENTO)' : '';
+
+  document.getElementById('headerSub1').textContent = `RESULTADO LOJA DE 01 A ${textoDia}${textoFechamento}`;
   document.getElementById('headerSub2').textContent = `MÊS: ${m.parametros.mes}`;
   document.getElementById('headerQC').textContent = m.parametros.qualControle;
   document.getElementById('headerQP').textContent = m.parametros.qualPos;
