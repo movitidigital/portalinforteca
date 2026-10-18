@@ -2114,20 +2114,25 @@ async function gerarEspelhosCompetencia() {
       if (espErr || !espelho) throw new Error(`Erro ao salvar espelho de ${vend}: ${espErr?.message || 'Sem permissão.'}`);
 
       const itens = [];
+      // 🚀 CORREÇÃO: Insere uma linha para cada item, dividindo o valor total
       if (p.itens_servicos?.length > 0) {
-         p.itens_servicos.forEach(it => itens.push({
-           espelho_id: espelho.id, 
-           tipo_item: it.plano, 
-           quantidade: it.qtd, // 🚀 SALVANDO A QUANTIDADE
-           valor_referencia_base: it.vr, 
-           qualidade_aplicada: it.qt, 
-           fator_remuneracao_aplicado: it.fator, 
-           valor_comissao_final: it.total
-         }));
+         p.itens_servicos.forEach(it => {
+           const valorPorItem = it.total / it.qtd;
+           for (let k = 0; k < it.qtd; k++) {
+             itens.push({
+               espelho_id: espelho.id, 
+               tipo_item: it.plano, 
+               valor_referencia_base: it.vr, 
+               qualidade_aplicada: it.qt, 
+               fator_remuneracao_aplicado: it.fator, 
+               valor_comissao_final: valorPorItem
+             });
+           }
+         });
       }
-      if (comissaoAparelhos > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'APARELHO', quantidade: 1, valor_referencia_base: valAparelhos, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAparelho, valor_comissao_final: comissaoAparelhos });
-      if (comissaoAcessorios > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACESSORIO', quantidade: 1, valor_referencia_base: valAcessorios, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAcessorio, valor_comissao_final: comissaoAcessorios });
-      if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', quantidade: 1, valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
+      if (comissaoAparelhos > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'APARELHO', valor_referencia_base: valAparelhos, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAparelho, valor_comissao_final: comissaoAparelhos });
+      if (comissaoAcessorios > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACESSORIO', valor_referencia_base: valAcessorios, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAcessorio, valor_comissao_final: comissaoAcessorios });
+      if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
 
       if (itens.length > 0) {
          const { error: itemErr } = await supabaseClient.from('financeiro_espelho_itens').insert(itens);
