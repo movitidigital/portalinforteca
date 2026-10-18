@@ -126,6 +126,13 @@
     .td-money { display: flex; justify-content: space-between; padding: 6px 8px !important; }
     
     .row-destaque td { background-color: #F2F2F2; }
+   .row-success td {
+      background-color: var(--status-green) !important;
+      color: #000 !important;
+    }
+    .row-success .cat-content {
+      color: #000 !important;
+    }
     
     .status-red    { background-color: var(--status-red); color: #000; font-weight: 800; text-align: center; }
     .status-yellow { background-color: var(--status-yellow); color: #000; font-weight: 800; text-align: center; }
@@ -578,17 +585,10 @@ function calcTendencia(realV, metaV, diasTrabalhados, diasRestantes) {
 function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
   const m = mesAtivo();
   
-  // 🚀 VERIFICA SE O CONSULTOR ESTÁ EM EXPERIÊNCIA
   const isExp = !isLoja && consultorObj?.emExperiencia === true;
-  
-  // 🚀 SE ESTIVER EM EXPERIÊNCIA, USA A META PLUS
   const objMeta = isExp ? m.metaPlus : objMetaOriginal;
-
-  // Cabeçalho da coluna dinâmico
   const txtMeta = isLoja ? "META LOJA" : (isExp ? "META PLUS" : "META CONSULTOR");
-  
   const icon = isLoja ? '🏢 ' : '👨‍💼 ';
-  // Adiciona a tag (EXP) no título se for novato
   const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
 
   let html = `
@@ -620,19 +620,23 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
       const metaV = objMeta[key] || 0;
       const realV = isLoja ? calcLoja(key) : calcReal(consultorObj, key);
       const tipo  = TIPO_VALOR[key];
-      const pct   = metaV ? (realV / metaV) * 100 : 0;   // % REAL (atual)
+      
+      const pct   = metaV ? (realV / metaV) * 100 : 0;
       const falta = Math.max(0, metaV - realV);
       const fzdia = m.parametros.diasRestantes > 0 ? falta / m.parametros.diasRestantes : falta;
 
-      // 👇 Tendência (projeção com base no ritmo atual)
       const tend     = calcTendencia(realV, metaV, m.parametros.diasTrabalhados, m.parametros.diasRestantes);
       const pctTend  = tend.pct;
+      const pctText  = pct.toFixed(0) + '%';
 
-      const pctText = pct.toFixed(0) + '%';
-
-      // 👇 A COR agora segue a TENDÊNCIA, não o % atual
-      const stsCls  = getStatusClass(pctTend);
-      const rowCls  = (key === 'FAT TOTAL TIM') ? 'row-destaque' : '';
+      // 🚀 AQUI ESTÁ A MÁGICA: Verifica se bateu a meta principal
+      const isFatBatida = (key === 'FAT TOTAL TIM' && pct >= 100);
+      
+      // Aplica a classe verde ou a cor de destaque padrão
+      const rowCls = (key === 'FAT TOTAL TIM') ? (isFatBatida ? 'row-success' : 'row-destaque') : '';
+      
+      // Se bateu a meta, força a célula de % a ficar verde (mesmo que a tendência estivesse baixa)
+      const stsCls = isFatBatida ? 'status-green' : getStatusClass(pctTend);
 
       html += `<tr class="${rowCls}">`;
       
@@ -649,7 +653,6 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
         html += `<td class="td-value" style="padding:0;">${fmtVal(realV, tipo)}</td>`;
       }
 
-      // % atual em destaque + tendência como subtítulo
       html += `<td class="${stsCls}" style="padding:4px 2px;line-height:1.15;">
         <div style="font-weight:800;font-size:11px;">${pctText}</div>
         <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
