@@ -254,6 +254,32 @@
       </table>
     </div>
   </div>
+
+    <!-- 🆕 CONSOLIDADO POR KPI E VENDEDOR -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" id="concResumoConsolidado" style="display:none">
+        <!-- Bloco KPI -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-indigo-600"></i> Ganhos por Indicador (Canvass)
+                </h3>
+                <span class="text-xs font-black text-slate-400 uppercase">Consolidado</span>
+            </div>
+            <div id="concKpiList" class="p-4 space-y-3 max-h-[300px] overflow-y-auto"></div>
+        </div>
+
+        <!-- Bloco Vendedor -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="users" class="w-4 h-4 text-teal-600"></i> Comissão Gerada por Vendedor
+                </h3>
+                <span class="text-xs font-black text-slate-400 uppercase">Consolidado</span>
+            </div>
+            <div id="concVendedorList" class="p-4 space-y-3 max-h-[300px] overflow-y-auto"></div>
+        </div>
+    </div>
+  
 </div>
 
 <!-- ===== MEU ESPELHO ===== -->
