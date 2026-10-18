@@ -1939,6 +1939,7 @@ async function renderizarResumoConsolidado(mesCompetencia) {
   if (!boxResumo || !listKpi || !listVendedor || !mesCompetencia) return;
 
   try {
+    // Passa o mês (ex: '2026-08') para o banco
     const { data, error } = await supabaseClient.rpc('obter_resumo_espelho_tim', {
       p_mes_competencia: mesCompetencia
     });
@@ -1981,5 +1982,12 @@ async function renderizarResumoConsolidado(mesCompetencia) {
 
   } catch (err) {
     console.error('[Resumo Consolidado] Erro:', err);
+    // 🚨 MOSTRA O ERRO NA TELA SE FALHAR
+    boxResumo.style.display = 'block';
+    boxResumo.innerHTML = `
+      <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-bold">
+        ❌ Erro ao carregar o resumo: ${err.message}
+      </div>
+    `;
   }
 }
