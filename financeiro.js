@@ -251,10 +251,15 @@ async function processarArquivoTim(file) {
 
     const payload = linhas
       .map(l => {
-        const gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
-        const gsm = gsmRaw ? String(gsmRaw).trim() : '';
+        let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
+        
+        // 🛡️ PROTEÇÃO 1: Se vier 0, -, ou vazio, anula o valor.
+        if (gsmRaw === 0 || gsmRaw === '0' || gsmRaw === '-' || String(gsmRaw).trim() === '') {
+            gsmRaw = null;
+        }
+
         return {
-          gsm,
+          gsm: gsmRaw ? String(gsmRaw).trim() : '',
           cpf: String(get(l, 'cpf_cnpjcliente', 'CPF', 'cpf') || '').trim(),
           plano: String(get(l, 'plano', 'Plano') || '').trim(),
           dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação')),
@@ -262,9 +267,26 @@ async function processarArquivoTim(file) {
           motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao') || 'PAGO').trim()
         };
       })
-      .filter(l => l.gsm);
+      .filter(l => {
+          // 🛡️ PROTEÇÃO 2: Descarta o Bônus PDV e vendas sem telefone
+          if (!l.gsm) return false;
+          
+          const planoMaiusculo = l.plano.toUpperCase();
+          
+          // 🛡️ PROTEÇÃO 3: Descarta planos de Bônus / Outros
+          if (planoMaiusculo.includes('OUTROS')) return false;
+          
+          // 🛡️ PROTEÇÃO 4: Descarta o Pré-Pago, pois você definiu que não é comissionável
+          if (planoMaiusculo.includes('PRE TOP') || planoMaiusculo.includes('PRÉ-PAGO')) return false;
+          
+          // 🛡️ PROTEÇÃO 5: Descarta linhas de Saldo Negativo
+          const motivoMaiusculo = l.motivo_glosa.toUpperCase();
+          if (motivoMaiusculo.includes('SALDO NEGATIVO')) return false;
+          
+          return true;
+      });
 
-    if (!payload.length) throw new Error('Nenhuma linha com GSM válido encontrada');
+    if (!payload.length) throw new Error('Nenhuma venda válida encontrada (todas foram filtradas por serem Pré-Pago, Bônus ou sem número).');
 
     const mes = document.getElementById('concMes').value;
     finState.conciliacao.mes = mes;
