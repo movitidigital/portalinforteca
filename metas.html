@@ -974,22 +974,65 @@ function onCellInput(e) {
       const c = mesAtivo().consultores.find(x => x.id === id);
       if (c) {
         c.emExperiencia = isChecked;
+        recalcularMetaConsultor(); // 🚀 Recalcula as metas
         salvarEstado();
-        renderDashboardExcel(); // Atualiza o dashboard na hora para refletir a mudança
+        renderDashboardExcel();
+        renderConfig(); // Atualiza a tela para mostrar a nova meta dividida
       }
     }
+        function adicionarConsultor() { 
+      mesAtivo().consultores.push({id:'c'+Date.now(), nome:'NOVO', emExperiencia: false, diario:criarDiarioZerado()}); 
+      recalcularMetaConsultor(); // 🚀
+      salvarEstado(); recalcAll(); 
+    }
     
-    function adicionarConsultor() { mesAtivo().consultores.push({id:'c'+Date.now(), nome:'NOVO', diario:criarDiarioZerado()}); salvarEstado(); recalcAll(); }
+    function removerC(id) { 
+      if(confirm('Excluir este consultor permanentemente?')) { 
+        mesAtivo().consultores = mesAtivo().consultores.filter(x=>x.id!==id); 
+        recalcularMetaConsultor(); // 🚀
+        salvarEstado(); recalcAll(); 
+      } 
+    }
     function renomearC(id, n) { mesAtivo().consultores.find(x=>x.id===id).nome = n.trim(); salvarEstado(); renderDashboardExcel(); }
-    function removerC(id) { if(confirm('Excluir este consultor permanentemente?')) { mesAtivo().consultores = mesAtivo().consultores.filter(x=>x.id!==id); salvarEstado(); recalcAll(); } }
 
     function renderConfigMeta(tbId, stKey) {
       const tb = document.getElementById(tbId);
+      // 🚀 Garante que o objeto existe (resolve o problema da tabela vazia)
+      if (!mesAtivo()[stKey]) mesAtivo()[stKey] = {};
+      
       const obj = mesAtivo()[stKey];
+      const isReadOnly = (stKey === 'metaConsultor'); // Deixa a Meta Consultor bloqueada
+
       tb.innerHTML = LINHAS_DIARIO.map(k => `
-        <tr><td class="p-1 border border-slate-300 bg-slate-50 font-bold">${k}</td>
-        <td class="p-0 border border-slate-300"><input type="text" class="w-full h-full p-1 text-right outline-none text-xs" value="${obj[k]||0}" onchange="altMeta('${stKey}','${k}',this.value)"></td></tr>
+        <tr>
+          <td class="p-1 border border-slate-300 bg-slate-50 font-bold">${k}</td>
+          <td class="p-0 border border-slate-300">
+            <input type="text" 
+                   class="w-full h-full p-1 text-right outline-none text-xs ${isReadOnly ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}" 
+                   value="${obj[k]||0}" 
+                   ${isReadOnly ? 'readonly' : `onchange="altMeta('${stKey}','${k}',this.value)"`}>
+          </td>
+        </tr>
       `).join('');
+    }
+
+    function recalcularMetaConsultor() {
+      const m = mesAtivo();
+      if (!m.metaLoja) m.metaLoja = {};
+      if (!m.metaConsultor) m.metaConsultor = {};
+
+      // Filtra apenas quem NÃO está em experiência
+      const consultoresAtivos = m.consultores.filter(c => !c.emExperiencia);
+      const qtdAtivos = consultoresAtivos.length > 0 ? consultoresAtivos.length : 1;
+
+      LINHAS_DIARIO.forEach(k => {
+        const valorLoja = Number(m.metaLoja[k]) || 0;
+        // Divide a meta da loja pela quantidade de ativos
+        m.metaConsultor[k] = valorLoja / qtdAtivos;
+      });
+
+      // Atualiza a linha principal de Faturamento
+      m.metaConsultor['FAT TOTAL TIM'] = (m.metaConsultor['CONTROLE FAT.'] || 0) + (m.metaConsultor['PÓS FAT.'] || 0);
     }
     
     function altMeta(st, k, v) {
@@ -997,6 +1040,12 @@ function onCellInput(e) {
       if(isNaN(val)) val=0;
       mesAtivo()[st][k] = val;
       if(k==='CONTROLE FAT.' || k==='PÓS FAT.') mesAtivo()[st]['FAT TOTAL TIM'] = (mesAtivo()[st]['CONTROLE FAT.']||0) + (mesAtivo()[st]['PÓS FAT.']||0);
+      
+      // 🚀 Se alterou a Meta Loja, recalcula a Meta Consultor
+      if (st === 'metaLoja') {
+        recalcularMetaConsultor();
+      }
+
       salvarEstado(); renderDashboardExcel(); renderConfig();
     }
 
