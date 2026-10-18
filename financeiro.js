@@ -1835,7 +1835,13 @@ async function reabrirCompetenciaEspelho(mesISO) {
    ============================================================ */
 async function cancelarVenda(id, nomeCliente, event) {
   if (!id) {
-    alert('Erro: ID da venda não encontrado. Atualize a página e tente novamente.');
+    alert('Erro: ID da venda não encontrado.');
+    return;
+  }
+
+  // 🛡️ PROTEÇÃO: Verifica se o ID é um UUID válido (tem 36 caracteres)
+  if (id.length < 30) {
+    alert(`⚠️ Erro de Integração:\n\nO sistema recebeu o ID "${id}", mas a tabela de vendas usa um código UUID longo.\n\nPrecisamos ajustar a RPC "listar_vendas_consolidadas" no banco para enviar o ID correto.`);
     return;
   }
 
@@ -1855,23 +1861,19 @@ async function cancelarVenda(id, nomeCliente, event) {
       mostrarToastCopy('Venda cancelada com sucesso!');
     }
 
-    // 🆕 ATUALIZA O CARD NA TELA SEM RECARREGAR A PÁGINA
     if (event && event.target) {
       const btn = event.target.closest('button');
       const card = btn.closest('div.border');
       
       if (card) {
-        // Deixa o card cinza/transparente
         card.style.opacity = '0.6';
         card.style.background = '#f8fafc';
         
-        // Procura onde fica o badge (PAGO/NÃO PAGO) e adiciona o badge de CANCELADO
         const badgeContainer = card.querySelector('.flex.items-center.gap-4');
         if (badgeContainer) {
           badgeContainer.innerHTML = `<span class="px-2 py-1 rounded text-xs font-black bg-slate-200 text-slate-600 border border-slate-300">🚫 CANCELADO</span>`;
         }
 
-        // Desabilita o botão de cancelar
         btn.disabled = true;
         btn.innerHTML = 'Cancelado';
         btn.className = 'flex items-center gap-1 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-xs uppercase cursor-not-allowed';
