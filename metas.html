@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="sidebar.js"></script>
+  <script src="header.js"></script> 
   <style>
     :root {
       /* Identidade Visual INFORTECA e Cores Excel */
@@ -189,24 +190,8 @@
   <!-- CONTENTOR PRINCIPAL -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
     
-    <!-- CABEÇALHO SUPERIOR -->
-    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 shrink-0">
-      <div class="flex items-center gap-3">
-        <button onclick="toggleSidebar()" class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
-          <i data-lucide="menu" class="w-6 h-6"></i>
-        </button>
-        <h2 class="text-lg font-bold text-[#000033]">Acompanhamento de Vendas Diário</h2>
-      </div>
-      <div class="flex items-center gap-4">
-        <div class="text-right hidden sm:block">
-          <p id="userName" class="text-sm font-semibold text-slate-700 leading-none">Carregando...</p>
-          <p id="userPerm" class="text-xs text-slate-500 mt-1">...</p>
-        </div>
-        <div class="w-10 h-10 rounded-full bg-[#0e8890]/10 border border-[#0e8890]/20 flex items-center justify-center text-[#0e8890] font-bold">
-          <i data-lucide="user" class="w-5 h-5"></i>
-        </div>
-      </div>
-    </header>
+    <!-- CABEÇALHO SUPERIOR INJETADO -->
+    <header id="appHeader" data-title="Acompanhamento de Vendas Diário" data-search="false" data-notif="false"></header>
 
     <!-- ÁREA DE SCROLL -->
     <div class="flex-1 overflow-y-auto">
