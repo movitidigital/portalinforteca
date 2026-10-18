@@ -133,6 +133,8 @@ function inicializarConciliacao() {
   carregarConciliacaoExistente();
 }
 
+
+
 async function carregarConciliacaoExistente() {
   const mes = document.getElementById('concMes').value;
   if (!mes) return;
@@ -156,6 +158,10 @@ async function carregarConciliacaoExistente() {
     drop.style.display = 'block';
     cards.style.display = 'none';
     status.innerHTML = '';
+    
+    // Esconde o resumo se não tiver dados
+    const boxResumo = document.getElementById('concResumoConsolidado');
+    if (boxResumo) boxResumo.style.display = 'none';
     return;
   }
 
@@ -181,6 +187,7 @@ async function carregarConciliacaoExistente() {
     (inter || []).forEach(i => { mapaVend[i.id] = i.vendedor; });
   }
 
+  // Atualiza o estado (importante para manter a lógica, mesmo sem a tabela)
   finState.conciliacao.linhas = linhas.map(d => {
     let tag = 'OK';
     if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
@@ -199,9 +206,10 @@ async function carregarConciliacaoExistente() {
   drop.style.display = 'none';
   cards.style.display = 'block';
 
-  renderizarResultadoConciliacao();
+  // 🚀 REMOVIDO: renderizarResultadoConciliacao(); (tabela antiga não existe mais)
   
-  renderizarResumoConsolidado(document.getElementById('concMes').value); 
+  // 🚀 ADICIONADO: Chama o novo resumo passando o mês com o dia 01 para não dar erro no banco
+  renderizarResumoConsolidado(`${mes}-01`);
 }
 
 async function processarArquivoTim(file) {
@@ -255,7 +263,6 @@ async function processarArquivoTim(file) {
       .map(l => {
         let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
         
-        // 🛡️ PROTEÇÃO 1: Limpa valores zerados ou vazios (ex: "0", "-", "")
         if (gsmRaw === 0 || gsmRaw === '0' || gsmRaw === '-' || String(gsmRaw).trim() === '') {
             gsmRaw = null;
         }
@@ -273,26 +280,18 @@ async function processarArquivoTim(file) {
           const planoMaiusculo = l.plano.toUpperCase();
           const motivoMaiusculo = l.motivo_glosa.toUpperCase();
 
-          // 🚫 1. Exclui Pré-Pago (não é comissionável)
           if (planoMaiusculo.includes('PRE TOP') || planoMaiusculo.includes('PRÉ-PAGO')) {
               return false;
           }
-          
-          // 🚫 2. Exclui Saldo Negativo
           if (motivoMaiusculo.includes('SALDO NEGATIVO')) {
               return false;
           }
-
-          // ✅ 3. SE FOR O BÔNUS DA LOJA ("OUTROS"), MANTÉM MESMO SEM TELEFONE
           if (planoMaiusculo.includes('OUTROS')) {
               return true; 
           }
-          
-          // 🚫 4. Se for venda normal (planos de celular), exige que tenha um telefone válido
           if (!l.gsm) {
               return false;
           }
-          
           return true;
       });
 
@@ -328,6 +327,7 @@ async function processarArquivoTim(file) {
       (inter || []).forEach(i => { mapaVend[i.id] = i.vendedor; });
     }
 
+    // Atualiza estado interno
     finState.conciliacao.linhas = (detalhes || []).map(d => {
       let tag = 'OK';
       if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
@@ -343,10 +343,10 @@ async function processarArquivoTim(file) {
       };
     });
 
-    renderizarResultadoConciliacao();
+    // 🚀 REMOVIDO: renderizarResultadoConciliacao();
 
-    // 🚀 CHAMADA DO NOVO RESUMO CONSOLIDADO AQUI:
-    renderizarResumoConsolidado(mes);
+    // 🚀 ADICIONADO: Chama o novo resumo passando o mês com o dia 01
+    renderizarResumoConsolidado(`${mes}-01`);
 
   } catch (err) {
     console.error('[Conciliação]', err);
@@ -354,45 +354,6 @@ async function processarArquivoTim(file) {
       ❌ ${err.message}
     </div>`;
   }
-}
-
-function renderizarResultadoConciliacao() {
-  const r = finState.conciliacao.resumo;
-  const drop = document.getElementById('concDrop');
-  const status = document.getElementById('concStatus');
-  const cards = document.getElementById('concCards');
-  const tabela = document.getElementById('concTabela');
-
-  drop.style.display = 'none';
-  status.innerHTML = '';
-  cards.style.display = 'block';
-
-  const fmt = v => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-
-  document.getElementById('concCardLinhas').textContent = r.processado;
-  document.getElementById('concCardMatch').textContent = r.match;
-  document.getElementById('concCardDiverge').textContent = r.divergencia;
-  document.getElementById('concCardGlosa').textContent = r.glosas;
-  document.getElementById('concCardTotal').textContent = 'R$ ' + fmt(r.totalPago);
-
-  tabela.innerHTML = finState.conciliacao.linhas.map(l => {
-    const cls = l.auditoria === 'RETIDO' ? 'bg-red-50/40' : l.auditoria === 'ESTORNO' ? 'bg-blue-50/30' : '';
-    const tag = l.auditoria === 'OK'
-      ? '<span class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">MATCH</span>'
-      : l.auditoria === 'RETIDO'
-        ? '<span class="px-2 py-1 rounded text-xs font-bold bg-red-100 text-red-700">GLOSA</span>'
-        : '<span class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700">ESTORNO</span>';
-
-    return `<tr class="border-b border-slate-100 ${cls}">
-      <td class="px-4 py-3 text-sm font-medium">${l.consultor}</td>
-      <td class="px-4 py-3"><div class="font-medium text-sm">${l.gsm}</div><div class="text-xs text-slate-400">${l.plano}</div></td>
-      <td class="px-4 py-3 text-right text-sm font-bold">${fmt(l.pago)}</td>
-      <td class="px-4 py-3 text-xs text-slate-500">${l.tipo}</td>
-      <td class="px-4 py-3 text-center">${tag}</td>
-    </tr>`;
-  }).join('');
-
-  if (window.lucide) lucide.createIcons();
 }
 
 async function fecharCompetencia() {
