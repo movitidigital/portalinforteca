@@ -229,6 +229,23 @@
     .cell-input:focus { background: #fef08a; box-shadow: inset 0 0 0 2px #0e8890; }
     .cell-input.filled { background: #f0fdf4; color: #166534; font-weight: 700; }
 
+    .consultor-card {
+      position: relative;
+    }
+
+    .consultor-header {
+      position: sticky;
+      top: 120px; /* Fica abaixo do cabeçalho do sistema + barra de abas */
+      z-index: 40;
+      box-shadow: 0 4px 6px -4px rgba(0,0,0,0.1); /* Sombra para dar profundidade */
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    /* Ajuste fino do 'top' caso o cabeçalho do sistema mude de tamanho */
+    @media (max-width: 768px) {
+      .consultor-header { top: 60px; }
+    }
+    
     .toast {
       position: fixed; bottom: 24px; right: 24px; z-index: 9999;
       background: #0f172a; color: #fff; padding: 12px 18px;
@@ -237,6 +254,7 @@
       transition: all 0.3s ease; pointer-events: none;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
+    
   </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -740,10 +758,12 @@ function renderDashboardExcel() {
       let html = '';
       
       m.consultores.forEach((c, cIdx) => {
-        html += `<div class="bg-slate-50 p-2 rounded border border-slate-200 mb-4 overflow-x-auto">
-          <h3 class="font-bold text-xs uppercase mb-2 px-2">👨‍💼 ${c.nome}</h3>
-          <table class="table-diario">
-            <thead><tr><th class="label-col">DIAS</th>`;
+        // 🚀 MUDANÇA AQUI: O container externo agora tem a classe 'consultor-card'
+        html += `<div class="bg-slate-50 p-2 rounded border border-slate-200 mb-4 consultor-card">
+          <h3 class="font-bold text-xs uppercase mb-2 px-2 consultor-header bg-slate-50">👨‍💼 ${c.nome}</h3>
+          <div class="overflow-x-auto w-full">
+            <table class="table-diario">
+              <thead><tr><th class="label-col">DIAS</th>`;
         for(let d=1; d<=diasNoMes; d++) html += `<th>${String(d).padStart(2,'0')}</th>`;
         html += `</tr></thead><tbody>
           <tr><td class="label-col font-bold">FAT TOTAL TIM</td>`;
@@ -754,7 +774,7 @@ function renderDashboardExcel() {
           for(let d=0; d<diasNoMes; d++) html += `<td><input type="text" class="cell-input" data-c="${cIdx}" data-row="${key}" data-day="${d}"></td>`;
           html += `</tr>`;
         });
-        html += `</tbody></table></div>`;
+        html += `</tbody></table></div></div>`;
       });
       grid.innerHTML = html;
 
@@ -776,46 +796,38 @@ function renderDashboardExcel() {
       
       m.consultores.forEach((_, i) => { for(let d=0; d<diasNoMes; d++) atualizaFatTotal(i,d); });
 
-      // 🚀 AUTO-SCROLL INTELIGENTE
+      // 🚀 AUTO-SCROLL BLINDADO
       setTimeout(() => {
         if (m.consultores.length === 0) return;
         
-        let proximoDiaIdx = 0; // Índice do dia (0 = dia 01)
-        const cRef = m.consultores[0].diario; // Usa o primeiro consultor como referência
+        let proximoDiaIdx = 0; 
+        const cRef = m.consultores[0].diario;
         
         for (let d = 0; d < diasNoMes; d++) {
-          // Verifica estritamente se está vazio (string vazia), pois 0 é válido
           const isDiaVazio = 
             (cRef['CONTROLE FAT.'][d] === '' || cRef['CONTROLE FAT.'][d] == null) &&
-            (cRef['PÓS FAT.'][d] === '' || cRef['PÓS FAT.'][d] == null) &&
-            (cRef['CONTROLE'][d] === '' || cRef['CONTROLE'][d] == null) &&
-            (cRef['PÓS'][d] === '' || cRef['PÓS'][d] == null);
+            (cRef['PÓS FAT.'][d] === '' || cRef['PÓS FAT.'][d] == null);
 
           if (isDiaVazio) {
             proximoDiaIdx = d;
             break;
           }
-          // Se chegar no final e tudo estiver preenchido, mantém no último dia
           if (d === diasNoMes - 1) proximoDiaIdx = d; 
         }
 
-        // Rola todas as tabelas horizontalmente para o próximo dia
-        const primeiraTabela = grid.querySelector('.table-diario');
-        if (primeiraTabela) {
-          // +2 porque a primeira coluna é "DIAS" (1) e o índice começa em 0
-          const thAlvo = primeiraTabela.querySelector(`thead th:nth-child(${proximoDiaIdx + 2})`);
-          
-          if (thAlvo) {
-            // Pega a posição exata do dia menos a largura da coluna fixa (130px)
+        // Rola todos os containers da tabela
+        const tabelas = grid.querySelectorAll('.table-diario');
+        tabelas.forEach(tabela => {
+          const thAlvo = tabela.querySelector(`thead th:nth-child(${proximoDiaIdx + 2})`);
+          const container = tabela.parentElement; // A div com overflow-x-auto
+
+          if (thAlvo && container) {
+            // Pega a posição do dia desejado, subtrai o tamanho da coluna fixa (130px) e rola
             const scrollTarget = thAlvo.offsetLeft - 130;
-            
-            // Aplica a rolagem para todos os containers (tabelas empilhadas)
-            grid.querySelectorAll('.overflow-x-auto').forEach(container => {
-              container.scrollLeft = scrollTarget;
-            });
+            container.scrollLeft = scrollTarget;
           }
-        }
-      }, 300); // Delay para garantir renderização
+        });
+      }, 800); // Aumentei para 800ms para garantir que o DOM montou tudo antes de rolar
     }
 
     function onEditCell(e) {
