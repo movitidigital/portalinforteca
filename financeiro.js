@@ -852,7 +852,7 @@ async function renderizarEspelho() {
     if (!servicosAgrupados[i.tipo_item]) {
       servicosAgrupados[i.tipo_item] = { qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada, fator: i.fator_remuneracao_aplicado, total: 0 };
     }
-    servicosAgrupados[i.tipo_item].qtd += (Number(i.quantidade) || 1); // 🚀 Usa a quantidade salva
+    servicosAgrupados[i.tipo_item].qtd += 1; // 
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
