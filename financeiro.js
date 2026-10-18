@@ -1981,29 +1981,122 @@ function atualizarCardsConciliacao(resumo) {
 async function gerarEspelhosCompetencia() {
   const mes = document.getElementById('concMes').value;
   if (!mes) return;
-
-  if (!confirm(`Gerar os espelhos oficiais para ${mes}?\n\nIsso vai calcular as comissões de todos os vendedores com base na conciliação atual.`)) return;
+  if (!confirm('Gerar espelhos oficiais? Isso vai salvar a comissão exata de todos os vendedores.')) return;
 
   const btn = document.getElementById('concBtnGerarEspelhos');
   const original = btn.innerHTML;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gerando...';
   btn.disabled = true;
-  btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gerando...`;
   lucide.createIcons();
 
   try {
-    const { data, error } = await supabaseClient.rpc('gerar_espelhos_mes', {
-      p_mes_competencia: `${mes}-01`
-    });
-    
-    if (error) throw error;
-    
-    alert(`✅ Espelhos gerados com sucesso!\n\n${data.espelhos_gerados || 0} espelhos criados/atualizados.`);
+    // 1. Pega todos os vendedores que tiveram vendas conciliadas neste mês
+    const { data: conc } = await supabaseClient
+      .from('financeiro_conciliacao_tim')
+      .select('interacao_id, interacoes(vendedor)')
+      .eq('mes_competencia', `${mes}-01`)
+      .eq('status_conciliacao', 'MATCH_PERFEITO');
+
+    const vendedores = [...new Set(conc.map(c => c.interacoes?.vendedor).filter(Boolean))];
+    if (vendedores.length === 0) return alert('Nenhuma venda conciliada para gerar espelhos.');
+
+    // 2. Busca as metas do mês
+    const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+    const [ano, m] = mes.split('-');
+    const nomeMes = `${MESES[parseInt(m)-1]} / ${ano}`;
+    const { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMes).maybeSingle();
+    const politicas = await obterPoliticas();
+
+    for (const vend of vendedores) {
+      let bateuPessoal = false;
+      let lojaBateu = false;
+      let valAparelhos = 0;
+      let valAcessorios = 0;
+
+      if (metaData?.dados) {
+         const consultores = metaData.dados.consultores || [];
+         const metaCons = metaData.dados.metaConsultor || {};
+         const metaLoja = metaData.dados.metaLoja || {};
+         const primeiroNome = vend.split(' ')[0].toLowerCase();
+         const consultor = consultores.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
+
+         if (consultor) {
+            const soma = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
+            const d = consultor.diario || {};
+            const realizadoFatTotal = soma(d['PÓS FAT.']) + soma(d['CONTROLE FAT.']);
+            const metaFatTotal = Number(metaCons['FAT TOTAL TIM'] || (Number(metaCons['PÓS FAT.'] || 0) + Number(metaCons['CONTROLE FAT.'] || 0)));
+            bateuPessoal = metaFatTotal > 0 && (realizadoFatTotal / metaFatTotal) >= 1;
+
+            const realizadoLojaFat = consultores.reduce((s, c) => s + soma((c.diario || {})['PÓS FAT.']) + soma((c.diario || {})['CONTROLE FAT.']), 0);
+            const metaLojaFatTotal = Number(metaLoja['FAT TOTAL TIM'] || 0) || (Number(metaLoja['PÓS FAT.'] || 0) + Number(metaLoja['CONTROLE FAT.'] || 0));
+            lojaBateu = metaLojaFatTotal > 0 && (realizadoLojaFat / metaLojaFatTotal) >= 1;
+
+            valAparelhos = soma(d['APARELHO']);
+            valAcessorios = soma(d['ACESSÓRIOS']);
+         }
+      }
+
+      // 3. Calcula a comissão usando a mesma RPC da prévia
+      const { data: p, error: pErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
+        p_mes_competencia: `${mes}-01`, p_vendedor_id: vend, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
+      });
+      if (pErr) throw pErr;
+
+      // 4. Puxa os fatores de aparelho e acessório
+      const tier = resolverTier({ bateuLoja: lojaBateu, bateuPessoal });
+      const fatorAparelho = resolverFator(politicas, 'APARELHO', tier);
+      const fatorAcessorio = resolverFator(politicas, 'ACESSORIO', tier);
+
+      const comissaoAparelhos = valAparelhos * fatorAparelho;
+      const comissaoAcessorios = valAcessorios * fatorAcessorio;
+      const totalServicos = Number(p.total_servicos || 0);
+
+      // 5. Calcula o Acelerador de Portabilidade
+      const metaPort = p.portabilidade_meta || 0;
+      const realPort = p.portabilidade_realizado || 0;
+      const bateuPort = metaPort > 0 && realPort >= metaPort;
+      const portEstado = metaPort === 0 ? 'SEM_META' : (!bateuPort ? 'FALTAM_PORT' : (!bateuPessoal ? 'FALTA_FAT' : 'LIBERADO'));
+      const aceleradorPort = portEstado === 'LIBERADO' ? (totalServicos * 0.15) : 0;
+      const totalFinal = totalServicos + comissaoAparelhos + comissaoAcessorios + aceleradorPort;
+
+      // 6. Apaga o espelho antigo se existir
+      await supabaseClient.from('financeiro_espelhos_b2c').delete().eq('mes_competencia_venda', `${mes}-01`).eq('vendedor_id', vend);
+
+      // 7. Salva o Espelho Oficial (valores corretos)
+      const { data: espelho } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
+        vendedor_id: vend,
+        mes_competencia_venda: `${mes}-01`,
+        mes_competencia_pagamento: `${mes}-01`,
+        status_espelho: 'OFICIAL',
+        total_comissao_servicos: totalServicos,
+        total_comissao_aparelhos: comissaoAparelhos,
+        total_comissao_acessorios: comissaoAcessorios,
+        total_liquido_receber: totalFinal
+      }).select().single();
+
+      // 8. Salva os detalhes (Itens)
+      const itens = [];
+      if (p.itens_servicos?.length > 0) {
+         p.itens_servicos.forEach(it => itens.push({
+           espelho_id: espelho.id, tipo_item: it.plano, valor_referencia_base: it.vr, qualidade_aplicada: it.qt, fator_remuneracao_aplicado: it.fator, valor_comissao_final: it.total
+         }));
+      }
+      if (comissaoAparelhos > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'APARELHO', valor_referencia_base: valAparelhos, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAparelho, valor_comissao_final: comissaoAparelhos });
+      if (comissaoAcessorios > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACESSORIO', valor_referencia_base: valAcessorios, qualidade_aplicada: 1, fator_remuneracao_aplicado: fatorAcessorio, valor_comissao_final: comissaoAcessorios });
+      if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
+
+      if (itens.length > 0) {
+         await supabaseClient.from('financeiro_espelho_itens').insert(itens);
+      }
+    }
+
+    alert('✅ Espelhos oficiais gerados com sucesso! Agora você já pode abrir a aba "Meu Espelho".');
   } catch (err) {
     console.error('[Gerar Espelhos]', err);
     alert('Erro ao gerar espelhos: ' + err.message);
   } finally {
-    btn.disabled = false;
     btn.innerHTML = original;
+    btn.disabled = false;
     lucide.createIcons();
   }
 }
