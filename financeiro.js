@@ -1990,7 +1990,7 @@ async function gerarEspelhosCompetencia() {
   lucide.createIcons();
 
   try {
-    // 1. Pega todos os vendedores que tiveram vendas conciliadas neste mês
+    // 1. Busca vendedores conciliados
     const { data: conc } = await supabaseClient
       .from('financeiro_conciliacao_tim')
       .select('interacao_id, interacoes(vendedor)')
@@ -2000,7 +2000,7 @@ async function gerarEspelhosCompetencia() {
     const vendedores = [...new Set(conc.map(c => c.interacoes?.vendedor).filter(Boolean))];
     if (vendedores.length === 0) return alert('Nenhuma venda conciliada para gerar espelhos.');
 
-    // 2. Busca as metas do mês
+    // 2. Busca metas do mês e políticas
     const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
     const [ano, m] = mes.split('-');
     const nomeMes = `${MESES[parseInt(m)-1]} / ${ano}`;
@@ -2036,13 +2036,13 @@ async function gerarEspelhosCompetencia() {
          }
       }
 
-      // 3. Calcula a comissão usando a mesma RPC da prévia
+      // 3. Calcula comissão via RPC da Prévia
       const { data: p, error: pErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
         p_mes_competencia: `${mes}-01`, p_vendedor_id: vend, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
       });
       if (pErr) throw pErr;
 
-      // 4. Puxa os fatores de aparelho e acessório
+      // 4. Fatores
       const tier = resolverTier({ bateuLoja: lojaBateu, bateuPessoal });
       const fatorAparelho = resolverFator(politicas, 'APARELHO', tier);
       const fatorAcessorio = resolverFator(politicas, 'ACESSORIO', tier);
@@ -2051,7 +2051,7 @@ async function gerarEspelhosCompetencia() {
       const comissaoAcessorios = valAcessorios * fatorAcessorio;
       const totalServicos = Number(p.total_servicos || 0);
 
-      // 5. Calcula o Acelerador de Portabilidade
+      // 5. Acelerador
       const metaPort = p.portabilidade_meta || 0;
       const realPort = p.portabilidade_realizado || 0;
       const bateuPort = metaPort > 0 && realPort >= metaPort;
@@ -2059,10 +2059,10 @@ async function gerarEspelhosCompetencia() {
       const aceleradorPort = portEstado === 'LIBERADO' ? (totalServicos * 0.15) : 0;
       const totalFinal = totalServicos + comissaoAparelhos + comissaoAcessorios + aceleradorPort;
 
-      // 6. Apaga o espelho antigo se existir
+      // 6. Deleta espelho antigo do vendedor (para evitar duplicação)
       await supabaseClient.from('financeiro_espelhos_b2c').delete().eq('mes_competencia_venda', `${mes}-01`).eq('vendedor_id', vend);
 
-      // 7. Salva o Espelho Oficial (valores corretos)
+      // 7. Insere o Espelho Oficial (Valor Exato)
       const { data: espelho } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
         vendedor_id: vend,
         mes_competencia_venda: `${mes}-01`,
@@ -2074,7 +2074,7 @@ async function gerarEspelhosCompetencia() {
         total_liquido_receber: totalFinal
       }).select().single();
 
-      // 8. Salva os detalhes (Itens)
+      // 8. Insere os itens detalhados
       const itens = [];
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => itens.push({
@@ -2090,7 +2090,7 @@ async function gerarEspelhosCompetencia() {
       }
     }
 
-    alert('✅ Espelhos oficiais gerados com sucesso! Agora você já pode abrir a aba "Meu Espelho".');
+    alert('✅ Espelhos oficiais gerados com sucesso com os valores da prévia!');
   } catch (err) {
     console.error('[Gerar Espelhos]', err);
     alert('Erro ao gerar espelhos: ' + err.message);
