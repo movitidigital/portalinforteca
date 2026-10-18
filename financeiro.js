@@ -1109,7 +1109,6 @@ async function renderizarPrevisao() {
   const comissaoAparelhos  = Number((valorAparelhosVendidos  * fatorAparelho ).toFixed(2));
   const comissaoAcessorios = Number((valorAcessoriosVendidos * fatorAcessorio).toFixed(2));
 
-  // Agora confiamos no SQL que já arrumamos
   const comissaoServicos = Number(p.total_servicos || 0);
   const totalGeralComExtras = comissaoServicos + comissaoAcessorios + comissaoAparelhos;
 
@@ -1205,7 +1204,8 @@ async function renderizarPrevisao() {
 
   let portabilidadeHTML = '';
   if (metaPort > 0) {
-    if (portEstado === 'FALTAM_PORT') {
+    // 🚀 CORRIGIDO: Usando portEstadoP em vez de portEstado
+    if (portEstadoP === 'FALTAM_PORT') {
       portabilidadeHTML = `
         <div class="rounded-2xl p-5 mb-6 shadow-md bg-white border border-slate-200">
           <div class="flex justify-between items-center">
@@ -1216,25 +1216,25 @@ async function renderizarPrevisao() {
             </div>
           </div>
         </div>`;
-    } else if (portEstado === 'FALTA_FAT') {
+    } else if (portEstadoP === 'FALTA_FAT') {
       portabilidadeHTML = `
         <div class="rounded-2xl p-5 mb-6 shadow-md bg-gradient-to-r from-blue-500 to-blue-600">
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎯 meta batida!</p>
               <p class="text-sm font-bold mt-1 text-white">A portabilidade foi batida, mas faltou <strong>faturamento</strong>.</p>
-              <p class="text-[11px] text-white/90 mt-1">Faltaram <strong>${fmtR(faltaFatPort)}</strong> em faturamento para liberar o Acelerador.</p>
+              <p class="text-[11px] text-white/90 mt-1">Faltaram <strong>${fmtR(faltaFatPortP)}</strong> em faturamento para liberar o Acelerador.</p>
             </div>
           </div>
         </div>`;
-    } else if (portEstado === 'LIBERADO') {
+    } else if (portEstadoP === 'LIBERADO') {
       portabilidadeHTML = `
         <div class="rounded-2xl p-5 mb-6 shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600">
           <div class="flex justify-between items-center">
             <div class="flex-1 min-w-0">
               <p class="text-[10px] font-black uppercase tracking-widest text-white/90">⚡ Portabilidade — 🎉 ACELERADOR LIBERADO</p>
               <p class="text-sm font-bold mt-1 text-white">Bônus de <strong>15%</strong> aplicado sobre a comissão de serviços.</p>
-              <p class="text-[11px] text-white/90 mt-1">Acelerador: <strong>R$ ${fmt(aceleradorPort)}</strong> sobre R$ ${fmt(e.total_comissao_servicos)}</p>
+              <p class="text-[11px] text-white/90 mt-1">Acelerador: <strong>R$ ${fmt(aceleradorPortP)}</strong> sobre R$ ${fmt(comissaoServicos)}</p>
             </div>
           </div>
         </div>`;
@@ -1991,7 +1991,6 @@ async function gerarEspelhosCompetencia() {
   lucide.createIcons();
 
   try {
-    // 1. Busca vendedores conciliados
     const { data: conc, error: concErr } = await supabaseClient
       .from('financeiro_conciliacao_tim')
       .select('interacao_id')
@@ -2013,15 +2012,38 @@ async function gerarEspelhosCompetencia() {
     const vendedores = [...new Set(interacoes.map(i => i.vendedor).filter(Boolean))];
     if (vendedores.length === 0) throw new Error('Nenhum vendedor encontrado para as vendas conciliadas.');
 
-    // 2. Busca metas e políticas
-    const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
     const [ano, m] = mes.split('-');
-    const nomeMes = `${MESES[parseInt(m)-1]} / ${ano}`;
-    const { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMes).maybeSingle();
+    
+    // 🚀 BUSCA DA META PRINCIPAL COM FALLBACK DE ESPAÇO
+    const nomeMesA = formatarMesMeta(mes);
+    const nomeMesB = nomeMesA.replace('/', ' / ');
+    let { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
+    if (!metaData) {
+      const { data: alt } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesB).maybeSingle();
+      metaData = alt;
+    }
+
     const politicas = await obterPoliticas();
 
-    const proxMesDate = new Date(parseInt(ano), parseInt(m), 1);
-    const mesPagamento = `${proxMesDate.getFullYear()}-${String(proxMesDate.getMonth() + 1).padStart(2, '0')}-01`;
+    // 🚀 BUSCA DA META DE ACESSÓRIOS (M+1) COM FALLBACK DE ESPAÇO
+    let metaAcessData = null;
+    try {
+      let proxAno = parseInt(ano); let proxMes = parseInt(m) + 1;
+      if (proxMes > 12) { proxMes = 1; proxAno++; }
+      const compAcessorios = `${proxAno}-${String(proxMes).padStart(2, '0')}`;
+      
+      const nomeMesAcessA = formatarMesMeta(compAcessorios);
+      const nomeMesAcessB = nomeMesAcessA.replace('/', ' / ');
+      
+      let { data: acessA } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesAcessA).maybeSingle();
+      if (!acessA) {
+         const { data: acessB } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesAcessB).maybeSingle();
+         acessA = acessB;
+      }
+      metaAcessData = acessA;
+    } catch (e) {
+      console.warn('[Acessórios M+1] Erro ao buscar:', e);
+    }
 
     for (const vend of vendedores) {
       let bateuPessoal = false;
@@ -2047,37 +2069,23 @@ async function gerarEspelhosCompetencia() {
             const metaLojaFatTotal = Number(metaLoja['FAT TOTAL TIM'] || 0) || (Number(metaLoja['PÓS FAT.'] || 0) + Number(metaLoja['CONTROLE FAT.'] || 0));
             lojaBateu = metaLojaFatTotal > 0 && (realizadoLojaFat / metaLojaFatTotal) >= 1;
 
-            // 🚀 CÁLCULO CORRETO DE APARELHOS E ACESSÓRIOS (IGUAL À PRÉVIA)
             valAparelhos = soma(d['APARELHO']);
-            
-            try {
-              // Acessórios usa a regra M+1 (mês seguinte)
-              let proxAno = parseInt(ano); let proxMes = parseInt(m) + 1;
-              if (proxMes > 12) { proxMes = 1; proxAno++; }
-              const compAcessorios = `${proxAno}-${String(proxMes).padStart(2, '0')}`;
-              const nomeMesAcess = `${MESES[proxMes - 1]} / ${proxAno}`;
-              
-              const { data: metaAcessData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesAcess).maybeSingle();
-              if (metaAcessData?.dados) {
-                const consultoresAcess = metaAcessData.dados.consultores || [];
-                const consultorAcess = consultoresAcess.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
-                if (consultorAcess) {
-                  valAcessorios = soma(consultorAcess.diario?.['ACESSÓRIOS']);
-                }
+
+            if (metaAcessData?.dados) {
+              const consultoresAcess = metaAcessData.dados.consultores || [];
+              const consultorAcess = consultoresAcess.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
+              if (consultorAcess) {
+                valAcessorios = soma(consultorAcess.diario?.['ACESSÓRIOS']);
               }
-            } catch (e) {
-              console.warn('[Acessórios M+1] Erro:', e);
             }
          }
       }
 
-      // 3. Calcula comissão via RPC
       const { data: p, error: pErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
         p_mes_competencia: `${mes}-01`, p_vendedor_id: vend, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
       });
       if (pErr) throw new Error(`Erro ao calcular previsão para ${vend}: ${pErr.message}`);
 
-      // 4. Fatores e Comissões
       const tier = resolverTier({ bateuLoja: lojaBateu, bateuPessoal });
       const fatorAparelho = resolverFator(politicas, 'APARELHO', tier);
       const fatorAcessorio = resolverFator(politicas, 'ACESSORIO', tier);
@@ -2086,7 +2094,6 @@ async function gerarEspelhosCompetencia() {
       const comissaoAcessorios = valAcessorios * fatorAcessorio;
       const totalServicos = Number(p.total_servicos || 0);
 
-      // 5. Acelerador
       const metaPort = p.portabilidade_meta || 0;
       const realPort = p.portabilidade_realizado || 0;
       const bateuPort = metaPort > 0 && realPort >= metaPort;
@@ -2094,14 +2101,12 @@ async function gerarEspelhosCompetencia() {
       const aceleradorPort = portEstado === 'LIBERADO' ? (totalServicos * 0.15) : 0;
       const totalFinal = totalServicos + comissaoAparelhos + comissaoAcessorios + aceleradorPort;
 
-      // 6. Deleta espelho antigo
       await supabaseClient.from('financeiro_espelhos_b2c').delete().eq('mes_competencia_venda', `${mes}-01`).eq('vendedor_id', vend);
 
-      // 7. Insere Espelho Oficial
       const { data: espelho, error: espErr } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
         vendedor_id: vend,
         mes_competencia_venda: `${mes}-01`,
-        mes_competencia_pagamento: mesPagamento,
+        mes_competencia_pagamento: `${mes}-01`,
         status_espelho: 'OFICIAL',
         total_comissao_servicos: totalServicos,
         total_comissao_aparelhos: comissaoAparelhos,
@@ -2111,7 +2116,6 @@ async function gerarEspelhosCompetencia() {
 
       if (espErr || !espelho) throw new Error(`Erro ao salvar espelho de ${vend}: ${espErr?.message || 'Sem permissão.'}`);
 
-      // 8. Insere Itens
       const itens = [];
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => itens.push({
