@@ -1830,3 +1830,40 @@ async function reabrirCompetenciaEspelho(mesISO) {
     btn.innerHTML = htmlOriginal;
   }
 }
+/* ============================================================
+   CANCELAR VENDA (Ocultar do Espelho)
+   ============================================================ */
+async function cancelarVenda(id, nomeCliente) {
+  if (!id) {
+    alert('Erro: ID da venda não encontrado. Atualize a página e tente novamente.');
+    return;
+  }
+
+  if (!confirm(`⚠️ Deseja realmente cancelar a venda de ${nomeCliente}?\n\nEla será removida dos espelhos e não pagará comissão.`)) {
+    return;
+  }
+
+  try {
+    // Atualiza a tabela de interações marcando como cancelado
+    const { error } = await supabaseClient
+      .from('interacoes')
+      .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Feedback visual
+    if (typeof mostrarToastCopy === 'function') {
+      mostrarToastCopy('Venda cancelada com sucesso!');
+    } else {
+      alert('✅ Venda cancelada. Regenere o espelho do vendedor para refletir.');
+    }
+
+    // Recarrega a lista na tela para a venda sumir
+    await carregarVendasNaoPagas();
+    
+  } catch (err) {
+    console.error('[Cancelar Venda]', err);
+    alert('Erro ao cancelar venda: ' + err.message);
+  }
+}
