@@ -1980,8 +1980,8 @@ function atualizarCardsConciliacao(resumo) {
    ========================================================== */
 async function gerarEspelhosCompetencia() {
   const mes = document.getElementById('concMes').value;
-  if (!mes) return;
-  if (!confirm('Gerar espelhos oficiais? Isso vai salvar a comissão exata de todos os vendedores.')) return;
+  if (!mes) return alert('Selecione uma competência primeiro.');
+  if (!confirm('Gerar espelhos oficiais? Isso salvará a comissão exata de todos os vendedores.')) return;
 
   const btn = document.getElementById('concBtnGerarEspelhos');
   const original = btn.innerHTML;
@@ -1997,15 +1997,21 @@ async function gerarEspelhosCompetencia() {
       .eq('mes_competencia', `${mes}-01`)
       .eq('status_conciliacao', 'MATCH_PERFEITO');
 
-    const vendedores = [...new Set(conc.map(c => c.interacoes?.vendedor).filter(Boolean))];
-    if (vendedores.length === 0) return alert('Nenhuma venda conciliada para gerar espelhos.');
+    if (!conc || conc.length === 0) throw new Error('Nenhuma venda conciliada encontrada para este mês.');
 
-    // 2. Busca metas do mês e políticas
+    const vendedores = [...new Set(conc.map(c => c.interacoes?.vendedor).filter(Boolean))];
+    if (vendedores.length === 0) throw new Error('Nenhum vendedor válido encontrado.');
+
+    // 2. Busca metas do mês
     const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
     const [ano, m] = mes.split('-');
     const nomeMes = `${MESES[parseInt(m)-1]} / ${ano}`;
     const { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMes).maybeSingle();
     const politicas = await obterPoliticas();
+
+    // Define o mês de pagamento (ex: se venda é 08/2026, pagamento é 09/2026)
+    const proxMesDate = new Date(parseInt(ano), parseInt(m), 1); // Mês seguinte
+    const mesPagamento = `${proxMesDate.getFullYear()}-${String(proxMesDate.getMonth() + 1).padStart(2, '0')}-01`;
 
     for (const vend of vendedores) {
       let bateuPessoal = false;
@@ -2040,9 +2046,9 @@ async function gerarEspelhosCompetencia() {
       const { data: p, error: pErr } = await supabaseClient.rpc('calcular_previsao_comissao_b2c', {
         p_mes_competencia: `${mes}-01`, p_vendedor_id: vend, p_vendedor_bateu_meta: bateuPessoal, p_loja_bateu_meta: lojaBateu
       });
-      if (pErr) throw pErr;
+      if (pErr) throw new Error(`Erro ao calcular previsão para ${vend}: ${pErr.message}`);
 
-      // 4. Fatores
+      // 4. Fatores de comissão
       const tier = resolverTier({ bateuLoja: lojaBateu, bateuPessoal });
       const fatorAparelho = resolverFator(politicas, 'APARELHO', tier);
       const fatorAcessorio = resolverFator(politicas, 'ACESSORIO', tier);
@@ -2051,7 +2057,7 @@ async function gerarEspelhosCompetencia() {
       const comissaoAcessorios = valAcessorios * fatorAcessorio;
       const totalServicos = Number(p.total_servicos || 0);
 
-      // 5. Acelerador
+      // 5. Acelerador de Portabilidade
       const metaPort = p.portabilidade_meta || 0;
       const realPort = p.portabilidade_realizado || 0;
       const bateuPort = metaPort > 0 && realPort >= metaPort;
@@ -2059,14 +2065,14 @@ async function gerarEspelhosCompetencia() {
       const aceleradorPort = portEstado === 'LIBERADO' ? (totalServicos * 0.15) : 0;
       const totalFinal = totalServicos + comissaoAparelhos + comissaoAcessorios + aceleradorPort;
 
-      // 6. Deleta espelho antigo do vendedor (para evitar duplicação)
+      // 6. Deleta espelho antigo se existir (para não duplicar)
       await supabaseClient.from('financeiro_espelhos_b2c').delete().eq('mes_competencia_venda', `${mes}-01`).eq('vendedor_id', vend);
 
-      // 7. Insere o Espelho Oficial (Valor Exato)
-      const { data: espelho } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
+      // 7. Insere o Espelho Oficial com as colunas preenchidas
+      const { data: espelho, error: espErr } = await supabaseClient.from('financeiro_espelhos_b2c').insert({
         vendedor_id: vend,
         mes_competencia_venda: `${mes}-01`,
-        mes_competencia_pagamento: `${mes}-01`,
+        mes_competencia_pagamento: mesPagamento, // 🚀 Agora preenchido corretamente
         status_espelho: 'OFICIAL',
         total_comissao_servicos: totalServicos,
         total_comissao_aparelhos: comissaoAparelhos,
@@ -2074,7 +2080,11 @@ async function gerarEspelhosCompetencia() {
         total_liquido_receber: totalFinal
       }).select().single();
 
-      // 8. Insere os itens detalhados
+      if (espErr || !espelho) {
+         throw new Error(`Erro ao salvar espelho de ${vend}: ${espErr?.message || 'Sem resposta do banco (verifique permissões/RLS).'}`);
+      }
+
+      // 8. Insere os itens detalhados (para o PDF não vir vazio)
       const itens = [];
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => itens.push({
@@ -2086,14 +2096,18 @@ async function gerarEspelhosCompetencia() {
       if (aceleradorPort > 0) itens.push({ espelho_id: espelho.id, tipo_item: 'ACELERADOR_PORTABILIDADE', valor_referencia_base: totalServicos, qualidade_aplicada: 1, fator_remuneracao_aplicado: 0.15, valor_comissao_final: aceleradorPort });
 
       if (itens.length > 0) {
-         await supabaseClient.from('financeiro_espelho_itens').insert(itens);
+         const { error: itemErr } = await supabaseClient.from('financeiro_espelho_itens').insert(itens);
+         if (itemErr) console.warn(`Aviso: erro ao inserir itens de ${vend}:`, itemErr.message);
       }
     }
 
-    alert('✅ Espelhos oficiais gerados com sucesso com os valores da prévia!');
+    alert('✅ Espelhos oficiais gerados com sucesso!');
+    // Recarrega a aba de espelho para atualizar na hora
+    if (typeof carregarEspelho === 'function') carregarEspelho();
+    
   } catch (err) {
-    console.error('[Gerar Espelhos]', err);
-    alert('Erro ao gerar espelhos: ' + err.message);
+    console.error('[Gerar Espelhos] Falha:', err);
+    alert('❌ ' + err.message); // 🚨 Mostra o erro real na tela
   } finally {
     btn.innerHTML = original;
     btn.disabled = false;
