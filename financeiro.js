@@ -546,6 +546,7 @@ async function carregarVendasNaoPagas() {
                 <span class="text-xs text-slate-400">${v.plano || '—'}</span>
                 <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
               </div>
+              ${provInfo}
             </div>
             <div class="flex items-center gap-3 shrink-0">
               <div class="text-right">
@@ -553,9 +554,19 @@ async function carregarVendasNaoPagas() {
                 <div class="text-base font-black ${totalCor}">R$ ${fmt(total)}</div>
               </div>
               ${badge}
+              
+              <!-- 🆕 BOTÃO DE CANCELAR VENDA -->
+              <button onclick="cancelarVenda('${v.id || v.interacao_id}', '${v.nome || 'Cliente'}')" 
+                class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200" 
+                title="Cancelar esta venda (Ela sumirá dos espelhos)">
+                <i data-lucide="x-circle" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
-          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">${itensHTML}</div>
+
+          <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
+            ${itensHTML}
+          </div>
         </div>
       `;
     }).join('');
