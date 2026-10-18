@@ -852,7 +852,7 @@ async function renderizarEspelho() {
     if (!servicosAgrupados[i.tipo_item]) {
       servicosAgrupados[i.tipo_item] = { qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada, fator: i.fator_remuneracao_aplicado, total: 0 };
     }
-    servicosAgrupados[i.tipo_item].qtd += 1; // 
+    servicosAgrupados[i.tipo_item].qtd += 1; 
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
@@ -1037,11 +1037,17 @@ async function renderizarEspelho() {
           <p class="text-[10px] font-black uppercase tracking-widest ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'}">
             ⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta
           </p>
-          <p class="text-sm font-bold mt-1 ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white' : 'text-slate-700'}">
-            ${portEstado === 'FALTAM_PORT' ? `Faltam <strong>${metaPort - realPort}</strong> portabilidades para bater a meta` :
-              portEstado === 'FALTA_FAT' ? `✅ Portabilidade batida! Falta <strong>R$ ${fmt(faltaFatPort)}</strong> em faturamento` :
-                `🎉 Meta batida! Acelerador de <strong>15%</strong> aplicado`}
-          </p>
+          <div class="mt-1">
+            ${portEstado === 'FALTAM_PORT' 
+              ? `<p class="text-sm font-bold text-slate-700">Faltaram <strong>${metaPort - realPort}</strong> portabilidade${(metaPort - realPort) > 1 ? 's' : ''} para bater a meta.</p>
+                 <p class="text-xs text-red-500 font-medium mt-1">Por este motivo, o Acelerador de 15% não foi aplicado.</p>`
+              : portEstado === 'FALTA_FAT' 
+                ? `<p class="text-sm font-bold text-white">✅ Portabilidade batida!</p>
+                   <p class="text-xs text-white/90 font-medium mt-1">Faltaram <strong>R$ ${fmt(faltaFatPort)}</strong> em faturamento.</p>
+                   <p class="text-[11px] text-blue-100 font-medium mt-0.5">Como o acelerador está atrelado ao faturamento, o bônus não foi aplicado.</p>`
+                : `<p class="text-sm font-bold text-white">🎉 Meta batida! Acelerador de <strong>15%</strong> aplicado</p>`
+            }
+          </div>
         </div>
         <div class="text-right shrink-0 ml-4">
           <div class="text-sm font-bold ${portEstado === 'LIBERADO' || portEstado === 'FALTA_FAT' ? 'text-white/90' : 'text-slate-500'} mb-1">${realPort} / ${metaPort}</div>
@@ -1645,9 +1651,15 @@ async function exportarEspelhoPdf() {
     };
     const c = cores[estadoPdf];
 
-    let msgPdf = estadoPdf === 'LIBERADO' ? `Acelerador de 15% sobre R$ ${fmt(e.total_comissao_servicos)}` : 
-                 estadoPdf === 'FALTA_FAT' ? `Portabilidade batida! Falta R$ ${fmt(metaFatPdf - realFatPdf)} em faturamento` :
-                 `Faltam ${metaPort - realPort} portabilidades para bater a meta`;
+    // 🚀 AJUSTE DO TEXTO NO PDF (PASSADO)
+    let msgPdf = '';
+    if (estadoPdf === 'LIBERADO') {
+      msgPdf = `Acelerador de 15% aplicado sobre R$ ${fmt(e.total_comissao_servicos)}`;
+    } else if (estadoPdf === 'FALTA_FAT') {
+      msgPdf = `Portabilidade batida! Faltaram R$ ${fmt(metaFatPdf - realFatPdf)} em faturamento. Acelerador não aplicado.`;
+    } else {
+      msgPdf = `Faltaram ${metaPort - realPort} portabilidade${(metaPort - realPort) > 1 ? 's' : ''} para bater a meta. Acelerador não aplicado.`;
+    }
 
     portabilidadePdf = `
       <table style="width:100%; margin-top:12px; margin-bottom:6px;">
@@ -1806,7 +1818,6 @@ async function exportarEspelhoPdf() {
     if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
   }
 }
-
 /* ============================================================
    REABRIR COMPETÊNCIA (Para Admin)
    ============================================================ */
