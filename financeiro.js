@@ -205,11 +205,9 @@ async function carregarConciliacaoExistente() {
 
   drop.style.display = 'none';
   cards.style.display = 'block';
+  atualizarCardsConciliacao(finState.conciliacao.resumo); 
 
-  // 🚀 REMOVIDO: renderizarResultadoConciliacao(); (tabela antiga não existe mais)
-  
-  // 🚀 ADICIONADO: Chama o novo resumo passando o mês com o dia 01 para não dar erro no banco
-  renderizarResumoConsolidado(`${mes}-01`);
+    renderizarResumoConsolidado(`${mes}-01`);
 }
 
 async function processarArquivoTim(file) {
@@ -343,10 +341,18 @@ async function processarArquivoTim(file) {
       };
     });
 
-    // 🚀 REMOVIDO: renderizarResultadoConciliacao();
+    // 🚀 AJUSTES AQUI PARA MOSTRAR A TELA E OS CARDS
+    document.getElementById('concDrop').style.display = 'none';
+    document.getElementById('concCards').style.display = 'block';
+    
+    // 1. Preenche os cards la de cima (Linhas, Match, etc)
+    atualizarCardsConciliacao(finState.conciliacao.resumo);
 
-    // 🚀 ADICIONADO: Chama o novo resumo passando o mês com o dia 01
+    // 2. Preenche o resumo de Canvass e Vendedores la embaixo
     renderizarResumoConsolidado(`${mes}-01`);
+
+    // 3. Limpa a mensagem de "Processando..."
+    status.innerHTML = '';
 
   } catch (err) {
     console.error('[Conciliação]', err);
@@ -1951,4 +1957,21 @@ async function renderizarResumoConsolidado(mesCompetencia) {
       </div>
     `;
   }
+}
+function atualizarCardsConciliacao(resumo) {
+  if (!resumo) return;
+  
+  const fmt = (v) => Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  const elLinhas = document.getElementById('concCardLinhas');
+  const elMatch = document.getElementById('concCardMatch');
+  const elDiverge = document.getElementById('concCardDiverge');
+  const elGlosa = document.getElementById('concCardGlosa');
+  const elTotal = document.getElementById('concCardTotal');
+
+  if (elLinhas) elLinhas.textContent = resumo.processado || 0;
+  if (elMatch) elMatch.textContent = resumo.match || 0;
+  if (elDiverge) elDiverge.textContent = resumo.divergencia || 0;
+  if (elGlosa) elGlosa.textContent = resumo.glosas || 0;
+  if (elTotal) elTotal.textContent = 'R$ ' + fmt(resumo.totalPago);
 }
