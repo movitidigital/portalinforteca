@@ -1070,7 +1070,37 @@ function onCellInput(e) {
 
     function renderSelectMes() {
       const s = document.getElementById('selectMes');
-      s.innerHTML = Object.keys(state.meses).sort().map(m => `<option value="${m}" ${m===state.mesAtual?'selected':''}>${m}</option>`).join('');
+      
+      // 🚀 Mapeamento para transformar o nome do mês em número
+      const mesesMap = {
+        'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6,
+        'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12
+      };
+
+      // 🚀 Ordena cronologicamente (Crescente)
+      const chavesOrdenadas = Object.keys(state.meses).sort((a, b) => {
+        const regex = /([A-ZÇ]+)\s*\/\s*(\d{4})/i;
+        const matchA = a.match(regex);
+        const matchB = b.match(regex);
+
+        if (!matchA || !matchB) return a.localeCompare(b); // Se falhar, volta pro alfabético
+
+        const mesA = mesesMap[matchA[1].toUpperCase()] || 0;
+        const anoA = parseInt(matchA[2]);
+
+        const mesB = mesesMap[matchB[1].toUpperCase()] || 0;
+        const anoB = parseInt(matchB[2]);
+
+        // Cria um peso único: Ex: Julho/2026 vira 202607. Agosto/2026 vira 202608.
+        const pesoA = (anoA * 100) + mesA;
+        const pesoB = (anoB * 100) + mesB;
+
+        return pesoA - pesoB; // Ordem crescente
+      });
+
+      s.innerHTML = chavesOrdenadas.map(m => 
+        `<option value="${m}" ${m === state.mesAtual ? 'selected' : ''}>${m}</option>`
+      ).join('');
     }
     
     function selecionarMes(v) { state.mesAtual = v; salvarEstado(); recalcAll(); }
