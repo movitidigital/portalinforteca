@@ -524,8 +524,11 @@ async function carregarVendasNaoPagas() {
     }
 
     const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    
+    // 🆕 ADICIONADO O CONTADOR DE PENDENTES
     const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
     const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
+    const totalPendente = data.filter(d => d.status_pagamento === 'PENDENTE').length; 
     const totalGlosado = data.filter(d => d.status_pagamento === 'GLOSADO').length;
     const totalEstornado = data.filter(d => d.status_pagamento === 'ESTORNADO').length;
     const totalRecebidoGeral = data.reduce((s, d) => s + (parseFloat(d.total_recebido) || 0), 0);
@@ -534,7 +537,8 @@ async function carregarVendasNaoPagas() {
       <div class="bg-slate-100 px-6 py-3 flex flex-wrap gap-3 items-center text-xs border-b border-slate-200">
         <span class="font-black text-slate-700">${data.length} linhas vendidas</span>
         <span class="text-emerald-700 font-bold">✅ ${totalPago} pagas</span>
-        <span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>
+        ${totalNaoPago > 0 ? `<span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>` : ''}
+        ${totalPendente > 0 ? `<span class="text-slate-600 font-bold">⏳ ${totalPendente} pendentes</span>` : ''} <!-- 🆕 -->
         <span class="text-orange-700 font-bold">⚠️ ${totalGlosado} glosadas</span>
         <span class="text-blue-700 font-bold">↩️ ${totalEstornado} estornadas</span>
         <span class="ml-auto font-black text-slate-900">Total TIM: R$ ${fmt(totalRecebidoGeral)}</span>
@@ -550,9 +554,11 @@ async function carregarVendasNaoPagas() {
         'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
       }[v.status_pagamento] || '—';
 
+      // 🆕 AJUSTE NA COR DA BORDA PARA O PENDENTE FICAR CINZA
       const cardBorder = v.status_pagamento === 'NAO_PAGO' ? 'border-l-red-500 bg-red-50/30'
                        : v.status_pagamento === 'GLOSADO'  ? 'border-l-orange-500 bg-orange-50/30'
                        : v.status_pagamento === 'ESTORNADO' ? 'border-l-blue-500 bg-blue-50/30'
+                       : v.status_pagamento === 'PENDENTE'  ? 'border-l-slate-300 bg-slate-50/50'
                        : 'border-l-emerald-500 bg-white';
 
       const total = parseFloat(v.total_recebido) || 0;
@@ -572,7 +578,6 @@ async function carregarVendasNaoPagas() {
               </div>`;
           }).join('');
 
-      // 🟢 VARIÁVEL RESTAURADA AQUI
       const provInfo = v.telefone_provisorio
         ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
         : '';
@@ -597,14 +602,12 @@ async function carregarVendasNaoPagas() {
               </div>
               ${badge}
               
-              <!-- 🆕 BOTÃO DE CANCELAR VENDA (BEM VISÍVEL) -->
-             <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}', event)" 
-        class="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors font-bold text-xs uppercase" 
-        title="Cancelar esta venda">
+              <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}', event)" 
+                class="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors font-bold text-xs uppercase" 
+                title="Cancelar esta venda">
                 <i data-lucide="x" class="w-3 h-3"></i> Cancelar
               </button>
             </div>
-
           </div>
 
           <div class="px-4 py-2 bg-slate-50/50 border-t border-slate-100">
