@@ -872,13 +872,25 @@ async function renderizarEspelho() {
           <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
           <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
           <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
+          <p class="text-[10px] uppercase font-bold mt-1 opacity-70">${e.status_espelho || 'RASCUNHO'}</p>
         </div>
-        <button onclick="exportarEspelhoPdf()" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition">
-          <i data-lucide="download" class="w-4 h-4"></i> Exportar PDF
-        </button>
+        
+        <div class="flex items-center gap-3">
+          <!-- 🆕 BOTÃO EXCLUSIVO PARA ADMIN -->
+          ${state._isAdmin ? `
+          <button onclick="reabrirCompetenciaEspelho('${e.mes_competencia_venda}')" class="bg-red-500/80 hover:bg-red-600 backdrop-blur text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wide flex items-center gap-2 transition shadow-lg">
+            <i data-lucide="unlock" class="w-4 h-4"></i>
+            Reabrir Mês
+          </button>
+          ` : ''}
+
+          <button onclick="exportarEspelhoPdf()" class="bg-white/20 hover:bg-white/30 backdrop-blur text-white px-5 py-3 rounded-xl text-sm font-black uppercase tracking-wide flex items-center gap-2 transition">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Exportar PDF
+          </button>
+        </div>
       </div>
     </div>
-
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviços TIM</p>
@@ -1435,5 +1447,312 @@ async function excluirPolitica(id) {
     await carregarPoliticas();
   } catch (err) {
     alert('Erro ao excluir: ' + err.message);
+  }
+}
+/* ============================================================
+   EXPORTAR PDF DO ESPELHO
+   ============================================================ */
+
+async function exportarEspelhoPdf() {
+  const e = finState.espelho.dados;
+  const itens = finState.espelho.itens;
+  const vendedor = finState.espelho.vendedor || e?.vendedor_id;
+
+  if (!e || !vendedor) {
+    alert('Nada para exportar. Abra um espelho oficial primeiro.');
+    return;
+  }
+
+  const fmt = v => Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const competencia = fmtMesExtenso(e.mes_competencia_venda);
+
+  const servicos = itens.filter(i => !['ACESSORIO','APARELHO','ACELERADOR_PORTABILIDADE'].includes(i.tipo_item));
+  const acessorios = itens.filter(i => i.tipo_item === 'ACESSORIO');
+  const aparelhos = itens.filter(i => i.tipo_item === 'APARELHO');
+  const portabilidade = itens.filter(i => i.tipo_item === 'ACELERADOR_PORTABILIDADE');
+
+  const meta = finState.espelho.metaInfo;
+  const metaPort = meta?.metaPortabilidade || 0;
+  const realPort = meta?.realizadoPortabilidade || finState.espelho.portCount || 0;
+  const pctPort = metaPort > 0 ? (realPort / metaPort) * 100 : 0;
+  const bateuPort = realPort >= metaPort && metaPort > 0;
+
+  const metaFatPdf = meta?.metaFatTotal || 0;
+  const realFatPdf = meta?.realizadoFatTotal || 0;
+  const bateuFatPdf = metaFatPdf > 0 && realFatPdf >= metaFatPdf;
+  const aceleradorPortPdf = (bateuPort && bateuFatPdf) ? (e.total_comissao_servicos || 0) * 0.15 : 0;
+  const totalFinalPdf = (e.total_liquido_receber || 0) + aceleradorPortPdf;
+
+  const agrupados = {};
+  servicos.forEach(i => {
+    if (!agrupados[i.tipo_item]) {
+      agrupados[i.tipo_item] = {
+        qtd: 0, vr: i.valor_referencia_base, qt: i.qualidade_aplicada,
+        fator: i.fator_remuneracao_aplicado, total: 0
+      };
+    }
+    agrupados[i.tipo_item].qtd += 1;
+    agrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
+  });
+
+  const linhasServicos = Object.entries(agrupados)
+    .sort(([,a], [,b]) => b.total - a.total)
+    .map(([nome, d]) => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:11px;">${nome}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${d.qtd}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;">R$ ${fmt(d.vr)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.qt * 100).toFixed(2)}%</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center;font-size:11px;">${(d.fator * 100).toFixed(1)}%</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-size:11px;font-weight:700;">R$ ${fmt(d.total)}</td>
+      </tr>
+    `).join('');
+
+  let performancePdf = '';
+  if (meta && meta.metaFatTotal > 0) {
+    const linhas = [
+      { label: 'Faturamento TIM', meta: meta.metaFatTotal, real: meta.realizadoFatTotal, tipo: 'moeda' },
+      { label: 'Portabilidade', meta: meta.metaPortabilidade, real: realPort, tipo: 'numero' },
+      { label: 'Aparelhos (R$)', meta: meta.metaAparelho, real: meta.realizadoAparelho, tipo: 'moeda' },
+      { label: 'Acessórios (R$)', meta: meta.metaAcessorios, real: meta.realizadoAcessorios, tipo: 'moeda' }
+    ].filter(l => l.meta > 0);
+
+    const fmtL = (v, tipo) => tipo === 'moeda'
+      ? 'R$ ' + Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})
+      : Math.round(v||0);
+
+    const linhasPdf = linhas.map(l => {
+      const pctL = l.meta > 0 ? (l.real / l.meta) * 100 : 0;
+      const cor = pctL >= 100 ? '#10b981' : pctL >= 70 ? '#f59e0b' : '#dc2626';
+      const emoji = pctL >= 100 ? '✅' : pctL >= 70 ? '⚠️' : '❌';
+      return `
+        <tr>
+          <td style="padding:6px 8px;font-size:11px;color:#334155;">${l.label}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#64748b;">${fmtL(l.meta, l.tipo)}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:#0f172a;font-weight:700;">${fmtL(l.real, l.tipo)}</td>
+          <td style="padding:6px 8px;font-size:11px;text-align:right;color:${cor};font-weight:900;">${emoji} ${pctL.toFixed(0)}%</td>
+        </tr>`;
+    }).join('');
+
+    performancePdf = `
+      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">📊 Sua Performance</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Indicador</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Meta</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Realizado</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Ating.</th>
+          </tr>
+        </thead>
+        <tbody>${linhasPdf}</tbody>
+      </table>
+    `;
+  }
+
+  let portabilidadePdf = '';
+  if (metaPort > 0 || realPort > 0) {
+    const estadoPdf = (bateuPort && bateuFatPdf) ? 'LIBERADO' : (!bateuPort ? 'FALTAM_PORT' : 'FALTA_FAT');
+    const cores = {
+      LIBERADO:    { bg: '#d1fae5', borda: '#10b981', texto: '#065f46', textoSub: '#047857' },
+      FALTA_FAT:   { bg: '#dbeafe', borda: '#3b82f6', texto: '#1e40af', textoSub: '#1d4ed8' },
+      FALTAM_PORT: { bg: '#f1f5f9', borda: '#cbd5e1', texto: '#475569', textoSub: '#64748b' }
+    };
+    const c = cores[estadoPdf];
+
+    let msgPdf = estadoPdf === 'LIBERADO' ? `Acelerador de 15% sobre R$ ${fmt(e.total_comissao_servicos)}` : 
+                 estadoPdf === 'FALTA_FAT' ? `Portabilidade batida! Falta R$ ${fmt(metaFatPdf - realFatPdf)} em faturamento` :
+                 `Faltam ${metaPort - realPort} portabilidades para bater a meta`;
+
+    portabilidadePdf = `
+      <table style="width:100%; margin-top:12px; margin-bottom:6px;">
+        <tr>
+          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;border-left:4px solid ${c.borda};">
+            <div style="font-size:11px;font-weight:900;color:${c.texto};text-transform:uppercase;">⚡ Portabilidade — ${pctPort.toFixed(0)}% da meta</div>
+            <div style="font-size:9px;color:${c.textoSub};margin-top:2px;">${msgPdf}</div>
+          </td>
+          <td style="background:${c.bg};padding:10px 12px;border-radius:6px;text-align:right;width:180px;border-right:4px solid ${c.borda};">
+            <div style="font-size:9px;color:${c.textoSub};">${realPort} / ${metaPort}</div>
+            <div style="font-size:15px;font-weight:900;color:${c.texto};">${estadoPdf === 'LIBERADO' ? '+ R$ ' + fmt(aceleradorPortPdf) : '—'}</div>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
+  const hoje = new Date();
+  const dataEmissao = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+
+  const html = `
+    <div style="padding:30px 40px; font-family: Arial, sans-serif; color:#1e293b; background:#fff; width:100%; box-sizing:border-box;">
+      <table style="width:100%; border-bottom:3px solid #0e8890; padding-bottom:14px; margin-bottom:22px;">
+        <tr>
+          <td style="vertical-align:middle;">
+            <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" style="height:60px; width:auto;">
+          </td>
+          <td style="text-align:right; vertical-align:middle;">
+            <div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase;">Espelho de Comissão</div>
+            <div style="font-size:20px; font-weight:900; color:#000033; margin-top:4px;">${vendedor}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:3px;">Competência: <strong>${competencia}</strong></div>
+          </td>
+        </tr>
+      </table>
+
+      <table style="width:100%; margin-bottom:24px; border-collapse:separate; border-spacing:6px;">
+        <tr>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Serviços TIM</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_servicos)}</div>
+          </td>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Acessórios</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_acessorios)}</div>
+          </td>
+          <td style="background:#f1f5f9; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:700;">Aparelhos</div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; margin-top:4px;">R$ ${fmt(e.total_comissao_aparelhos)}</div>
+          </td>
+          <td style="background:#0e8890; padding:12px; border-radius:6px; width:25%;">
+            <div style="font-size:9px; color:#d1fae5; text-transform:uppercase; font-weight:700;">Total a Receber</div>
+            <div style="font-size:17px; font-weight:900; color:#fff; margin-top:4px;">R$ ${fmt(totalFinalPdf)}</div>
+          </td>
+        </tr>
+      </table>
+
+      ${performancePdf}
+
+      <div style="font-size:12px; font-weight:900; color:#000033; text-transform:uppercase; margin-bottom:8px;">Serviços TIM</div>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:8px;text-align:left;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Plano</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Qtd</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">VR</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">QT</th>
+            <th style="padding:8px;text-align:center;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Fator</th>
+            <th style="padding:8px;text-align:right;font-size:9px;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">Comissão</th>
+          </tr>
+        </thead>
+        <tbody>${linhasServicos}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;border-top:2px solid #e2e8f0;">Subtotal Serviços</td>
+            <td style="padding:9px;text-align:right;font-size:13px;font-weight:900;color:#0f172a;border-top:2px solid #e2e8f0;">R$ ${fmt(e.total_comissao_servicos)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      ${portabilidadePdf}
+
+      <table style="width:100%; margin-top:16px; margin-bottom:36px;">
+        <tr>
+          <td style="background:#000033;padding:14px 20px;border-radius:8px;">
+            <table style="width:100%;">
+              <tr>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:9px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;">Total Líquido a Receber</div>
+                </td>
+                <td style="text-align:right;vertical-align:middle;">
+                  <div style="font-size:24px;font-weight:900;color:#fff;">R$ ${fmt(totalFinalPdf)}</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin-top:32px; padding-top:14px; border-top:1px solid #cbd5e1; text-align:center;">
+        <div style="font-size:9px; color:#64748b; line-height:1.7;">
+          <strong style="color:#0f172a;">INFORTECA LTDA</strong> · CNPJ 45.765.640/0001-20<br>
+          Documento gerado eletronicamente em ${dataEmissao}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'pdf-wrapper';
+  wrapper.style.cssText = 'position:fixed; top:0; left:-10000px; width:210mm; background:#ffffff; padding:0; margin:0; z-index:99999;';
+  wrapper.innerHTML = html;
+  document.body.appendChild(wrapper);
+
+  try {
+    const img = wrapper.querySelector('img');
+    if (img && !img.complete) {
+      await new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 2000); });
+    }
+    await new Promise(r => setTimeout(r, 400));
+
+    const canvas = await html2canvas(wrapper, {
+      scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false,
+      width: wrapper.scrollWidth, height: wrapper.scrollHeight
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgWidth = 210;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    if (imgHeight <= 297) {
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, imgHeight);
+    } else {
+      const totalPages = Math.ceil(imgHeight / 297);
+      const pxPerMm = canvas.height / imgHeight;
+      for (let p = 0; p < totalPages; p++) {
+        if (p > 0) pdf.addPage();
+        const yStartPx = p * (297 * pxPerMm);
+        const currentSliceHeightPx = Math.min(297 * pxPerMm, canvas.height - yStartPx);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = currentSliceHeightPx;
+        const ctx = sliceCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(canvas, 0, yStartPx, canvas.width, currentSliceHeightPx, 0, 0, sliceCanvas.width, sliceCanvas.height);
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, imgWidth, currentSliceHeightPx / pxPerMm);
+      }
+    }
+    const nomeArquivo = `espelho-${vendedor.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g, '-')}-${e.mes_competencia_venda.slice(0,7)}.pdf`;
+    pdf.save(nomeArquivo);
+  } catch (err) {
+    console.error('[PDF]', err);
+    alert('Erro ao gerar PDF: ' + err.message);
+  } finally {
+    if (document.body.contains(wrapper)) document.body.removeChild(wrapper);
+  }
+}
+
+/* ============================================================
+   REABRIR COMPETÊNCIA (Para Admin)
+   ============================================================ */
+
+async function reabrirCompetenciaEspelho(mesISO) {
+  const mes = mesISO.slice(0, 7);
+  if (!confirm(`⚠️ ATENÇÃO: Reabrir a competência ${fmtMes(mesISO)}?\n\nIsso APAGARÁ todos os espelhos oficiais gerados e voltará o mês para o modo "Prévia" (Aberto).\n\nVocê poderá corrigir a conciliação TIM e gerar os espelhos novamente.`)) return;
+
+  if (!confirm(`🚨 ÚLTIMA CHANCE!\n\nTem certeza que deseja apagar os espelhos oficiais de ${fmtMes(mesISO)}?`)) return;
+
+  try {
+    const btn = event.target.closest('button');
+    const htmlOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Reabrindo...';
+
+    const { data, error } = await supabaseClient.rpc('reabrir_competencia', {
+      p_mes_competencia: `${mes}-01`
+    });
+
+    if (error) throw error;
+
+    alert(`✅ Competência reaberta com sucesso!\n\n${data.espelhos_deletados} espelho(s) oficial(is) apagado(s).\nO mês voltou para o modo de prévia.`);
+    
+    // Recarrega a tela do espelho para mostrar o Modo Previsão
+    await carregarEspelho();
+
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao reabrir: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = htmlOriginal;
   }
 }
