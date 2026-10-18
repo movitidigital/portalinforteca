@@ -75,10 +75,11 @@
     }
 .excel-table th, .excel-table td {
   border: 1px solid var(--excel-border);
-  padding: 0 !important;
-  vertical-align: middle !important; 
+  padding: 2px 4px !important; /* Padding direto na célula */
+  vertical-align: middle !important;
+  text-align: center;
   white-space: nowrap;
-  height: 26px; 
+  height: 32px; /* Altura fixa guia o html2canvas */
 }
 
     .excel-table thead .card-title {
@@ -126,12 +127,20 @@
     .td-value { font-weight: 700; text-align: center; background: #ffffff; font-variant-numeric: tabular-nums; }
     
 .td-money { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; /* Adicionado para forçar o centro vertical */
-  padding: 0 8px !important; 
-  height: 100%; /* Garante expansão total */
-}    
+  display: table; 
+  width: 100%; 
+  height: 100%;
+} 
+    .td-money span:first-child {
+  display: table-cell;
+  text-align: left;
+  vertical-align: middle;
+}
+.td-money span:last-child {
+  display: table-cell;
+  text-align: right;
+  vertical-align: middle;
+}
     .row-destaque td { background-color: #F2F2F2; }
    .row-success td {
       background-color: var(--status-green) !important;
@@ -591,19 +600,12 @@ function calcTendencia(realV, metaV, diasTrabalhados, diasRestantes) {
     
 function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
   const m = mesAtivo();
-  
+
   const isExp = !isLoja && consultorObj?.emExperiencia === true;
   const objMeta = isExp ? m.metaPlus : objMetaOriginal;
   const txtMeta = isLoja ? "META LOJA" : (isExp ? "META PLUS" : "META CONSULTOR");
   const icon = isLoja ? '🏢 ' : '👨‍💼 ';
   const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
-
-// 🚀 O SEGREDO ESTÁ AQUI: Atualizado para Flexbox focado no html2canvas
-const wrap = (content, padding = '0') => `
-  <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 26px; padding: ${padding}; box-sizing: border-box;">
-    <div style="width: 100%;">${content}</div>
-  </div>
-`;
 
   let html = `
   <table class="excel-table">
@@ -634,7 +636,7 @@ const wrap = (content, padding = '0') => `
       const metaV = objMeta[key] || 0;
       const realV = isLoja ? calcLoja(key) : calcReal(consultorObj, key);
       const tipo  = TIPO_VALOR[key];
-      
+
       const pct   = metaV ? (realV / metaV) * 100 : 0;
       const falta = Math.max(0, metaV - realV);
       const fzdia = m.parametros.diasRestantes > 0 ? falta / m.parametros.diasRestantes : falta;
@@ -648,40 +650,37 @@ const wrap = (content, padding = '0') => `
       const stsCls = isFatBatida ? 'status-green' : getStatusClass(pctTend);
 
       html += `<tr class="${rowCls}">`;
-      
+
       if (idx === 0) {
         html += `<td rowspan="${cat.rows}" class="cat-vertical ${cat.cls}"><div class="cat-content">${cat.nome}</div></td>`;
       }
-      
-      // 🚀 Aplicando o envelope mágico em todas as células
-      html += `<td class="td-label">${wrap(`<div style="text-align: right; padding-right: 8px;">${key}</div>`)}</td>`;
-      
-      html += `<td class="td-value">${wrap(fmtVal(metaV, tipo), '2px 4px')}</td>`;
-      
+
+      html += `<td class="td-label" style="text-align: right; padding-right: 8px !important;">${key}</td>`;
+
+      html += `<td class="td-value">${fmtVal(metaV, tipo)}</td>`;
+
       if(realV === 0 && tipo === 'moeda') {
-        html += `<td class="td-value">${wrap('-', '2px 4px')}</td>`;
+        html += `<td class="td-value">-</td>`;
       } else {
-        html += `<td class="td-value">${wrap(fmtVal(realV, tipo), '2px 4px')}</td>`;
+        html += `<td class="td-value">${fmtVal(realV, tipo)}</td>`;
       }
 
       html += `<td class="${stsCls}">
-        ${wrap(`
           <div style="line-height:1.15; text-align: center;">
             <div style="font-weight:800;font-size:11px;">${pctText}</div>
             <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
           </div>
-        `, '2px')}
       </td>`;
-      
+
       if (pct >= 100) {
-        html += `<td colspan="2" class="meta-entregue">${wrap('META ENTREGUE')}</td>`;
+        html += `<td colspan="2" class="meta-entregue">META ENTREGUE</td>`;
       } else {
         if(falta === 0 && tipo === 'moeda') {
-           html += `<td class="${stsCls}">${wrap('-')}</td>`;
-           html += `<td class="${stsCls}">${wrap('-')}</td>`;
+           html += `<td class="${stsCls}">-</td>`;
+           html += `<td class="${stsCls}">-</td>`;
         } else {
-           html += `<td class="${stsCls}">${wrap(fmtVal(falta, tipo), '2px 4px')}</td>`;
-           html += `<td class="${stsCls}">${wrap(fmtVal(fzdia, tipo), '2px 4px')}</td>`;
+           html += `<td class="${stsCls}">${fmtVal(falta, tipo)}</td>`;
+           html += `<td class="${stsCls}">${fmtVal(fzdia, tipo)}</td>`;
         }
       }
       html += `</tr>`;
