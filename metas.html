@@ -76,7 +76,7 @@
     .excel-table th, .excel-table td {
       border: 1px solid var(--excel-border);
       padding: 6px 4px;
-      vertical-align: middle;
+      vertical-align: middle !important; 
       white-space: nowrap;
     }
 
@@ -120,7 +120,12 @@
     .cat-gross   { background-color: var(--cat-gross); }
     .cat-produto { background-color: var(--cat-produto); }
 
-    .td-label { font-weight: 700; color: #000; text-align: right; padding-right: 8px !important; background: #ffffff; }
+    .td-label { 
+      font-weight: 700; 
+      color: #000; 
+      text-align: right; 
+      background: #ffffff; 
+    }
     .td-value { font-weight: 700; text-align: center; background: #ffffff; font-variant-numeric: tabular-nums; }
     
     .td-money { display: flex; justify-content: space-between; padding: 6px 8px !important; }
@@ -591,6 +596,9 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
   const icon = isLoja ? '🏢 ' : '👨‍💼 ';
   const titleWithIcon = icon + titulo + (isExp ? ' (EXP)' : '');
 
+  // 🚀 Altura mínima para garantir que a caixa flex funcione bem
+  const minH = "min-height: 26px;"; 
+
   let html = `
   <table class="excel-table">
     <colgroup>
@@ -629,13 +637,8 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
       const pctTend  = tend.pct;
       const pctText  = pct.toFixed(0) + '%';
 
-      // 🚀 AQUI ESTÁ A MÁGICA: Verifica se bateu a meta principal
       const isFatBatida = (key === 'FAT TOTAL TIM' && pct >= 100);
-      
-      // Aplica a classe verde ou a cor de destaque padrão
       const rowCls = (key === 'FAT TOTAL TIM') ? (isFatBatida ? 'row-success' : 'row-destaque') : '';
-      
-      // Se bateu a meta, força a célula de % a ficar verde (mesmo que a tendência estivesse baixa)
       const stsCls = isFatBatida ? 'status-green' : getStatusClass(pctTend);
 
       html += `<tr class="${rowCls}">`;
@@ -644,28 +647,51 @@ function gerarTabelaExcel(titulo, objMetaOriginal, isLoja, consultorObj) {
         html += `<td rowspan="${cat.rows}" class="cat-vertical ${cat.cls}"><div class="cat-content">${cat.nome}</div></td>`;
       }
       
-      html += `<td class="td-label">${key}</td>`;
-      html += `<td class="td-value" style="padding:0;">${fmtVal(metaV, tipo)}</td>`;
+      // 🚀 WRAPPERS FLEXBOX (A MÁGICA ACONTECE AQUI)
+      html += `<td class="td-label" style="padding:0;">
+        <div style="display:flex; align-items:center; justify-content:flex-end; height:100%; ${minH} padding-right:8px;">${key}</div>
+      </td>`;
+      
+      html += `<td class="td-value" style="padding:0;">
+        <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(metaV, tipo)}</div>
+      </td>`;
       
       if(realV === 0 && tipo === 'moeda') {
-        html += `<td class="td-value" style="text-align:center;">-</td>`;
+        html += `<td class="td-value" style="padding:0;">
+          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
+        </td>`;
       } else {
-        html += `<td class="td-value" style="padding:0;">${fmtVal(realV, tipo)}</td>`;
+        html += `<td class="td-value" style="padding:0;">
+          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(realV, tipo)}</div>
+        </td>`;
       }
 
-      html += `<td class="${stsCls}" style="padding:4px 2px;line-height:1.15;">
-        <div style="font-weight:800;font-size:11px;">${pctText}</div>
-        <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
+      html += `<td class="${stsCls}" style="padding:0;">
+        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; ${minH} line-height:1.15;">
+          <div style="font-weight:800;font-size:11px;">${pctText}</div>
+          <div style="font-size:8px;font-weight:700;opacity:0.8;">tend ${pctTend.toFixed(0)}%</div>
+        </div>
       </td>`;
       
       if (pct >= 100) {
-        html += `<td colspan="2" class="meta-entregue">META ENTREGUE</td>`;
+        html += `<td colspan="2" class="meta-entregue" style="padding:0;">
+          <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">META ENTREGUE</div>
+        </td>`;
       } else {
         if(falta === 0 && tipo === 'moeda') {
-           html += `<td class="${stsCls}" style="text-align:center;">-</td><td class="${stsCls}" style="text-align:center;">-</td>`;
+           html += `<td class="${stsCls}" style="padding:0;">
+             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
+           </td>
+           <td class="${stsCls}" style="padding:0;">
+             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">-</div>
+           </td>`;
         } else {
-           html += `<td class="${stsCls}" style="padding:0;">${fmtVal(falta, tipo)}</td>`;
-           html += `<td class="${stsCls}" style="padding:0;">${fmtVal(fzdia, tipo)}</td>`;
+           html += `<td class="${stsCls}" style="padding:0;">
+             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(falta, tipo)}</div>
+           </td>`;
+           html += `<td class="${stsCls}" style="padding:0;">
+             <div style="display:flex; align-items:center; justify-content:center; height:100%; ${minH}">${fmtVal(fzdia, tipo)}</div>
+           </td>`;
         }
       }
       html += `</tr>`;
