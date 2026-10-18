@@ -163,11 +163,68 @@
     .tab-btn:not(.active) { background: #fff; color: #475569; border-color: #cbd5e1; }
     .tab-btn:not(.active):hover { background: #f1f5f9; }
 
-    .table-diario { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 10px; }
-    .table-diario th, .table-diario td { border: 1px solid #cbd5e1; text-align: center; padding: 0; height: 28px; background: #fff; }
-    .table-diario thead th { background: #f8fafc; font-weight: 800; font-size: 9px; padding: 4px 2px; }
-    .table-diario .label-col { background: #f8fafc; text-align: left; padding: 4px 10px; font-weight: 700; width: 130px; }
-    .cell-input { width: 100%; height: 100%; border: none; text-align: center; font-variant-numeric: tabular-nums; outline: none; transition: 0.2s; }
+    /* =========================================
+       TABELA DIÁRIO (Com Colunas Fixas)
+       ========================================= */
+    .table-diario { 
+      border-collapse: separate; /* 🚀 Necessário para o Sticky funcionar bem */
+      border-spacing: 0; 
+      width: max-content; 
+      min-width: 100%; 
+      font-size: 10px; 
+    }
+    
+    .table-diario th, .table-diario td { 
+      border-right: 1px solid #cbd5e1; 
+      border-bottom: 1px solid #cbd5e1; 
+      text-align: center; 
+      padding: 0; 
+      height: 28px; 
+      background: #fff; 
+    }
+
+    /* Borda superior e esquerda na tabela inteira */
+    .table-diario tr:first-child th { border-top: 1px solid #cbd5e1; }
+    .table-diario tr td:first-child, .table-diario tr th:first-child { border-left: 1px solid #cbd5e1; }
+
+    /* 🚀 CABEÇALHO CONGELADO NO TOPO */
+    .table-diario thead th { 
+      position: sticky; 
+      top: 0; 
+      z-index: 20; 
+      background: #f8fafc; 
+      font-weight: 800; 
+      font-size: 9px; 
+      padding: 4px 2px; 
+    }
+
+    /* 🚀 COLUNA DE INDICADORES CONGELADA NA ESQUERDA */
+    .table-diario .label-col { 
+      position: sticky; 
+      left: 0; 
+      z-index: 10; 
+      background: #f8fafc; 
+      text-align: left; 
+      padding: 4px 10px; 
+      font-weight: 700; 
+      width: 130px; 
+      border-right: 2px solid #cbd5e1; /* Linha mais grossa para separar */
+    }
+
+    /* 🚀 CANTO SUPERIOR ESQUERDO (Cruzamento das duas fixações) */
+    .table-diario thead th.label-col { 
+      z-index: 30; 
+    }
+
+    .cell-input { 
+      width: 100%; 
+      height: 100%; 
+      border: none; 
+      text-align: center; 
+      font-variant-numeric: tabular-nums; 
+      outline: none; 
+      transition: 0.2s; 
+    }
     .cell-input:hover { background: #fef9c3; }
     .cell-input:focus { background: #fef08a; box-shadow: inset 0 0 0 2px #0e8890; }
     .cell-input.filled { background: #f0fdf4; color: #166534; font-weight: 700; }
@@ -358,11 +415,6 @@
 
     let state = null;
 
-    function criarDiarioZerado() {
-      const d = {};
-      LINHAS_DIARIO.forEach(k => d[k] = new Array(DIAS_NO_MES).fill('')); 
-      return d;
-    }
 
     function criarMes(nomeMes, baseMetas) {
       const metas = baseMetas || {
@@ -663,49 +715,93 @@ function renderDashboardExcel() {
   grid.innerHTML = html;
 }
 
-    function renderDiario() {
-      const grid = document.getElementById('gridDiario');
-      const m = mesAtivo();
-      let html = '';
-      m.consultores.forEach((c, cIdx) => {
-        html += `<div class="bg-slate-50 p-2 rounded border border-slate-200 mb-4 overflow-x-auto">
-          <h3 class="font-bold text-xs uppercase mb-2 px-2">👨‍💼 ${c.nome}</h3>
-          <table class="table-diario">
-            <thead><tr><th class="label-col">DIAS</th>`;
-        for(let d=1; d<=DIAS_NO_MES; d++) html += `<th>${String(d).padStart(2,'0')}</th>`;
-        html += `</tr></thead><tbody>
-          <tr><td class="label-col font-bold">FAT TOTAL TIM</td>`;
-        for(let d=0; d<DIAS_NO_MES; d++) html += `<td><input class="cell-input bg-slate-100 font-bold" data-c="${cIdx}" data-row="FAT TOTAL TIM" data-day="${d}" readonly tabindex="-1"></td>`;
-        html += `</tr>`;
-        LINHAS_DIARIO.forEach(key => {
-          html += `<tr><td class="label-col">${key}</td>`;
-          for(let d=0; d<DIAS_NO_MES; d++) html += `<td><input type="text" class="cell-input" data-c="${cIdx}" data-row="${key}" data-day="${d}"></td>`;
-          html += `</tr>`;
-        });
-        html += `</tbody></table></div>`;
-      });
-      grid.innerHTML = html;
-
-      document.querySelectorAll('.cell-input:not([readonly])').forEach(inp => {
-        const cIdx = parseInt(inp.dataset.c), row = inp.dataset.row, day = parseInt(inp.dataset.day);
-        const val = m.consultores[cIdx].diario[row][day];
-        
-        if (val === '' || val == null) {
-          inp.value = '';
-        } else {
-          inp.value = TIPO_VALOR[row] === 'moeda' ? Number(val).toLocaleString('pt-BR',{minimumFractionDigits:2}) : val;
-        }
-
-        // MODIFICAÇÃO 3: Se houver qualquer coisa preenchida (mesmo que seja zero explícito), marca como 'filled'
-        if(val !== '') inp.classList.add('filled');
-        
-        inp.addEventListener('change', onEditCell);
-inp.addEventListener('input', onCellInput);  
-inp.addEventListener('focus', e=>e.target.select());
-      });
-      
-      m.consultores.forEach((_, i) => { for(let d=0;d<DIAS_NO_MES;d++) atualizaFatTotal(i,d); });
+    // 🚀 Função para calcular quantos dias tem o mês
+    function obterDiasNoMes(mesString) {
+      const match = mesString.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
+      if (!match) return 30;
+      const nomes = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+      const mesIdx = nomes.indexOf(match[1].toUpperCase());
+      const ano = parseInt(match[2]);
+      if (mesIdx === -1) return 30;
+      return new Date(ano, mesIdx + 1, 0).getDate();
     }
+
+    function criarDiarioZerado() {
+      const d = {};
+      // Cria array com 31 espaços, independente do mês, para não quebrar
+      LINHAS_DIARIO.forEach(k => d[k] = new Array(31).fill('')); 
+      return d;
+    }
+
+function renderDiario() {
+  const grid = document.getElementById('gridDiario');
+  const m = mesAtivo();
+  const diasNoMes = obterDiasNoMes(m.parametros.mes);
+  let html = '';
+  
+  m.consultores.forEach((c, cIdx) => {
+    html += `<div class="bg-slate-50 p-2 rounded border border-slate-200 mb-4 overflow-x-auto">
+      <h3 class="font-bold text-xs uppercase mb-2 px-2">👨‍💼 ${c.nome}</h3>
+      <table class="table-diario">
+        <thead><tr><th class="label-col">DIAS</th>`;
+    for(let d=1; d<=diasNoMes; d++) html += `<th>${String(d).padStart(2,'0')}</th>`;
+    html += `</tr></thead><tbody>
+      <tr><td class="label-col font-bold">FAT TOTAL TIM</td>`;
+    for(let d=0; d<diasNoMes; d++) html += `<td><input class="cell-input bg-slate-100 font-bold" data-c="${cIdx}" data-row="FAT TOTAL TIM" data-day="${d}" readonly tabindex="-1"></td>`;
+    html += `</tr>`;
+    LINHAS_DIARIO.forEach(key => {
+      html += `<tr><td class="label-col">${key}</td>`;
+      for(let d=0; d<diasNoMes; d++) html += `<td><input type="text" class="cell-input" data-c="${cIdx}" data-row="${key}" data-day="${d}"></td>`;
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+  });
+  grid.innerHTML = html;
+
+  document.querySelectorAll('.cell-input:not([readonly])').forEach(inp => {
+    const cIdx = parseInt(inp.dataset.c), row = inp.dataset.row, day = parseInt(inp.dataset.day);
+    const val = m.consultores[cIdx].diario[row][day];
+    
+    if (val === '' || val == null) {
+      inp.value = '';
+    } else {
+      inp.value = TIPO_VALOR[row] === 'moeda' ? Number(val).toLocaleString('pt-BR',{minimumFractionDigits:2}) : val;
+    }
+    if(val !== '') inp.classList.add('filled');
+    
+    inp.addEventListener('change', onEditCell);
+    inp.addEventListener('input', onCellInput);  
+    inp.addEventListener('focus', e=>e.target.select());
+  });
+  
+  m.consultores.forEach((_, i) => { for(let d=0; d<diasNoMes; d++) atualizaFatTotal(i,d); });
+
+  // 🚀 AUTO-SCROLL PARA O PRÓXIMO DIA VAZIO
+  setTimeout(() => {
+    if (m.consultores.length === 0) return;
+    
+    let proximoDia = 1; // Índice do dia (1 = dia 01)
+    const c = m.consultores[0].diario; // Usa o primeiro consultor como referência
+    
+    for (let d = 0; d < diasNoMes; d++) {
+      // Se todos os campos principais estiverem vazios, achamos o dia
+      if (!c['CONTROLE FAT.'][d] && !c['PÓS FAT.'][d] && !c['CONTROLE'][d] && !c['PÓS'][d]) {
+        proximoDia = d + 1;
+        break;
+      }
+    }
+
+    // Rola a primeira tabela para centralizar o dia encontrado
+    const primeiraTabela = grid.querySelector('.table-diario');
+    if (primeiraTabela) {
+      // nth-child(1) é a coluna "DIAS", então somamos 1
+      const thAlvo = primeiraTabela.querySelector(`thead th:nth-child(${proximoDia + 1})`);
+      if (thAlvo) {
+        thAlvo.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }, 200); // Delay para garantir que as tabelas renderizaram
+}
 
     function onEditCell(e) {
       const inp = e.target, cIdx = parseInt(inp.dataset.c), row = inp.dataset.row, day = parseInt(inp.dataset.day);
