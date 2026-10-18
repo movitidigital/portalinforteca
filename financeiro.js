@@ -568,9 +568,9 @@ async function carregarVendasNaoPagas() {
               ${badge}
               
               <!-- 🆕 BOTÃO DE CANCELAR VENDA (BEM VISÍVEL) -->
-              <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}')" 
-                class="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors font-bold text-xs uppercase" 
-                title="Cancelar esta venda">
+             <button onclick="cancelarVenda('${v.interacao_id || v.id}', '${v.nome || 'Cliente'}', event)" 
+        class="flex items-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg border border-red-200 transition-colors font-bold text-xs uppercase" 
+        title="Cancelar esta venda">
                 <i data-lucide="x" class="w-3 h-3"></i> Cancelar
               </button>
             </div>
@@ -1833,18 +1833,17 @@ async function reabrirCompetenciaEspelho(mesISO) {
 /* ============================================================
    CANCELAR VENDA (Ocultar do Espelho)
    ============================================================ */
-async function cancelarVenda(id, nomeCliente) {
+async function cancelarVenda(id, nomeCliente, event) {
   if (!id) {
     alert('Erro: ID da venda não encontrado. Atualize a página e tente novamente.');
     return;
   }
 
-  if (!confirm(`⚠️ Deseja realmente cancelar a venda de ${nomeCliente}?\n\nEla será removida dos espelhos e não pagará comissão.`)) {
+  if (!confirm(`⚠️ Deseja realmente cancelar a venda de ${nomeCliente}?\n\nEla será mantida no histórico, mas não pagará comissão.`)) {
     return;
   }
 
   try {
-    // Atualiza a tabela de interações marcando como cancelado
     const { error } = await supabaseClient
       .from('interacoes')
       .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
@@ -1852,15 +1851,32 @@ async function cancelarVenda(id, nomeCliente) {
 
     if (error) throw error;
 
-    // Feedback visual
     if (typeof mostrarToastCopy === 'function') {
       mostrarToastCopy('Venda cancelada com sucesso!');
-    } else {
-      alert('✅ Venda cancelada. Regenere o espelho do vendedor para refletir.');
     }
 
-    // Recarrega a lista na tela para a venda sumir
-    await carregarVendasNaoPagas();
+    // 🆕 ATUALIZA O CARD NA TELA SEM RECARREGAR A PÁGINA
+    if (event && event.target) {
+      const btn = event.target.closest('button');
+      const card = btn.closest('div.border');
+      
+      if (card) {
+        // Deixa o card cinza/transparente
+        card.style.opacity = '0.6';
+        card.style.background = '#f8fafc';
+        
+        // Procura onde fica o badge (PAGO/NÃO PAGO) e adiciona o badge de CANCELADO
+        const badgeContainer = card.querySelector('.flex.items-center.gap-4');
+        if (badgeContainer) {
+          badgeContainer.innerHTML = `<span class="px-2 py-1 rounded text-xs font-black bg-slate-200 text-slate-600 border border-slate-300">🚫 CANCELADO</span>`;
+        }
+
+        // Desabilita o botão de cancelar
+        btn.disabled = true;
+        btn.innerHTML = 'Cancelado';
+        btn.className = 'flex items-center gap-1 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-xs uppercase cursor-not-allowed';
+      }
+    }
     
   } catch (err) {
     console.error('[Cancelar Venda]', err);
