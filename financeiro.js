@@ -1772,6 +1772,12 @@ async function abrirModalPlanoRemuneracao(id = null) {
 
   document.getElementById('modalPlano').classList.remove('hidden');
   document.getElementById('mpNome').focus();
+
+     const btnSalvarPlano = document.querySelector('#modalPlano button[onclick="salvarPlanoRemuneracao()"]');
+  if (btnSalvarPlano) {
+    btnSalvarPlano.disabled = false;
+    btnSalvarPlano.innerHTML = 'Salvar';
+  }
 }
 
 function fecharModalPlano() {
@@ -2149,6 +2155,11 @@ function abrirModalPolitica(politica = null) {
     document.getElementById('pol_fator').value = '';
     document.getElementById('pol_inicio').value = new Date().toISOString().slice(0, 10);
     document.getElementById('pol_fim').value = '';
+  }
+  const btnSalvar = document.getElementById('btnSalvarPolitica');
+  if (btnSalvar) {
+    btnSalvar.disabled = false;
+    btnSalvar.innerHTML = 'Salvar Política';
   }
 }
 
