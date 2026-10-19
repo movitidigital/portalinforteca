@@ -2640,6 +2640,12 @@ function renderClienteCard(c) {
   const telFormatado = telefone.length === 11
     ? `(${telefone.slice(0,2)}) ${telefone.slice(2,7)}-${telefone.slice(7)}`
     : telefone;
+  
+  // 🚀 NOVO: Lógica para número provisório e portabilidade
+  const telProv = c.telefone_provisorio ? normalizarTelefone(c.telefone_provisorio) : null;
+  const isPort = String(c.modalidade || '').toUpperCase().includes('PORT');
+  const isTroca = String(c.modalidade || '').toUpperCase().includes('TROCA DE APARELHO');
+
   const altFormatado = c.telefone_alt ? normalizarTelefone(c.telefone_alt) : null;
   const venc = c.data_vencimento_base
     ? (String(c.data_vencimento_base).toUpperCase() === 'CC' ? 'CC' : `DIA ${c.data_vencimento_base}`)
@@ -2664,7 +2670,7 @@ function renderClienteCard(c) {
     </div>`;
   };
 
-  // 👇 NOVO — valor da receita contratada formatado
+  // 👇 Valor da receita contratada formatado
   const valorPlano = c.valor_receita_contratada != null
     ? fmtMoeda(c.valor_receita_contratada)
     : null;
@@ -2687,7 +2693,7 @@ function renderClienteCard(c) {
                 <i data-lucide="badge-dollar-sign" class="w-3 h-3"></i>
                 ${valorPlano}/mês
               </span>` : ''}
-            ${String(c.modalidade || '').toUpperCase().includes('TROCA DE APARELHO') ? `
+            ${isTroca ? `
               <span class="inline-block bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] font-bold">
                 TROCA DE APARELHO
               </span>` : ''}
@@ -2701,13 +2707,25 @@ function renderClienteCard(c) {
       </div>
 
       <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+        <!-- 🚀 NÚMERO DA LINHA COM PROVISÓRIO -->
         <div>
-          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Número da Linha</p>
-          <p class="font-mono text-sm text-slate-800 font-semibold cursor-pointer hover:text-[#0e8890] transition-colors"
-             onclick="copiarTexto('${telefone}', this)" title="Clique para copiar">
-            ${escapeHTML(telFormatado || '—')}
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+            ${isPort ? 'Número Portado' : 'Número da Linha'}
           </p>
+          <div class="flex flex-col gap-0.5">
+            <p class="font-mono text-sm text-slate-800 font-semibold cursor-pointer hover:text-[#0e8890] transition-colors"
+               onclick="copiarTexto('${telefone}', this)" title="Clique para copiar">
+              ${escapeHTML(telFormatado || '—')}
+            </p>
+            ${isPort && telProv ? `
+              <p class="font-mono text-[11px] text-amber-600 font-bold cursor-pointer hover:underline flex items-center gap-1" 
+                 onclick="copiarTexto('${telProv}', this)" title="Clique para copiar o provisório">
+                <i data-lucide="zap" class="w-3 h-3"></i> Prov: ${escapeHTML(telProv)}
+              </p>
+            ` : ''}
+          </div>
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">CPF</p>
           <p class="font-mono text-sm text-slate-800 cursor-pointer hover:text-[#0e8890] transition-colors"
@@ -2715,16 +2733,17 @@ function renderClienteCard(c) {
             ${escapeHTML(cpfFmt || '—')}
           </p>
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data da Venda</p>
           <p class="text-sm text-slate-800">${c.data_venda ? fmtBR(c.data_venda) : '—'}</p>
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Consultor</p>
           <p class="text-sm text-slate-800 uppercase">${escapeHTML(c.consultor || '—')}</p>
         </div>
 
-        <!-- 👇 Bloco Plano + Valor agrupados -->
         <div class="lg:col-span-2 grid grid-cols-2 gap-x-6">
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Plano</p>
@@ -2747,6 +2766,7 @@ function renderClienteCard(c) {
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Modalidade</p>
           <p class="text-sm text-slate-700 uppercase">${escapeHTML(c.modalidade || '—')}</p>
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Contato Alternativo</p>
           ${altFormatado ? `
@@ -2755,10 +2775,12 @@ function renderClienteCard(c) {
               ${escapeHTML(altFormatado)}
             </p>` : '<p class="text-sm text-slate-400">—</p>'}
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Data Nascimento</p>
           <p class="text-sm text-slate-800">${c.data_nascimento ? fmtBR(c.data_nascimento) : '—'}</p>
         </div>
+        
         <div>
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">IMEI</p>
           <p class="font-mono text-xs text-slate-600 truncate" title="${escapeHTML(c.imei || '')}">${escapeHTML(c.imei || '—')}</p>
