@@ -14,8 +14,12 @@
   const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
 
-  const sb = window.supabaseClient
-    || (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+  // 🚀 CORREÇÃO: Cria a instância global APENAS UMA VEZ
+  if (!window.supabaseClient && window.supabase) {
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+
+  const sb = window.supabaseClient;
 
   const $ = (id) => document.getElementById(id);
   const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
@@ -471,8 +475,7 @@
 
   setTimeout(boot, 200);
 })();
-// Adiciona a classe que esconde a tela para evitar o "piscar"
-document.body.classList.add('auth-loading');
+
 
 // Mapeamento de qual módulo cada página pertence
 function getModuloDaPagina() {
@@ -486,9 +489,13 @@ function getModuloDaPagina() {
 }
 
 async function guardiaoDeAcesso() {
-  const supabaseUrl = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
-  const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+  // 🚀 CORREÇÃO: Usa a conexão global que já foi criada no topo do header.js
+  const supabaseClient = window.supabaseClient;
+  
+  if (!supabaseClient) {
+    console.warn('[Acesso] Supabase não inicializado.');
+    return;
+  }
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
@@ -545,10 +552,13 @@ async function guardiaoDeAcesso() {
   }
 
   // 3. TUDO CERTO: MOSTRA A TELA SUAVEMENTE
-  document.body.classList.remove('auth-loading');
+  // 🚀 CORREÇÃO: Só tenta remover a classe se o body existir
+  if (document.body) {
+    document.body.classList.remove('auth-loading');
+  }
 }
 
-// Executa assim que a página começa a carregar
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(guardiaoDeAcesso, 50); // 50ms para garantir que o sidebar.js iniciou a montagem
+  document.body.classList.add('auth-loading');
+  setTimeout(guardiaoDeAcesso, 50); 
 });
