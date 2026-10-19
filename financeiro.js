@@ -2886,3 +2886,114 @@ async function gerarEspelhosCompetencia() {
     lucide.createIcons();
   }
 }
+/* ==========================================================
+   ADMIN: PAINEL DE ACEITES
+   ========================================================== */
+async function abrirModalAceites() {
+  document.getElementById('modalAceites').classList.remove('hidden');
+  
+  // 1. Preenche o select de cargos
+  const { data: cargos } = await supabaseClient.from('cargos').select('nome').order('nome');
+  const select = document.getElementById('filtroCargoAceites');
+  
+  select.innerHTML = (cargos || []).map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+  if (!select.options.length) select.innerHTML = '<option value="Consultor de Vendas">Consultor de Vendas</option>';
+
+  // 2. Carrega a tabela
+  await carregarAceites();
+  if (window.lucide) lucide.createIcons();
+}
+
+function fecharModalAceites() {
+  document.getElementById('modalAceites').classList.add('hidden');
+}
+
+async function carregarAceites() {
+  const cargoSelecionado = document.getElementById('filtroCargoAceites').value;
+  const tbody = document.getElementById('tabelaAceites');
+  
+  tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400"><i data-lucide="loader-2" class="w-5 h-5 animate-spin inline-block mr-2"></i> Buscando colaboradores...</td></tr>';
+  if (window.lucide) lucide.createIcons();
+
+  try {
+    // 1. Achar o documento ativo para esse cargo
+    const { data: doc } = await supabaseClient
+      .from('politicas_documentos')
+      .select('id')
+      .is('vigencia_fim', null)
+      .eq('cargo_aplicavel', cargoSelecionado)
+      .maybeSingle();
+
+    // 2. Buscar todos os usuários com esse cargo
+    const { data: usuarios } = await supabaseClient
+      .from('perfis')
+      .select('id, nome_completo, permissao')
+      .eq('permissao', cargoSelecionado)
+      .order('nome_completo');
+
+    // 3. Buscar quem já assinou este documento
+    let aceites = [];
+    if (doc) {
+      const { data: assinaturas } = await supabaseClient
+        .from('politicas_aceites')
+        .select('*')
+        .eq('politica_id', doc.id);
+      aceites = assinaturas || [];
+    }
+
+    const listaUsuarios = usuarios || [];
+    
+    // KPIs
+    let qtdAssinados = 0;
+    listaUsuarios.forEach(u => {
+      if (aceites.some(a => a.user_id === u.id)) qtdAssinados++;
+    });
+
+    document.getElementById('kpiTotalAceites').textContent = listaUsuarios.length;
+    document.getElementById('kpiAssinadosAceites').textContent = qtdAssinados;
+    document.getElementById('kpiPendentesAceites').textContent = listaUsuarios.length - qtdAssinados;
+
+    // Renderiza a tabela
+    if (!listaUsuarios.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum colaborador cadastrado com o cargo "${cargoSelecionado}".</td></tr>`;
+      return;
+    }
+
+    if (!doc) {
+      tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-amber-600 font-bold bg-amber-50">Nenhum termo ativo publicado para o cargo "${cargoSelecionado}". Publique um termo primeiro.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = listaUsuarios.map(u => {
+      const assinatura = aceites.find(a => a.user_id === u.id);
+      const isAssinado = !!assinatura;
+
+      const statusBadge = isAssinado
+        ? `<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center justify-center gap-1 w-max mx-auto"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Assinado</span>`
+        : `<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-red-50 text-red-700 border-red-200 flex items-center justify-center gap-1 w-max mx-auto"><i data-lucide="clock" class="w-3 h-3"></i> Pendente</span>`;
+
+      const dataHora = isAssinado 
+        ? new Date(assinatura.aceito_em).toLocaleString('pt-BR') 
+        : '—';
+
+      const local = isAssinado && assinatura.latitude 
+        ? `<a href="https://www.google.com/maps/search/?api=1&query=${assinatura.latitude},${assinatura.longitude}" target="_blank" class="text-teal-600 hover:underline flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> Ver Mapa</a>` 
+        : (isAssinado ? 'Local não capturado' : '—');
+
+      return `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-4 py-3 font-bold text-slate-800 uppercase">${escapeHTML(u.nome_completo || '—')}</td>
+          <td class="px-4 py-3 text-center">${statusBadge}</td>
+          <td class="px-4 py-3 text-xs text-slate-600">${dataHora}</td>
+          <td class="px-4 py-3 text-xs">${local}</td>
+        </tr>
+      `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+
+  } catch (err) {
+    console.error('[Painel Aceites]', err);
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-red-500">Erro ao carregar dados: ${err.message}</td></tr>`;
+  }
+}
