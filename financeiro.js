@@ -1918,15 +1918,36 @@ async function carregarDocumentoPolitica() {
           <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center max-w-lg mx-auto mb-12">
             <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-3"></i>
             <p class="font-black text-emerald-800 text-lg uppercase">Documento Assinado Digitalmente</p>
-            <p class="text-sm text-emerald-700 mt-2">Assinado por <strong>${escapeHTML(aceite.nome_completo)}</strong></p>
-            <p class="text-xs text-emerald-600 font-mono mt-1">CPF: ${escapeHTML(aceite.cpf)}</p>
-            <p class="text-xs text-emerald-600 mt-2">Data/Hora: ${new Date(aceite.aceito_em).toLocaleString('pt-BR')}</p>
+            
+            <div class="mt-4 space-y-1 text-sm text-emerald-800">
+              <p>Assinado por <strong>${escapeHTML(aceite.nome_completo)}</strong></p>
+              <p class="text-xs font-mono">CPF: ${escapeHTML(aceite.cpf)}</p>
+              <p class="text-xs font-bold mt-2 flex items-center justify-center gap-1">
+                <i data-lucide="calendar" class="w-3 h-3"></i> 
+                ${new Date(aceite.aceito_em).toLocaleString('pt-BR')}
+              </p>
+              
+              ${aceite.latitude && aceite.longitude ? `
+                <p class="text-[10px] text-emerald-600/80 mt-1 flex items-center justify-center gap-1" title="Coordenadas de onde a assinatura foi feita">
+                  <i data-lucide="map-pin" class="w-3 h-3"></i> 
+                  Lat: ${aceite.latitude} | Long: ${aceite.longitude}
+                </p>
+                <a href="https://www.google.com/maps/search/?api=1&query=${aceite.latitude},${aceite.longitude}" target="_blank" class="text-[10px] text-emerald-600 underline font-bold hover:text-emerald-800 mt-1 inline-block">
+                  Ver no Google Maps
+                </a>
+              ` : `
+                <p class="text-[10px] text-emerald-600/60 mt-1 flex items-center justify-center gap-1 italic">
+                  <i data-lucide="map-pin-off" class="w-3 h-3"></i> Localização não capturada
+                </p>
+              `}
+            </div>
+
             <button onclick="exportarPdfAceite()" class="mt-6 bg-[#000033] text-white hover:bg-slate-800 px-6 py-3 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 mx-auto transition-transform hover:scale-105">
               <i data-lucide="download" class="w-4 h-4"></i> Baixar PDF Assinado
             </button>
           </div>
 
-          <!-- 🚀 CAMPOS DE ASSINATURA MANUAL (EMPRESA E COLABORADOR) -->
+          <!-- CAMPOS DE ASSINATURA MANUAL (EMPRESA E COLABORADOR) -->
           <div class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 px-4 md:px-12 text-center">
             
             <!-- Assinatura da Empresa -->
@@ -1978,20 +1999,59 @@ async function registrarAceite(politicaId) {
   const nome = document.getElementById('aceite_nome').value.trim();
   const cpf = document.getElementById('aceite_cpf').value.replace(/\D/g, '');
 
-  if (!nome || cpf.length !== 11) return alert('Preencha seu nome completo e um CPF válido (11 dígitos).');
+  if (!nome || cpf.length !== 11) {
+    return alert('Preencha seu nome completo e um CPF válido (11 dígitos).');
+  }
 
   btn.disabled = true;
-  btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Processando...';
+  btn.innerHTML = '<i data-lucide="map-pin" class="w-5 h-5 animate-bounce"></i> Obtendo localização...';
+  if (window.lucide) lucide.createIcons();
+
+  let lat = null;
+  let lng = null;
+
+  // 🚀 CAPTURA GEOLOCALIZAÇÃO
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { 
+        enableHighAccuracy: true, 
+        timeout: 8000,
+        maximumAge: 0 
+      });
+    });
+    lat = pos.coords.latitude.toFixed(6);
+    lng = pos.coords.longitude.toFixed(6);
+  } catch (err) {
+    console.warn('[Aceite] Geolocalização negada ou falhou:', err.message);
+    // Não bloqueia a assinatura, apenas segue sem localização
+  }
+
+  // Captura o dispositivo (Navegador/SO)
+  const dispositivo = navigator.userAgent;
+
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Salvando assinatura...';
+  if (window.lucide) lucide.createIcons();
 
   try {
-    const { error } = await supabaseClient.from('politicas_aceites').insert({ politica_id: politicaId, user_id: state.user.id, nome_completo: nome, cpf: cpf });
+    const { error } = await supabaseClient.from('politicas_aceites').insert({
+      politica_id: politicaId,
+      user_id: state.user.id,
+      nome_completo: nome,
+      cpf: cpf,
+      latitude: lat,
+      longitude: lng,
+      dispositivo: dispositivo
+    });
+
     if (error) {
       if (error.code === '23505') throw new Error('Você já assinou este documento.');
       throw error;
     }
+
     await carregarDocumentoPolitica();
+
   } catch (err) {
-    alert('Erro: ' + err.message);
+    alert('Erro ao assinar: ' + err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="pen-tool" class="w-5 h-5"></i> Assinar e Aceitar Termo';
     if (window.lucide) lucide.createIcons();
