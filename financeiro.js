@@ -1549,10 +1549,34 @@ async function salvarPolitica() {
 /* ==========================================================
    ADMIN: GERENCIAR TERMO DE POLÍTICA
    ========================================================== */
-async function abrirModalDocumento() {
-  const { data } = await supabaseClient.from('politicas_documentos').select('*').is('vigencia_fim', null).maybeSingle();
+let _templateDocGlobal = ''; // Guarda o template para não perder ao trocar o select
 
-  document.getElementById('doc_titulo').value = data?.titulo || 'Política de Comissionamento - Retail Dealer';
+async function abrirModalDocumento() {
+  // 1. Carrega os cargos do banco
+  const { data: cargos } = await supabaseClient.from('cargos').select('nome').order('nome');
+  const selectCargo = document.getElementById('doc_cargo');
+  
+  selectCargo.innerHTML = (cargos || []).map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+  if (!selectCargo.options.length) selectCargo.innerHTML = '<option value="Consultor de Vendas">Consultor de Vendas</option>';
+
+  // 2. Busca o documento ativo do primeiro cargo da lista
+  const primeiroCargo = selectCargo.value;
+  await carregarTemplateDocumento(primeiroCargo);
+
+  document.getElementById('modalDocumento').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function carregarTemplateDocumento(cargoSelecionado) {
+  // Busca o documento ativo especificamente para este cargo
+  const { data } = await supabaseClient
+    .from('politicas_documentos')
+    .select('*')
+    .is('vigencia_fim', null)
+    .eq('cargo_aplicavel', cargoSelecionado)
+    .maybeSingle();
+
+  document.getElementById('doc_titulo').value = data?.titulo || `Política de Comissionamento - ${cargoSelecionado}`;
   document.getElementById('doc_inicio').value = data?.vigencia_inicio || new Date().toISOString().split('T')[0];
 
   // 🚀 PUXA A BASE DE REMUNERAÇÃO DINAMICAMENTE
@@ -1567,7 +1591,7 @@ async function abrirModalDocumento() {
   ).join('\n');
 
   const templatePadrao = `1. OBJETIVO
-A presente Política de Comissionamento tem por objetivo estabelecer os critérios para remuneração variável dos Consultores de Vendas da Loja TIM Dom José, promovendo transparência, meritocracia e incentivo ao desempenho comercial.
+A presente Política de Comissionamento tem por objetivo estabelecer os critérios para remuneração variável dos ${cargoSelecionado}s da Loja TIM Dom José, promovendo transparência, meritocracia e incentivo ao desempenho comercial.
 
 Esta política busca incentivar:
 - Atingimento das metas individuais e da loja;
@@ -1577,7 +1601,7 @@ Esta política busca incentivar:
 - Sustentabilidade dos resultados.
 
 2. ABRANGÊNCIA
-Esta política aplica-se aos Consultores de Vendas do Canal Revendas – Retail Dealer da Loja TIM Dom José.
+Esta política aplica-se aos ${cargoSelecionado}s do Canal Revendas – Retail Dealer da Loja TIM Dom José.
 
 3. BASE DE REMUNERAÇÃO
 A comissão será calculada utilizando como base a Tabela Oficial de Referência de Remuneração dos Serviços da TIM:
@@ -1603,22 +1627,67 @@ Exemplo 1 (Controle): TIM Controle Plus (R$ 75,00) × Meta Pessoal (30%) = R$ 22
 Exemplo 2 (Pós): TIM Black Premium (R$ 160,00) × Meta Loja (40%) = R$ 64,00. Aplicando qualidade de 85% = R$ 54,40.
 
 7. ACELERADOR DE PORTABILIDADE
-O consultor que atingir a meta mensal de Portabilidade receberá um adicional de 15% sobre o valor total da comissão de faturamento de serviços apurada no período.
+O ${cargoSelecionado} que atingir a meta mensal de Portabilidade receberá um adicional de 15% sobre o valor total da comissão de faturamento de serviços apurada no período.
 
-8. COMISSÃO PARA VENDAS SMB
-Vendas Controle via sistema SMB geram remuneração fixa de R$ 10,00 por venda. Estas vendas não entram no cálculo de metas individuais ou da loja.
-
-9. CRITÉRIOS PARA RECEBIMENTO, ESTORNOS E FRAUDES
-Para fazer jus ao pagamento, o consultor deve cumprir os processos, possuir vendas válidas e atender aos indicadores de qualidade.
+8. CRITÉRIOS PARA RECEBIMENTO, ESTORNOS E FRAUDES
+Para fazer jus ao pagamento, o ${cargoSelecionado} deve cumprir os processos, possuir vendas válidas e atender aos indicadores de qualidade.
 A empresa poderá realizar estornos em casos de cancelamento, fraude, irregularidade documental ou descumprimento dos processos.
 Constatada fraude, o colaborador perderá o direito à comissão referente às vendas envolvidas, sem prejuízo das medidas disciplinares.
 
-10. VIGÊNCIA
+9. VIGÊNCIA
 Esta Política entra em vigor na data de sua aprovação, revogando quaisquer políticas anteriores relacionadas ao comissionamento.`;
 
+  // Se não existe documento salvo para este cargo, usa o template padrão
   document.getElementById('doc_conteudo').value = data?.conteudo || templatePadrao;
-  document.getElementById('modalDocumento').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
+}
+
+function fecharModalDocumento() {
+  document.getElementById('modalDocumento').classList.add('hidden');
+}
+
+async function salvarDocumento() {
+  const btn = document.getElementById('btnSalvarDoc');
+  const titulo = document.getElementById('doc_titulo').value.trim();
+  const inicio = document.getElementById('doc_inicio').value;
+  const cargo = document.getElementById('doc_cargo').value;
+  const conteudo = document.getElementById('doc_conteudo').value.trim();
+
+  if (!titulo || !inicio || !conteudo || !cargo) {
+    return alert('Preencha todos os campos do termo.');
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Publicando...';
+
+  try {
+    const dataInicioObj = new Date(inicio + 'T12:00:00');
+    dataInicioObj.setDate(dataInicioObj.getDate() - 1);
+    const diaAnterior = dataInicioObj.toISOString().split('T')[0];
+
+    // Encerra documento ativo anterior APENAS deste cargo
+    await supabaseClient.from('politicas_documentos')
+      .update({ vigencia_fim: diaAnterior, ativo: false })
+      .is('vigencia_fim', null)
+      .eq('cargo_aplicavel', cargo);
+
+    // Insere novo
+    const { error } = await supabaseClient.from('politicas_documentos').insert({ 
+      titulo, 
+      conteudo, 
+      vigencia_inicio: inicio,
+      cargo_aplicavel: cargo
+    });
+    if (error) throw error;
+
+    alert(`✅ Termo publicado com sucesso para ${cargo}!`);
+    fecharModalDocumento();
+  } catch (err) {
+    alert('Erro ao publicar: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i> Publicar Termo';
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 /* ==========================================================
@@ -1794,10 +1863,25 @@ async function carregarDocumentoPolitica() {
   const container = document.getElementById('documentoPoliticaConteudo');
   container.innerHTML = '<div class="text-center py-12 text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block"></i> Carregando termo...</div>';
 
-  const { data: doc } = await supabaseClient.from('politicas_documentos').select('*').is('vigencia_fim', null).maybeSingle();
+  // 🚀 Identifica o cargo do usuário logado
+  const cargoUsuario = state.perfil?.permissao || 'Consultor de Vendas';
+
+  // Busca o documento ativo especificamente para o cargo do usuário
+  const { data: doc } = await supabaseClient
+    .from('politicas_documentos')
+    .select('*')
+    .is('vigencia_fim', null)
+    .eq('cargo_aplicavel', cargoUsuario)
+    .maybeSingle();
 
   if (!doc) {
-    container.innerHTML = '<div class="text-center py-12 text-slate-500">Nenhuma política ativa no momento.</div>';
+    container.innerHTML = `
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 max-w-2xl mx-auto">
+        <i data-lucide="file-x" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
+        <h3 class="text-lg font-black text-slate-800">Nenhuma política ativa</h3>
+        <p class="text-sm text-slate-500 mt-1">Não há termo de comissionamento vigente para o seu cargo (${cargoUsuario}).</p>
+      </div>
+    `;
     if (window.lucide) lucide.createIcons();
     return;
   }
@@ -1807,6 +1891,7 @@ async function carregarDocumentoPolitica() {
 
   container.innerHTML = `
     <div id="documentoA4" class="bg-white rounded-2xl border border-slate-300 shadow-xl p-8 md:p-14 relative w-full">
+      
       <!-- Cabeçalho -->
       <div class="text-center border-b-4 border-[#000033] pb-6 mb-8">
         <h2 class="text-3xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
@@ -1814,8 +1899,13 @@ async function carregarDocumentoPolitica() {
         <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Loja TIM Dom José</p>
       </div>
       
-      <h1 class="text-xl font-black text-center uppercase mb-2">${escapeHTML(doc.titulo)}</h1>
-      <p class="text-xs text-center text-slate-500 mb-10 uppercase tracking-widest font-bold">Vigência a partir de: ${dataVig}</p>
+      <div class="text-center mb-8">
+        <span class="inline-block bg-slate-100 text-slate-700 font-black px-4 py-1 rounded-full text-xs uppercase tracking-widest border border-slate-300 mb-4">
+          Aplica-se ao Cargo: ${escapeHTML(cargoUsuario)}
+        </span>
+        <h1 class="text-xl font-black text-center uppercase mb-2">${escapeHTML(doc.titulo)}</h1>
+        <p class="text-xs text-center text-slate-500 uppercase tracking-widest font-bold">Vigência a partir de: ${dataVig}</p>
+      </div>
 
       <!-- Conteúdo -->
       <div class="text-sm text-slate-800 leading-relaxed mb-12 text-justify whitespace-pre-wrap font-medium">${escapeHTML(doc.conteudo)}</div>
