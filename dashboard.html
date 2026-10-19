@@ -6437,13 +6437,20 @@ document.addEventListener('keydown', (e) => {
   });
 })();
 
-    /* ==========================================================
+/* ==========================================================
    EDITAR CLIENTE (Gestão de Base Geral)
    ========================================================== */
 function abrirModalEditarCliente(id) {
-  // Encontra o cliente na lista atual da busca
-  const c = (state.clientesBusca || []).find(x => x.id === id);
-  if (!c) return;
+  console.log('[Editar Cliente] Tentando abrir ID:', id);
+  
+  // Encontra o cliente na lista atual da busca (Convertendo ambos para String para evitar erro de tipo)
+  const c = (state.clientesBusca || []).find(x => String(x.id) === String(id));
+  
+  if (!c) {
+    console.error('[Editar Cliente] Cliente não encontrado na lista. Verifique se a lista foi recarregada.');
+    alert('Erro: Cliente não encontrado na memória. Tente buscar novamente.');
+    return;
+  }
 
   // Bloqueio de segurança (frontend)
   if (state._permissoes?.clientes !== 'editar') {
@@ -6471,7 +6478,8 @@ function abrirModalEditarCliente(id) {
 
   $('editClienteAlert').classList.add('hidden');
   $('modalEditarCliente').classList.remove('hidden');
-  lucide.createIcons();
+  
+  if (window.lucide) lucide.createIcons();
 }
 
 function fecharModalEditarCliente() {
