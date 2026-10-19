@@ -6060,14 +6060,15 @@ async function buscarCmd(termo) {
   const termoNum = termo.replace(/\D/g, '');
   const termoSeguro = termo.replace(/[%,]/g, '');
 
-  // 👇 Query com MAIS campos pra enriquecer o resultado
+  // 🚀 Adicionado telefone_provisorio no select
   let query = supabaseClient
     .from('clientes_faturas')
-    .select('id, nome, cpf, telefone, telefone_alt, plano, consultor, modalidade, ano_base, data_venda, fatura_p, fatura_q, fatura_r, valor_receita_contratada, data_vencimento_base, debito_automatico');
+    .select('id, nome, cpf, telefone, telefone_provisorio, telefone_alt, plano, consultor, modalidade, ano_base, data_venda, fatura_p, fatura_q, fatura_r, valor_receita_contratada, data_vencimento_base, debito_automatico');
 
   if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
+    // 🚀 Adicionado telefone_provisorio no filtro OR
     query = query.or(
-      `cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%`
+      `cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_provisorio.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%`
     );
   } else {
     query = query.ilike('nome', `%${termoSeguro}%`);
@@ -6122,6 +6123,7 @@ function renderCmdResultados() {
     if (/^\d+$/.test(tn) && tn.length >= 3) {
       if (normalizarCPF(c.cpf).includes(tn)) return 'id-card';
       if (normalizarTelefone(c.telefone).includes(tn)) return 'phone';
+      if (normalizarTelefone(c.telefone_provisorio || '').includes(tn)) return 'zap'; // 🚀 Ícone de raio pra provisório
       if (normalizarTelefone(c.telefone_alt || '').includes(tn)) return 'phone';
     }
     return 'user';
@@ -6150,6 +6152,11 @@ function renderCmdResultados() {
     const cpfFmt = cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
     const tel = normalizarTelefone(c.telefone);
     const telFmt = tel.length === 11 ? `(${tel.slice(0,2)}) ${tel.slice(2,7)}-${tel.slice(7)}` : tel;
+    
+    // 🚀 Pega o provisório
+    const prov = normalizarTelefone(c.telefone_provisorio || '');
+    const provFmt = prov.length === 11 ? `(${prov.slice(0,2)}) ${prov.slice(2,7)}-${prov.slice(7)}` : prov;
+
     const alt = normalizarTelefone(c.telefone_alt || '');
     const altFmt = alt && alt.length >= 10 ? (alt.length === 11 ? `(${alt.slice(0,2)}) ${alt.slice(2,7)}-${alt.slice(7)}` : alt) : null;
 
@@ -6157,7 +6164,6 @@ function renderCmdResultados() {
     const valorTxt = c.valor_receita_contratada != null ? fmtMoeda(c.valor_receita_contratada) : null;
     const debito = String(c.debito_automatico || '').toUpperCase() === 'SIM';
 
-    // 👇 Classe única de item — sem "ativo", o JS adiciona/remove no hover
     return `
       <div data-idx="${i}" data-cliente-id="${c.id}"
         class="cmd-item cursor-pointer rounded-md px-3 py-2.5 mb-0.5">
@@ -6184,6 +6190,14 @@ function renderCmdResultados() {
               </span>
               ${altFmt ? `<span class="opacity-40">·</span><span class="font-mono text-[10px] opacity-70">alt ${highlight(altFmt)}</span>` : ''}
             </div>
+
+            <!-- 🚀 LINHA DO PROVISÓRIO -->
+            ${provFmt ? `
+            <div class="flex items-center gap-1 mt-1 text-[10px] font-bold text-amber-600">
+              <i data-lucide="zap" class="w-3 h-3"></i>
+              <span class="font-mono">Prov: ${highlight(provFmt)}</span>
+            </div>
+            ` : ''}
 
             <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-slate-500">
               ${c.consultor ? `<span class="flex items-center gap-1 font-bold uppercase"><i data-lucide="user-check" class="w-2.5 h-2.5"></i> ${escapeHTML(c.consultor)}</span>` : ''}
