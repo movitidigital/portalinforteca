@@ -295,13 +295,14 @@
       { id: 'faturas',        nome: 'Faturas',                   icon: 'file-text' },
       { id: 'suspensoes',     nome: 'Gestão de Acessos',         icon: 'shield-alert' },
       { id: 'gestao',         nome: 'Gestão de Clientes',        icon: 'file-check-2' },
-      { id: 'conciliacao',    nome: 'Conciliação TIM',           icon: 'calculator' }, // 🚀 Adicionado
-      { id: 'espelho',        nome: 'Meu Espelho',               icon: 'file-spreadsheet' }, // 🚀 Adicionado
-      { id: 'politicas',      nome: 'Políticas de Comissão',     icon: 'settings-2' }, // 🚀 Adicionado
+      { id: 'conciliacao',    nome: 'Conciliação TIM',           icon: 'calculator' },
+      { id: 'espelho',        nome: 'Meu Espelho',               icon: 'file-spreadsheet' },
+      { id: 'politicas',      nome: 'Políticas de Comissão',     icon: 'settings-2' },
       { id: 'prospeccao',     nome: 'Prospecção',                icon: 'users' },
-      { id: 'treinamento',    nome: 'Central de Treinamento',    icon: 'play-circle' }, // 🚀 Adicionado
-      { id: 'premiada',       nome: 'Inforteca Premiada',        icon: 'trophy' }, // 🚀 Adicionado
+      { id: 'treinamento',    nome: 'Central de Treinamento',    icon: 'play-circle' },
+      { id: 'premiada',       nome: 'Inforteca Premiada',        icon: 'trophy' },
       { id: 'metas',          nome: 'Acompanhamento de Metas',   icon: 'target' },
+      { id: 'usuarios',       nome: 'Gestão de Usuários',        icon: 'user-cog' },
     ];
 
     const NIVEIS = [
@@ -366,7 +367,7 @@ async function verificarAuth() {
     perms[m.id] = cp ? cp.nivel : 'nenhum';
   });
 
-  // Esconde os itens do menu lateral se não tiver permissão (espera 100ms para o sidebar.js carregar)
+  // Esconde os itens do menu lateral se não tiver permissão
   setTimeout(() => {
     MODULOS_SISTEMA.forEach(m => {
       if (perms[m.id] === 'nenhum') {
@@ -377,8 +378,11 @@ async function verificarAuth() {
   }, 100);
   // =========================================================
 
-  // 🔒 GATE: só ADMIN vê a página de usuários
-  if (!isAdmin) {
+  // 🚀 NOVO GATE: Admin OR quem tiver permissão 'ver' ou 'editar' no módulo 'usuarios'
+  const nivelUsuarios = perms['usuarios'] || 'nenhum';
+  const temAcessoUsuarios = isAdmin || nivelUsuarios !== 'nenhum';
+
+  if (!temAcessoUsuarios) {
     $('acessoNegado').classList.remove('hidden');
     $('conteudoPrincipal').classList.add('hidden');
     lucide.createIcons();
