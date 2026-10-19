@@ -281,13 +281,12 @@
     
   </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden bg-[#000033]">
 
   <!-- BARRA LATERAL (SIDEBAR) -->
-<aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
-
+<aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-opacity duration-200 opacity-0 z-30 shadow-xl shrink-0"></aside>
   <!-- CONTENTOR PRINCIPAL -->
-  <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden">
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden bg-[#f4f7f6]">
     
     <!-- CABEÇALHO SUPERIOR INJETADO -->
     <header id="appHeader" data-title="Acompanhamento de Vendas Diário" data-search="false" data-notif="false"></header>
@@ -1284,47 +1283,57 @@ async function verificarAuth() {
 
     window.onload = async () => {
       lucide.createIcons();
+      
+      // 1. Verifica se o usuário está logado
       const ok = await verificarAuth();
       if (!ok) return;
+
+      // 2. Carrega os dados do sistema (tabelas, metas, etc)
       state = await carregarEstado();
       recalcAll();
 
-      // 🚀 ESCONDE OS MÓDULOS SEM ACESSO NO MENU LATERAL
-      setTimeout(async () => {
-        // 1. Busca as permissões do usuário logado
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (!session) return;
+      // 3. Aplica a regra de esconder o menu (AQUI ESTÁ A MÁGICA)
+      const supabaseUrl = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+      const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
         const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', session.user.id).single();
         const { data: cargos } = await supabaseClient.from('cargos').select('*');
         const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
         const isAdmin = meuCargo?.is_admin === true;
 
-        if (isAdmin) return; // Admin vê tudo
+        if (!isAdmin) {
+          const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
+          const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+          
+          const MODULOS_MENU = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
 
-        // 2. Pega as permissões (Cargo + Individuais)
-        const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
-        const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
-        
-        // 3. Lista de módulos que o menu usa (precisa bater com os data-nav do sidebar.js)
-        const MODULOS_MENU = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
+          MODULOS_MENU.forEach(m => {
+            let nivel = 'nenhum';
+            const ov = userPerms.find(o => o.modulo === m);
+            if (ov) nivel = ov.nivel;
+            else {
+              const cp = cargoPerms.find(p => p.modulo === m);
+              if (cp) nivel = cp.nivel;
+            }
 
-        // 4. Aplica o hide()
-        MODULOS_MENU.forEach(m => {
-          let nivel = 'nenhum';
-          const ov = userPerms.find(o => o.modulo === m);
-          if (ov) nivel = ov.nivel;
-          else {
-            const cp = cargoPerms.find(p => p.modulo === m);
-            if (cp) nivel = cp.nivel;
-          }
+            // Se não tem acesso, esconde o item do menu
+            if (nivel === 'nenhum' && m !== 'dashboard' && m !== 'metas') {
+              const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+              if (menuItem) menuItem.style.display = 'none';
+            }
+          });
+        }
+      }
 
-          if (nivel === 'nenhum' && m !== 'dashboard' && m !== 'metas') {
-            const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
-            if (menuItem) menuItem.style.display = 'none';
-          }
-        });
-      }, 150); 
+      // 4. AGORA SIM! Mostra a sidebar suavemente com os botões certos
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.classList.remove('opacity-0');
+        sidebar.classList.add('opacity-100');
+      }
     };
   </script>
 </body>
