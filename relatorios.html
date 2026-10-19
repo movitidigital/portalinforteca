@@ -43,15 +43,13 @@
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in">
       
-      <!-- O wrapper é usado para exportar o PDF -->
       <div id="relatorios-wrapper" class="bg-[#f4f7f6]">
         
-        <!-- Cabeçalho e Filtros -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div>
               <h1 class="text-2xl font-black text-[#000033]">Central de Relatórios</h1>
-              <p class="text-sm text-slate-500 mt-1">Análise de vendas, produtividade e metas.</p>
+              <p class="text-sm text-slate-500 mt-1">Análise de vendas baseada na tabela de Interações.</p>
             </div>
             <div class="flex gap-2">
               <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
@@ -63,7 +61,6 @@
             </div>
           </div>
 
-          <!-- Filtros Globais -->
           <div class="flex flex-wrap gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div class="flex items-center gap-2">
               <label class="text-xs font-bold text-slate-500 uppercase">De:</label>
@@ -78,7 +75,7 @@
               <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
                 <option value="TODAS">Todas as Fontes</option>
                 <option value="DATASYS">Datasys</option>
-                <option value="GESTAO_CLICK">Gestão Click</option>
+                <option value="GESTAO CLICK">Gestão Click</option>
               </select>
             </div>
             <div class="flex items-center gap-2">
@@ -93,7 +90,6 @@
           </div>
         </div>
 
-        <!-- Abas -->
         <div class="flex gap-2 mb-6 border-b border-slate-200">
           <button id="relTab-painel" onclick="trocarAbaRelatorio('painel')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]">📊 Painel</button>
           <button id="relTab-vendas" onclick="trocarAbaRelatorio('vendas')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">🛒 Vendas</button>
@@ -101,7 +97,6 @@
           <button id="relTab-categorias" onclick="trocarAbaRelatorio('categorias')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">📦 Categorias</button>
         </div>
 
-        <!-- Conteúdo das Abas -->
         <div id="relContent-painel" class="block">
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
@@ -138,14 +133,15 @@
                 <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500">
                   <tr>
                     <th class="px-4 py-3">Data</th>
-                    <th class="px-4 py-3">Cliente / ID</th>
+                    <th class="px-4 py-3">Cliente / Produto</th>
                     <th class="px-4 py-3">Vendedor</th>
+                    <th class="px-4 py-3">Origem</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaRelatorioVendas" class="divide-y divide-slate-100">
-                  <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+                  <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -173,11 +169,11 @@
         <div id="relContent-categorias" class="hidden">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Distribuição por Vendedor</h3>
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Faturamento por Vendedor</h3>
               <div id="chartCategorias"></div>
             </div>
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Status</h3>
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Modalidade</h3>
               <div id="chartModalidades"></div>
             </div>
           </div>
@@ -188,9 +184,6 @@
   </main>
 
   <script>
-    /* ==========================================================
-       CONFIGURAÇÃO E ESTADO
-       ========================================================== */
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAuNDU1OTc1LCJleHAiOjIxMDYwMzE5NzV9.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
     
@@ -202,9 +195,6 @@
     let vendasGlobais = [];
     let chartEvolucao, chartCategorias, chartModalidades;
 
-    /* ==========================================================
-       NAVEGAÇÃO DE ABAS
-       ========================================================== */
     function trocarAbaRelatorio(aba) {
       ['painel', 'vendas', 'vendedor', 'categorias'].forEach(a => {
         const btn = document.getElementById(`relTab-${a}`);
@@ -227,23 +217,16 @@
       }
     }
 
-    /* ==========================================================
-       CARREGAMENTO DE DADOS
-       ========================================================== */
     async function carregarDados() {
       const dataInicio = document.getElementById('relDataInicio').value;
       const dataFim = document.getElementById('relDataFim').value;
       const vendedorFiltro = document.getElementById('relVendedor').value;
+      const origemFiltro = document.getElementById('relOrigem').value;
 
       if (!dataInicio || !dataFim) {
         alert('Por favor, selecione a Data Inicial e a Data Final.');
         return;
       }
-
-      // 🚨 ATENÇÃO: AQUI ESTÁ A TABELA DE VENDAS
-      // Como a "prospeccao_leads" não tem valores, vamos usar a "interacoes" ou "premiada_vendas_pontuadas"
-      // Troque 'interacoes' pelo nome correto se necessário
-      const TABELA_VENDAS = 'interacoes'; 
 
       const btn = document.querySelector('button[onclick="carregarDados()"]');
       const htmlOriginal = btn.innerHTML;
@@ -251,7 +234,7 @@
       lucide.createIcons();
 
       try {
-        let query = sb.from(TABELA_VENDAS)
+        let query = sb.from('interacoes')
           .select('*')
           .gte('data_venda', dataInicio)
           .lte('data_venda', dataFim);
@@ -259,21 +242,30 @@
         if (vendedorFiltro !== 'TODOS') {
           query = query.eq('vendedor', vendedorFiltro);
         }
+        if (origemFiltro !== 'TODAS') {
+          query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
+        }
 
         const { data, error } = await query;
         if (error) throw error;
 
-        // Mapeamento genérico assumindo colunas padrão. 
-        // Se a tabela for outra, ajuste os nomes (ex: valor, vendedor, data_venda)
-        vendasGlobais = (data || []).map(v => ({
-          id: v.id,
-          data: v.data_venda || v.created_at,
-          cliente: v.cliente_nome || v.nome || 'N/A',
-          vendedor: v.vendedor || 'N/A',
-          valor: Number(v.valor || v.total_recebido || v.valor_receita_contratada || 0),
-          status: v.status || v.conciliacao_status || 'PENDENTE',
-          modalidade: v.modalidade || 'N/A'
-        }));
+        // Mapeamento EXATO com base na sua tabela
+        vendasGlobais = (data || []).map(v => {
+          // Tenta achar o nome no JSONB dados_originais, senão usa o produto
+          const nomeCli = v.dados_originais?.nome_cliente || v.dados_originais?.nome || v.dados_originais?.CLIENTE || 'N/A';
+          
+          return {
+            id: v.id,
+            data: v.data_venda || v.created_at,
+            cliente: nomeCli,
+            produto: v.produto || v.plano || 'N/A',
+            vendedor: v.vendedor || 'N/A',
+            origem: v.tipo_fonte || 'N/A',
+            valor: Number(v.valor_total || 0),
+            status: v.conciliacao_status || v.status_contrato || 'PENDENTE',
+            modalidade: v.modalidade || 'N/A'
+          };
+        });
 
         processarDados();
       } catch (err) {
@@ -285,9 +277,6 @@
       }
     }
 
-    /* ==========================================================
-       PROCESSAMENTO E RENDERIZAÇÃO
-       ========================================================== */
     function processarDados() {
       // 1. KPIs
       const totalFaturamento = vendasGlobais.reduce((acc, v) => acc + v.valor, 0);
@@ -303,14 +292,17 @@
       // 2. Tabela de Vendas
       const tbodyVendas = document.getElementById('tabelaRelatorioVendas');
       if (totalVendas === 0) {
-        tbodyVendas.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Nenhuma venda encontrada no período.</td></tr>';
+        tbodyVendas.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">Nenhuma venda encontrada no período.</td></tr>';
       } else {
         tbodyVendas.innerHTML = vendasGlobais.map(v => `
           <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 text-slate-500">${new Date(v.data).toLocaleDateString('pt-BR')}</td>
-            <td class="px-4 py-3 font-bold text-slate-800 uppercase">${v.cliente}</td>
+            <td class="px-4 py-3 text-slate-500">${new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+            <td class="px-4 py-3 font-bold text-slate-800 uppercase">
+              ${v.cliente !== 'N/A' ? v.cliente : v.produto}
+            </td>
             <td class="px-4 py-3 text-slate-600">${v.vendedor}</td>
-            <td class="px-4 py-3 text-center"><span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold">${v.status}</span></td>
+            <td class="px-4 py-3 text-[10px] uppercase text-slate-400 font-bold">${v.origem}</td>
+            <td class="px-4 py-3 text-center"><span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold uppercase">${v.status}</span></td>
             <td class="px-4 py-3 text-right font-black text-emerald-700">R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
           </tr>
         `).join('');
@@ -338,13 +330,27 @@
       `).join('');
 
       renderizarGraficos(arrVendedores);
+      preencherSelectVendedores();
+    }
+
+    function preencherSelectVendedores() {
+      const select = document.getElementById('relVendedor');
+      if (select.options.length > 1) return; // Já preenchido
+      
+      const vendedores = [...new Set(vendasGlobais.map(v => v.vendedor))].filter(v => v !== 'N/A').sort();
+      vendedores.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        select.appendChild(opt);
+      });
     }
 
     function renderizarGraficos(arrVendedores) {
       // Gráfico de Evolução (Linha)
       const porData = {};
       vendasGlobais.forEach(v => {
-        const d = new Date(v.data).toLocaleDateString('pt-BR');
+        const d = new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR');
         if (!porData[d]) porData[d] = 0;
         porData[d] += v.valor;
       });
@@ -373,26 +379,23 @@
       });
       chartCategorias.render();
 
-      // Gráfico de Pizza (Status)
-      const porStatus = {};
+      // Gráfico de Pizza (Modalidades)
+      const porModalidade = {};
       vendasGlobais.forEach(v => {
-        if (!porStatus[v.status]) porStatus[v.status] = 0;
-        porStatus[v.status]++;
+        if (!porModalidade[v.modalidade]) porModalidade[v.modalidade] = 0;
+        porModalidade[v.modalidade]++;
       });
       if (chartModalidades) chartModalidades.destroy();
       chartModalidades = new ApexCharts(document.querySelector("#chartModalidades"), {
-        series: Object.values(porStatus),
-        labels: Object.keys(porStatus),
+        series: Object.values(porModalidade),
+        labels: Object.keys(porModalidade),
         chart: { type: 'pie', height: 350 },
-        colors: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'],
+        colors: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6'],
         legend: { position: 'bottom' }
       });
       chartModalidades.render();
     }
 
-    /* ==========================================================
-       EXPORTAÇÃO
-       ========================================================== */
     function exportarPdf() {
       const element = document.getElementById('relatorios-wrapper');
       const opt = {
@@ -409,9 +412,11 @@
       if (vendasGlobais.length === 0) return alert('Não há dados para exportar.');
       
       const dadosExcel = vendasGlobais.map(v => ({
-        'Data': new Date(v.data).toLocaleDateString('pt-BR'),
+        'Data': new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR'),
         'Cliente': v.cliente,
+        'Produto': v.produto,
         'Vendedor': v.vendedor,
+        'Origem': v.origem,
         'Status': v.status,
         'Modalidade': v.modalidade,
         'Valor': v.valor
@@ -423,19 +428,14 @@
       XLSX.writeFile(wb, `relatorio-inforteca-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
-    /* ==========================================================
-       INICIALIZAÇÃO
-       ========================================================== */
     window.addEventListener('DOMContentLoaded', async () => {
       if (window.lucide) lucide.createIcons();
       
-      // Preenche as datas com o mês atual por padrão
       const hoje = new Date();
       const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
       document.getElementById('relDataInicio').value = primeiroDia.toISOString().slice(0, 10);
       document.getElementById('relDataFim').value = hoje.toISOString().slice(0, 10);
 
-      // Esconde a splash screen
       setTimeout(() => {
         const splash = document.getElementById('splashScreen');
         if (splash) {
@@ -444,11 +444,6 @@
         }
       }, 500);
 
-      // Aqui você pode carregar a lista de vendedores para o select (se quiser)
-      // const { data: perfis } = await sb.from('perfis').select('nome_completo');
-      // ... lógica de preencher o select de vendedores ...
-      
-      // Já carrega os dados iniciais
       carregarDados();
     });
   </script>
