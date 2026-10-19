@@ -471,3 +471,84 @@
 
   setTimeout(boot, 200);
 })();
+// Adiciona a classe que esconde a tela para evitar o "piscar"
+document.body.classList.add('auth-loading');
+
+// Mapeamento de qual módulo cada página pertence
+function getModuloDaPagina() {
+  const path = window.location.pathname;
+  if (path.includes('metas.html')) return 'metas';
+  if (path.includes('dashboard.html') || path === '/' || path.includes('index.html')) return 'dashboard';
+  if (path.includes('financeiro.html') || path.includes('conciliacao.html')) return 'conciliacao'; // Ajuste conforme seus nomes
+  // Adicione as outras páginas aqui:
+  // if (path.includes('faturas.html')) return 'faturas';
+  return null; 
+}
+
+async function guardiaoDeAcesso() {
+  const supabaseUrl = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+  const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+
+  // Busca dados do usuário
+  const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', session.user.id).single();
+  const { data: cargos } = await supabaseClient.from('cargos').select('*');
+  const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+  const isAdmin = meuCargo?.is_admin === true;
+
+  let perms = {};
+  const modulosSistema = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
+
+  if (isAdmin) {
+    modulosSistema.forEach(m => perms[m] = 'editar');
+  } else {
+    const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
+    const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+
+    modulosSistema.forEach(m => {
+      const ov = userPerms.find(o => o.modulo === m);
+      if (ov) { perms[m] = ov.nivel; return; }
+      const cp = cargoPerms.find(p => p.modulo === m);
+      perms[m] = cp ? cp.nivel : 'nenhum';
+    });
+  }
+
+  // 1. ESCONDE OS ITENS DO MENU (Se o menu já tiver sido renderizado)
+  setTimeout(() => {
+    modulosSistema.forEach(m => {
+      if (perms[m] === 'nenhum' && m !== 'dashboard') {
+        const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+        if (menuItem) menuItem.style.display = 'none'; // Oculta o botão
+      }
+    });
+  }, 100);
+
+  // 2. BLOQUEIO DE PÁGINA (Segurança Máxima)
+  const paginaAtual = getModuloDaPagina();
+  if (paginaAtual && perms[paginaAtual] === 'nenhum') {
+    // Se o cara digitou a URL e não tem acesso, destruímos a tela e mostramos o bloqueio
+    document.body.innerHTML = `
+      <div style="font-family:'Inter',sans-serif;background:#f4f7f6;height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+        <div style="background:#fff;border:1px solid #fecaca;border-radius:16px;padding:48px 32px;text-align:center;max-width:480px;box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+          <div style="width:64px;height:64px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h2 style="font-size:18px;font-weight:900;color:#0f172a;margin:0 0 8px;">Acesso Bloqueado</h2>
+          <p style="font-size:14px;color:#64748b;margin:0 0 20px;">Você não tem permissão para visualizar esta página.</p>
+          <a href="dashboard.html" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Voltar ao Início</a>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // 3. TUDO CERTO: MOSTRA A TELA SUAVEMENTE
+  document.body.classList.remove('auth-loading');
+}
+
+// Executa assim que a página começa a carregar
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(guardiaoDeAcesso, 50); // 50ms para garantir que o sidebar.js iniciou a montagem
+});
