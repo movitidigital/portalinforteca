@@ -38,11 +38,11 @@
     }
   </style>
 </head>
-<body class="text-slate-800 h-screen flex overflow-hidden">
+<body class="text-slate-800 h-screen flex overflow-hidden bg-[#000033]">
 
-  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-all duration-300 z-30 shadow-xl shrink-0"></aside>
+  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-opacity duration-200 opacity-0 z-30 shadow-xl shrink-0"></aside>
 
-  <main class="flex-1 flex flex-col h-screen min-w-0 relative">
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative bg-[#f4f7f6]">
     <header id="appHeader" data-title="Central de Treinamento" data-search="false" data-notif="false"></header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative">
@@ -354,52 +354,73 @@
        AUTH
        ========================================================== */
     async function verificarAuth() {
-      // 1) Força refresh da sessão (renova o token se estiver perto de expirar)
       try {
         await supabaseClient.auth.refreshSession();
-      } catch (e) {
-        console.warn('[Auth] Refresh falhou:', e);
-      }
+      } catch (e) {}
 
-      // 2) Pega a sessão atualizada
       const { data: { session } } = await supabaseClient.auth.getSession();
-      if (!session) { window.location.href = 'index.html'; return; }
+      if (!session) { window.location.href = 'index.html'; return false; }
 
       state.user = session.user;
 
-      // 3) Busca perfil com retry
-      let perfil = null;
-      for (let tentativa = 1; tentativa <= 3; tentativa++) {
-        const { data, error } = await supabaseClient
-          .from('perfis')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
+      // Busca perfil
+      const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', session.user.id).single();
+      state.perfil = perfil || { nome_completo: session.user.email, permissao: 'Operador' };
 
-        if (!error && data) { perfil = data; break; }
-        console.warn(`[Auth] Tentativa ${tentativa} falhou:`, error?.message);
-        await new Promise(r => setTimeout(r, 500)); // espera 500ms e tenta de novo
-      }
-
-      state.perfil = perfil || {};
-
-      // 4) Busca cargos com retry
-      let cargos = [];
-      for (let tentativa = 1; tentativa <= 3; tentativa++) {
-        const { data, error } = await supabaseClient.from('cargos').select('*');
-        if (!error && data) { cargos = data; break; }
-        console.warn(`[Auth] Cargos tentativa ${tentativa} falhou:`, error?.message);
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      const meuCargo = cargos.find(c => c.id === perfil?.cargo_id);
+      const { data: cargos } = await supabaseClient.from('cargos').select('*');
+      const meuCargo = (cargos || []).find(c => c.id === state.perfil.cargo_id);
       state.isAdmin = meuCargo?.is_admin === true;
 
-      console.log('[Auth] ✅ Sessão validada:', {
-        user: session.user.email,
-        perfil: state.perfil.nome_completo,
-        isAdmin: state.isAdmin,
+      // 🚀 1. BUSCA PERMISSÕES DO USUÁRIO
+      const MODULOS_MENU = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','treinamento','premiada','metas'];
+      
+      const cargoPerms = meuCargo 
+        ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] 
+        : [];
+      const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+
+      const perms = {};
+      MODULOS_MENU.forEach(m => {
+        if (state.isAdmin) { perms[m] = 'editar'; return; }
+        const ov = userPerms.find(o => o.modulo === m);
+        if (ov) { perms[m] = ov.nivel; return; }
+        const cp = cargoPerms.find(p => p.modulo === m);
+        perms[m] = cp ? cp.nivel : 'nenhum';
       });
+
+      // 🚀 2. SEGURANÇA MÁXIMA: Bloqueia a página se não tiver acesso à Central de Treinamento
+      if (perms['treinamento'] === 'nenhum') {
+        document.body.innerHTML = `
+          <div style="font-family:'Inter',sans-serif;background:#f4f7f6;height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+            <div style="background:#fff;border:1px solid #fecaca;border-radius:16px;padding:48px 32px;text-align:center;max-width:480px;box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+              <div style="width:64px;height:64px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <h2 style="font-size:18px;font-weight:900;color:#0f172a;margin:0 0 8px;">Acesso Bloqueado</h2>
+              <p style="font-size:14px;color:#64748b;margin:0 0 20px;">Você não tem permissão para acessar a Central de Treinamento.</p>
+              <a href="dashboard.html" style="display:inline-block;background:#0f172a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">Voltar ao Início</a>
+            </div>
+          </div>`;
+        return false;
+      }
+
+      // 🚀 3. ESCONDE OS ITENS DO MENU E MOSTRA A SIDEBAR SUAVEMENTE
+      setTimeout(() => {
+        MODULOS_MENU.forEach(m => {
+          if (perms[m] === 'nenhum' && m !== 'dashboard') {
+            const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+            if (menuItem) menuItem.style.display = 'none';
+          }
+        });
+
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+          sidebar.classList.remove('opacity-0');
+          sidebar.classList.add('opacity-100');
+        }
+      }, 150);
+
+      return true;
     }
 
     /* ==========================================================
@@ -788,19 +809,19 @@
     /* ==========================================================
        BOOT
        ========================================================== */
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
 
-      // 1) Renderiza a página IMEDIATAMENTE (não espera auth)
+      // 1. Verifica permissões antes de mostrar a tela
+      const ok = await verificarAuth();
+      if (!ok) return; // Se não tiver acesso, para aqui e mostra o bloqueio
+
+      // 2. Renderiza a página SE tiver permissão
       carregarProgresso();
       renderModulos();
+      atualizarBotaoPainel();
 
-      // 2) Verifica auth em BACKGROUND — quando terminar, mostra o card admin
-      verificarAuth()
-        .then(() => atualizarBotaoPainel())
-        .catch(err => console.warn('[Auth] Falha silenciosa:', err));
-
-      // 3) ESC fecha modal
+      // 3. ESC fecha modal
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !$('modalEquipe')?.classList.contains('hidden')) {
           fecharPainelEquipe();
