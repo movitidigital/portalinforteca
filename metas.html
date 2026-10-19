@@ -1283,12 +1283,49 @@ async function verificarAuth() {
 
 
     window.onload = async () => {
-  lucide.createIcons();
-  const ok = await verificarAuth();
-  if (!ok) return;
-  state = await carregarEstado();
-  recalcAll();
-};
+      lucide.createIcons();
+      const ok = await verificarAuth();
+      if (!ok) return;
+      state = await carregarEstado();
+      recalcAll();
+
+      // 🚀 ESCONDE OS MÓDULOS SEM ACESSO NO MENU LATERAL
+      setTimeout(async () => {
+        // 1. Busca as permissões do usuário logado
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) return;
+
+        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', session.user.id).single();
+        const { data: cargos } = await supabaseClient.from('cargos').select('*');
+        const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+        const isAdmin = meuCargo?.is_admin === true;
+
+        if (isAdmin) return; // Admin vê tudo
+
+        // 2. Pega as permissões (Cargo + Individuais)
+        const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
+        const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+        
+        // 3. Lista de módulos que o menu usa (precisa bater com os data-nav do sidebar.js)
+        const MODULOS_MENU = ['dashboard','clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
+
+        // 4. Aplica o hide()
+        MODULOS_MENU.forEach(m => {
+          let nivel = 'nenhum';
+          const ov = userPerms.find(o => o.modulo === m);
+          if (ov) nivel = ov.nivel;
+          else {
+            const cp = cargoPerms.find(p => p.modulo === m);
+            if (cp) nivel = cp.nivel;
+          }
+
+          if (nivel === 'nenhum' && m !== 'dashboard' && m !== 'metas') {
+            const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+            if (menuItem) menuItem.style.display = 'none';
+          }
+        });
+      }, 150); 
+    };
   </script>
 </body>
 </html>
