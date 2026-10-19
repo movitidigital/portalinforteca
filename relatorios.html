@@ -578,7 +578,9 @@
           </div>
         `;
       }).join('');
-      document.getElementById('podioVendedores').innerHTML = podioHtml || '<p class="text-sm text-slate-400 text-center">Sem dados para o pódio.</p>';
+
+      // 🚀 CORREÇÃO AQUI: Trocado podioHtml por podioHTML
+      document.getElementById('podioVendedores').innerHTML = podioHTML || '<p class="text-sm text-slate-400 text-center">Sem dados para o pódio.</p>';
     }
 
     // ==========================================
