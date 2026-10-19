@@ -1863,10 +1863,8 @@ async function carregarDocumentoPolitica() {
   const container = document.getElementById('documentoPoliticaConteudo');
   container.innerHTML = '<div class="text-center py-12 text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block"></i> Carregando termo...</div>';
 
-  // 🚀 Identifica o cargo do usuário logado
   const cargoUsuario = state.perfil?.permissao || 'Consultor de Vendas';
 
-  // Busca o documento ativo especificamente para o cargo do usuário
   const { data: doc } = await supabaseClient
     .from('politicas_documentos')
     .select('*')
@@ -1914,18 +1912,44 @@ async function carregarDocumentoPolitica() {
       <!-- Área de Assinatura -->
       <div class="mt-16 pt-8 border-t-2 border-slate-200">
         <h3 class="text-sm font-black uppercase text-center mb-6">Aceite do Colaborador</h3>
+        
         ${aceite ? `
-          <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center max-w-lg mx-auto">
+          <!-- Bloco de Assinatura Digital -->
+          <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center max-w-lg mx-auto mb-12">
             <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-3"></i>
             <p class="font-black text-emerald-800 text-lg uppercase">Documento Assinado Digitalmente</p>
             <p class="text-sm text-emerald-700 mt-2">Assinado por <strong>${escapeHTML(aceite.nome_completo)}</strong></p>
-            <p class="text-xs text-emerald-600 font-mono mt-1">CPF: ${aceite.cpf}</p>
+            <p class="text-xs text-emerald-600 font-mono mt-1">CPF: ${escapeHTML(aceite.cpf)}</p>
             <p class="text-xs text-emerald-600 mt-2">Data/Hora: ${new Date(aceite.aceito_em).toLocaleString('pt-BR')}</p>
             <button onclick="exportarPdfAceite()" class="mt-6 bg-[#000033] text-white hover:bg-slate-800 px-6 py-3 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 mx-auto transition-transform hover:scale-105">
               <i data-lucide="download" class="w-4 h-4"></i> Baixar PDF Assinado
             </button>
           </div>
+
+          <!-- 🚀 CAMPOS DE ASSINATURA MANUAL (EMPRESA E COLABORADOR) -->
+          <div class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 px-4 md:px-12 text-center">
+            
+            <!-- Assinatura da Empresa -->
+            <div>
+              <div class="border-t border-slate-400 mt-16 pt-3">
+                <p class="text-sm font-black uppercase text-slate-800">INFORTECA LTDA</p>
+                <p class="text-xs text-slate-500">CNPJ: 45.765.640/0001-20</p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Responsável Legal</p>
+              </div>
+            </div>
+
+            <!-- Assinatura do Colaborador -->
+            <div>
+              <div class="border-t border-slate-400 mt-16 pt-3">
+                <p class="text-sm font-black uppercase text-slate-800">${escapeHTML(aceite.nome_completo)}</p>
+                <p class="text-xs text-slate-500 font-mono">CPF: ${escapeHTML(aceite.cpf)}</p>
+                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Colaborador(a)</p>
+              </div>
+            </div>
+
+          </div>
         ` : `
+          <!-- Formulário de Assinatura (se ainda não assinou) -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
             <div>
               <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome Completo</label>
