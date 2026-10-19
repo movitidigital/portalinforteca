@@ -1914,7 +1914,7 @@ async function carregarDocumentoPolitica() {
         <h3 class="text-sm font-black uppercase text-center mb-6">Aceite do Colaborador</h3>
         
         ${aceite ? `
-          <!-- Bloco de Assinatura Digital -->
+          <!-- Bloco de Assinatura Digital (Sem Geolocalização) -->
           <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center max-w-lg mx-auto mb-12">
             <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-3"></i>
             <p class="font-black text-emerald-800 text-lg uppercase">Documento Assinado Digitalmente</p>
@@ -1926,20 +1926,6 @@ async function carregarDocumentoPolitica() {
                 <i data-lucide="calendar" class="w-3 h-3"></i> 
                 ${new Date(aceite.aceito_em).toLocaleString('pt-BR')}
               </p>
-              
-              ${aceite.latitude && aceite.longitude ? `
-                <p class="text-[10px] text-emerald-600/80 mt-1 flex items-center justify-center gap-1" title="Coordenadas de onde a assinatura foi feita">
-                  <i data-lucide="map-pin" class="w-3 h-3"></i> 
-                  Lat: ${aceite.latitude} | Long: ${aceite.longitude}
-                </p>
-                <a href="https://www.google.com/maps/search/?api=1&query=${aceite.latitude},${aceite.longitude}" target="_blank" class="text-[10px] text-emerald-600 underline font-bold hover:text-emerald-800 mt-1 inline-block">
-                  Ver no Google Maps
-                </a>
-              ` : `
-                <p class="text-[10px] text-emerald-600/60 mt-1 flex items-center justify-center gap-1 italic">
-                  <i data-lucide="map-pin-off" class="w-3 h-3"></i> Localização não capturada
-                </p>
-              `}
             </div>
 
             <button onclick="exportarPdfAceite()" class="mt-6 bg-[#000033] text-white hover:bg-slate-800 px-6 py-3 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 mx-auto transition-transform hover:scale-105">
