@@ -302,33 +302,31 @@
 
 <!-- ===== POLÍTICAS ===== -->
 <div id="view-politicas" class="hidden animate-fade-in">
-  <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-    <div>
-      <h1 class="text-2xl font-black text-[#000033]">Políticas de Comissão</h1>
-      <p class="text-sm text-slate-500 mt-1">Gerencie os fatores, faixas e vigências de remuneração</p>
+
+  <!-- VIEW DO ADMIN -->
+  <div id="adminPoliticasView">
+    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-[#000033]">Políticas de Comissão</h1>
+        <p class="text-sm text-slate-500 mt-1">Gerencie os fatores, faixas e o termo de aceite da equipe.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="abrirModalDocumento()" class="bg-slate-800 hover:bg-black text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+          <i data-lucide="file-signature" class="w-4 h-4"></i> Gerenciar Termo
+        </button>
+        <button onclick="abrirModalPolitica()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+          <i data-lucide="plus" class="w-4 h-4"></i> Nova Regra
+        </button>
+      </div>
     </div>
-    <button onclick="abrirModalPolitica()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
-      <i data-lucide="plus" class="w-4 h-4"></i> Nova Política
-    </button>
+
+    <!-- Onde os cartões de regras agrupadas aparecem -->
+    <div id="politicasTbody" class="space-y-6"></div>
   </div>
 
-  <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm text-left whitespace-nowrap">
-        <thead class="bg-slate-50 text-[10px] uppercase text-slate-500 border-b border-slate-200">
-          <tr>
-            <th class="px-6 py-4 font-black">Categoria</th>
-            <th class="px-6 py-4 font-black">Faixa</th>
-            <th class="px-6 py-4 font-black text-right">Fator</th>
-            <th class="px-6 py-4 font-black">Vigência</th>
-            <th class="px-6 py-4 font-black text-center">Ações</th>
-          </tr>
-        </thead>
-        <tbody id="politicasTbody" class="divide-y divide-slate-100">
-          <!-- Preenchido via JS -->
-        </tbody>
-      </table>
-    </div>
+  <!-- VIEW DO CONSULTOR (DOCUMENTO A4) -->
+  <div id="consultorPoliticasView" class="hidden">
+    <div id="documentoPoliticaConteudo" class="max-w-4xl mx-auto pb-12"></div>
   </div>
 </div>
       
@@ -1008,6 +1006,44 @@
   </div>
 </div>
 
+<!-- MODAL: GERENCIAR TERMO DE POLÍTICA (ADMIN) -->
+<div id="modalDocumento" class="fixed inset-0 z-[80] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col">
+    <div class="bg-[#000033] px-6 py-4 flex justify-between items-center shrink-0">
+      <h3 class="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+        <i data-lucide="file-signature" class="w-5 h-5 text-[#0e8890]"></i> Publicar Termo de Política
+      </h3>
+      <button onclick="fecharModalDocumento()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1 space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Título do Documento</label>
+          <input type="text" id="doc_titulo" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]" placeholder="Ex: Política de Comissão 2026">
+        </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Início da Vigência</label>
+          <input type="date" id="doc_inicio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Conteúdo do Termo</label>
+        <textarea id="doc_conteudo" rows="12" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#0e8890] leading-relaxed font-mono text-xs"></textarea>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
+        <p class="text-[11px] text-amber-800">Ao publicar, o termo anterior será automaticamente encerrado e os consultores serão notificados a assinar o novo termo.</p>
+      </div>
+    </div>
+    <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 shrink-0">
+      <button onclick="fecharModalDocumento()" class="px-4 py-2 text-sm font-medium text-slate-600">Cancelar</button>
+      <button onclick="salvarDocumento()" id="btnSalvarDoc" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+        <i data-lucide="send" class="w-4 h-4"></i> Publicar Termo
+      </button>
+    </div>
+  </div>
+</div>
+  
   <!-- ============ MODAL CANCELAMENTO ============ -->
 <div id="modalCancelamento" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
