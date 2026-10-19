@@ -289,14 +289,19 @@
        MODULOS E NIVEIS
        ========================================================== */
     const MODULOS_SISTEMA = [
-      { id: 'dashboard',      nome: 'Dashboard',              icon: 'layout-dashboard' },
-      { id: 'clientes',       nome: 'Clientes TIM',           icon: 'search' },
-      { id: 'portabilidades', nome: 'Portabilidades',         icon: 'arrow-left-right' },
-      { id: 'faturas',        nome: 'Faturas',                icon: 'file-text' },
-      { id: 'suspensoes',     nome: 'Gestão de Acessos',      icon: 'shield-alert' },
-      { id: 'gestao',         nome: 'Gestão de Clientes',     icon: 'file-check-2' },
-      { id: 'prospeccao',     nome: 'Prospecção',             icon: 'users' },
-      { id: 'metas',          nome: 'Acompanhamento de Metas', icon: 'target' },
+      { id: 'dashboard',      nome: 'Dashboard',                 icon: 'layout-dashboard' },
+      { id: 'clientes',       nome: 'Clientes TIM',              icon: 'search' },
+      { id: 'portabilidades', nome: 'Portabilidades',            icon: 'arrow-left-right' },
+      { id: 'faturas',        nome: 'Faturas',                   icon: 'file-text' },
+      { id: 'suspensoes',     nome: 'Gestão de Acessos',         icon: 'shield-alert' },
+      { id: 'gestao',         nome: 'Gestão de Clientes',        icon: 'file-check-2' },
+      { id: 'conciliacao',    nome: 'Conciliação TIM',           icon: 'calculator' }, // 🚀 Adicionado
+      { id: 'espelho',        nome: 'Meu Espelho',               icon: 'file-spreadsheet' }, // 🚀 Adicionado
+      { id: 'politicas',      nome: 'Políticas de Comissão',     icon: 'settings-2' }, // 🚀 Adicionado
+      { id: 'prospeccao',     nome: 'Prospecção',                icon: 'users' },
+      { id: 'treinamento',    nome: 'Central de Treinamento',    icon: 'play-circle' }, // 🚀 Adicionado
+      { id: 'premiada',       nome: 'Inforteca Premiada',        icon: 'trophy' }, // 🚀 Adicionado
+      { id: 'metas',          nome: 'Acompanhamento de Metas',   icon: 'target' },
     ];
 
     const NIVEIS = [
@@ -338,24 +343,44 @@ async function verificarAuth() {
     .from('perfis').select('*').eq('id', session.user.id).single();
   _currentPerfil = perfil;
 
-  // (Header gerenciado pelo header.js automaticamente)
-
   const { data: cargos } = await supabaseClient.from('cargos').select('*');
   _cargos = cargos || [];
 
   const meuCargo = _cargos.find(c => c.id === perfil?.cargo_id);
   const isAdmin = meuCargo?.is_admin === true;
 
-  // 👇 Menu sempre completo — o bloqueio é por gate abaixo
-  document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
-    el.classList.remove('hidden');
+  // =========================================================
+  // 🚀 LÓGICA PARA ESCONDER O MENU LATERAL (FRONTEND)
+  // =========================================================
+  const cargoPerms = meuCargo
+    ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || []
+    : [];
+  const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+
+  const perms = {};
+  MODULOS_SISTEMA.forEach(m => {
+    if (isAdmin) { perms[m.id] = 'editar'; return; }
+    const ov = userPerms.find(o => o.modulo === m.id);
+    if (ov) { perms[m.id] = ov.nivel; return; }
+    const cp = cargoPerms.find(p => p.modulo === m.id);
+    perms[m.id] = cp ? cp.nivel : 'nenhum';
   });
+
+  // Esconde os itens do menu lateral se não tiver permissão (espera 100ms para o sidebar.js carregar)
+  setTimeout(() => {
+    MODULOS_SISTEMA.forEach(m => {
+      if (perms[m.id] === 'nenhum') {
+        const menuItem = document.querySelector(`.nav-item[data-nav="${m.id}"]`);
+        if (menuItem) menuItem.classList.add('hidden');
+      }
+    });
+  }, 100);
+  // =========================================================
 
   // 🔒 GATE: só ADMIN vê a página de usuários
   if (!isAdmin) {
     $('acessoNegado').classList.remove('hidden');
     $('conteudoPrincipal').classList.add('hidden');
-    // O título é atualizado pelo data-title="Gestão de Usuários"
     lucide.createIcons();
     return false;
   }
