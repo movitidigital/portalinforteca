@@ -813,29 +813,30 @@
     </div>
   </div>
 
-    <!-- 📅 CALENDÁRIO DE IMPORTAÇÕES DATASYS -->
-  <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6" id="cardCalendarioDatasys">
-    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+  <!-- 📅 CALENDÁRIO DE IMPORTAÇÕES DATASYS -->
+  <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6" id="cardCalendarioDatasys">
+    <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
       <div>
         <h3 class="font-bold text-slate-800 flex items-center gap-2">
-          <i data-lucide="calendar-check" class="w-5 h-5 text-indigo-600"></i>
-          Controle de Importações Datasys
+          <i data-lucide="calendar-check" class="w-4 h-4 text-indigo-600"></i>
+          Controle de Vendas Importadas
         </h3>
-        <p class="text-xs text-slate-500 mt-1">Acompanhe os dias em que a planilha foi importada. Dias em vermelho indicam que a importação foi esquecida.</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Dias em verde já possuem vendas na base. Dias em vermelho indicam que a importação está pendente.</p>
       </div>
-      <div class="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
-        <button onclick="mudarMesCalendarioDatasys(-1)" class="p-1.5 hover:bg-white rounded shadow-sm transition-colors"><i data-lucide="chevron-left" class="w-4 h-4 text-slate-600"></i></button>
-        <span id="calMesAno" class="text-sm font-black text-slate-700 uppercase min-w-[120px] text-center">—</span>
-        <button onclick="mudarMesCalendarioDatasys(1)" class="p-1.5 hover:bg-white rounded shadow-sm transition-colors"><i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i></button>
+      <div class="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
+        <button onclick="mudarMesCalendarioDatasys(-1)" class="p-1 hover:bg-white rounded transition-colors"><i data-lucide="chevron-left" class="w-3.5 h-3.5 text-slate-600"></i></button>
+        <span id="calMesAno" class="text-xs font-black text-slate-700 uppercase min-w-[100px] text-center">—</span>
+        <button onclick="mudarMesCalendarioDatasys(1)" class="p-1 hover:bg-white rounded transition-colors"><i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-600"></i></button>
       </div>
     </div>
     
-    <div class="grid grid-cols-7 gap-1.5 mb-2 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
+    <!-- Dias da semana -->
+    <div class="grid grid-cols-7 gap-1 mb-1 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
       <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
     </div>
-    <div id="gridCalendarioDatasys" class="grid grid-cols-7 gap-1.5"></div>
+    <!-- Grid dos dias (Altura fixa para ficar compacto) -->
+    <div id="gridCalendarioDatasys" class="grid grid-cols-7 gap-1"></div>
   </div>
-
   <!-- Abas internas -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="border-b border-slate-100 flex">
@@ -4111,33 +4112,12 @@ async function processarDatasys(input) {
       statusEl.textContent = partes.join(' · ');
       statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
 
-      // 🚀 NOVO: SALVA O DIA NO LOG DE IMPORTAÇÕES E ATUALIZA O CALENDÁRIO
-      try {
-        const hoje = new Date().toISOString().slice(0, 10);
-        
-        const { data: jaImportado } = await supabaseClient
-          .from('importacoes_log')
-          .select('id')
-          .eq('tipo', 'DATASYS')
-          .eq('data_importacao', hoje)
-          .maybeSingle();
-
-        if (!jaImportado) {
-          await supabaseClient.from('importacoes_log').insert({
-            tipo: 'DATASYS',
-            data_importacao: hoje,
-            total_registros: inseridos,
-            arquivo_nome: file.name
-          });
-        }
-      } catch (logErr) {
-        console.warn('[Log Import] Erro ao salvar no calendário:', logErr);
-      }
-
+      // 🚀 O BLOCO DE LOG FOI REMOVIDO. AGORA APENAS ATUALIZAMOS A TELA.
+      
       await carregarContratosThales();
       atualizarBadgeGestao();
       
-      // 🚀 ATUALIZA O CALENDÁRIO NA TELA
+      // Atualiza o calendário visual buscando os dias que têm venda na base
       carregarCalendarioDatasys();
     }
 
@@ -4151,8 +4131,8 @@ async function processarDatasys(input) {
   }
 }
 
-    /* ==========================================================
-   CALENDÁRIO DE IMPORTAÇÕES DATASYS
+/* ==========================================================
+   CALENDÁRIO DE IMPORTAÇÕES (BASEADO EM VENDAS)
    ========================================================== */
 let _calData = new Date();
 
@@ -4174,31 +4154,31 @@ async function carregarCalendarioDatasys() {
   const inicioMes = `${ano}-${String(mes + 1).padStart(2, '0')}-01`;
   const fimMes = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(diasNoMes).padStart(2, '0')}`;
 
-  let diasImportados = new Set();
+  let diasComVenda = new Set();
 
   try {
-    const { data: imports, error } = await supabaseClient
-      .from('importacoes_log')
-      .select('data_importacao')
-      .eq('tipo', 'DATASYS')
-      .gte('data_importacao', inicioMes)
-      .lte('data_importacao', fimMes);
+    // 🚀 Busca na tabela de vendas quais dias possuem registros
+    const { data: vendas, error } = await supabaseClient
+      .from('clientes_faturas')
+      .select('data_venda')
+      .gte('data_venda', inicioMes)
+      .lte('data_venda', fimMes);
 
-    if (!error && imports) {
-      diasImportados = new Set(imports.map(i => i.data_importacao));
+    if (!error && vendas) {
+      diasComVenda = new Set(vendas.map(v => v.data_venda));
     }
   } catch (err) {
-    console.warn('[Calendário] Tabela de importações ainda não tem registros.', err);
+    console.warn('[Calendário] Erro ao buscar vendas.', err);
   }
 
   let html = '';
-  for (let i = 0; i < primeiroDia; i++) html += '<div class="aspect-square"></div>';
+  for (let i = 0; i < primeiroDia; i++) html += '<div></div>';
 
   for (let dia = 1; dia <= diasNoMes; dia++) {
     const dataStr = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
     const dataObj = new Date(ano, mes, dia);
     const isFds = dataObj.getDay() === 0 || dataObj.getDay() === 6;
-    const importado = diasImportados.has(dataStr);
+    const temVenda = diasComVenda.has(dataStr);
     const isHoje = dataObj.getTime() === hoje.getTime();
     const isPassado = dataObj < hoje;
 
@@ -4206,29 +4186,34 @@ async function carregarCalendarioDatasys() {
     let border = 'border-slate-200';
     let icon = '';
 
-    if (importado) {
+    if (temVenda) {
+      // Tem venda -> Verde
       bg = 'bg-emerald-100 text-emerald-800 font-black';
-      border = 'border-emerald-300 shadow-sm';
-      icon = '<i data-lucide="check" class="w-3 h-3 absolute top-1 right-1 text-emerald-600"></i>';
+      border = 'border-emerald-300';
+      icon = '<i data-lucide="check" class="w-2.5 h-2.5 absolute top-1 right-1 text-emerald-600"></i>';
     } else if (isHoje) {
-      bg = 'bg-amber-100 text-amber-800 font-black animate-pulse';
-      border = 'border-amber-400';
+      // Hoje sem venda -> Amarelo
+      bg = 'bg-amber-100 text-amber-800 font-black';
+      border = 'border-amber-300';
     } else if (isPassado && !isFds) {
+      // Passado, dia útil, sem venda -> Vermelho
       bg = 'bg-red-50 text-red-600 font-bold';
       border = 'border-red-200';
-      icon = '<i data-lucide="x" class="w-3 h-3 absolute top-1 right-1 text-red-400"></i>';
+      icon = '<i data-lucide="x" class="w-2.5 h-2.5 absolute top-1 right-1 text-red-400"></i>';
     }
 
+    // 🚀 CLASSES DE TAMANHO COMPACTO (h-10 para ficar como uma cartela de ovo)
     html += `
-      <div class="aspect-square rounded-lg border ${border} ${bg} flex flex-col items-center justify-center relative transition-all" title="${importado ? 'Importado' : isPassado && !isFds ? 'Faltou importar' : 'Sem expediente / Futuro'}">
-        <span class="text-xs">${dia}</span>
+      <div class="h-10 rounded-md border ${border} ${bg} flex flex-col items-center justify-center relative transition-all" 
+           title="${temVenda ? 'Vendas importadas' : isPassado && !isFds ? 'Faltou importar' : 'Sem vendas / Futuro'}">
+        <span class="text-[11px] leading-tight">${dia}</span>
         ${icon}
       </div>
     `;
   }
 
   grid.innerHTML = html;
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 }
 
 function mudarMesCalendarioDatasys(delta) {
