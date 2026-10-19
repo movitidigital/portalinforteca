@@ -1927,14 +1927,25 @@ document.getElementById('btnMenuUsuarios')?.classList.remove('hidden');
   }
 
  const hash = window.location.hash.replace('#', '').trim();
-const destinoInicial = (hash && TITULOS[hash]) ? hash : 'dashboard';
+ const destinoInicial = (hash && TITULOS[hash]) ? hash : 'dashboard';
 
-navegar(destinoInicial);
-carregarClientes();
-carregarResumoDashboard();
-carregarRankingEquipe();
-atualizarBadgeGestao();
-atualizarBadgeSuspensoes();
+  setTimeout(() => {
+    MODULOS.forEach(m => {
+      // Se não tem permissão nenhuma e não é o dashboard, esconde o botão
+      if (perms[m] === 'nenhum' && m !== 'dashboard') {
+        const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+        if (menuItem) menuItem.style.display = 'none';
+      }
+    });
+  }, 150); // Delay de 150ms para garantir que o sidebar.js já montou o menu
+  // =====================================================
+
+  navegar(destinoInicial);
+  carregarClientes();
+  carregarResumoDashboard();
+  carregarRankingEquipe();
+  atualizarBadgeGestao();
+  atualizarBadgeSuspensoes();
 }
 
     async function terminarSessao() {
