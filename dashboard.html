@@ -311,7 +311,10 @@
         <p class="text-sm text-slate-500 mt-1">Gerencie os fatores, faixas e o termo de aceite da equipe.</p>
       </div>
             <div class="flex flex-wrap gap-2">
-                      <button onclick="abrirModalBaseRemuneracao()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                      <button onclick="abrirModalAceites()" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+          <i data-lucide="users" class="w-4 h-4"></i> Painel de Aceites
+        </button>              
+              <button onclick="abrirModalBaseRemuneracao()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
           <i data-lucide="list" class="w-4 h-4"></i> Base de Remuneração
         </button>
         <button onclick="abrirModalDocumento()" class="bg-slate-800 hover:bg-black text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
@@ -969,7 +972,60 @@
     </div>
   </div>
 </div>
+<!-- MODAL: PAINEL DE ACEITES (ADMIN) -->
+<div id="modalAceites" class="fixed inset-0 z-[80] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col">
+    <div class="bg-[#000033] px-6 py-4 flex justify-between items-center shrink-0">
+      <h3 class="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+        <i data-lucide="users" class="w-5 h-5 text-teal-400"></i> Painel de Aceites da Equipe
+      </h3>
+      <button onclick="fecharModalAceites()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    
+    <div class="p-6 overflow-y-auto flex-1 space-y-4">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-2">
+        <div>
+          <p class="text-sm text-slate-600 font-medium">Selecione o cargo para verificar a conformidade:</p>
+        </div>
+        <select id="filtroCargoAceites" onchange="carregarAceites()" class="w-full md:w-64 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:border-teal-500">
+          <!-- Preenchido via JS -->
+        </select>
+      </div>
 
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <p class="text-[10px] font-black text-slate-400 uppercase">Total do Cargo</p>
+          <p id="kpiTotalAceites" class="text-2xl font-black text-slate-800">0</p>
+        </div>
+        <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+          <p class="text-[10px] font-black text-emerald-600 uppercase">Já Assinaram</p>
+          <p id="kpiAssinadosAceites" class="text-2xl font-black text-emerald-700">0</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-4 border border-red-200">
+          <p class="text-[10px] font-black text-red-600 uppercase">Pendentes</p>
+          <p id="kpiPendentesAceites" class="text-2xl font-black text-red-700">0</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-100 text-[10px] uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-3">Nome do Colaborador</th>
+              <th class="px-4 py-3 text-center">Status</th>
+              <th class="px-4 py-3">Data / Hora</th>
+              <th class="px-4 py-3">Localização</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaAceites" class="divide-y divide-slate-100">
+            <tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Carregando dados...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+  
 <!-- MODAL: GERENCIAR BASE DE REMUNERAÇÃO -->
 <div id="modalBaseRemuneracao" class="fixed inset-0 z-[80] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
