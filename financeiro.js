@@ -1892,9 +1892,10 @@ async function carregarDocumentoPolitica() {
   container.innerHTML = `
     <div id="documentoA4" class="bg-white rounded-2xl border border-slate-300 shadow-xl p-8 md:p-14 relative w-full">
       
-      <!-- Cabeçalho -->
-      <div class="text-center border-b-4 border-[#000033] pb-6 mb-8">
-        <h2 class="text-3xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
+      <!-- Cabeçalho com Logo -->
+      <div class="flex flex-col items-center text-center border-b-4 border-[#000033] pb-6 mb-8">
+        <img src="https://portalinforteca.vercel.app/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 md:h-20 object-contain mb-4">
+        <h2 class="text-2xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
         <p class="text-sm font-bold text-slate-600 mt-1">CNPJ: 45.765.640/0001-20</p>
         <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Loja TIM Dom José</p>
       </div>
