@@ -1087,26 +1087,42 @@
       </h3>
       <button onclick="fecharModalDocumento()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
     </div>
+    
     <div class="p-6 overflow-y-auto flex-1 space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 🚀 Título (Ocupa 2 colunas) -->
+        <div class="md:col-span-2">
           <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Título do Documento</label>
           <input type="text" id="doc_titulo" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]" placeholder="Ex: Política de Comissão 2026">
         </div>
+        
+        <!-- 🚀 Início da Vigência (Ocupa 1 coluna) -->
         <div>
           <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Início da Vigência</label>
           <input type="date" id="doc_inicio" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
         </div>
+        
+        <!-- 🚀 NOVO CAMPO DE CARGO (Ocupa linha inteira) -->
+        <div class="md:col-span-3">
+          <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Aplica-se ao Cargo (Público-Alvo)</label>
+          <select id="doc_cargo" onchange="carregarTemplateDocumento(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+            <!-- As opções serão preenchidas pelo Javascript -->
+          </select>
+          <p class="text-[10px] text-slate-400 mt-1">Selecione o cargo que receberá este termo. O sistema encerrará o termo anterior apenas deste cargo.</p>
+        </div>
       </div>
+
       <div>
         <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Conteúdo do Termo</label>
         <textarea id="doc_conteudo" rows="12" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#0e8890] leading-relaxed font-mono text-xs"></textarea>
       </div>
+
       <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start gap-2">
         <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 mt-0.5 shrink-0"></i>
-        <p class="text-[11px] text-amber-800">Ao publicar, o termo anterior será automaticamente encerrado e os consultores serão notificados a assinar o novo termo.</p>
+        <p class="text-[11px] text-amber-800">Ao publicar, o termo anterior <strong>deste mesmo cargo</strong> será automaticamente encerrado e os colaboradores serão notificados a assinar o novo termo.</p>
       </div>
     </div>
+    
     <div class="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3 shrink-0">
       <button onclick="fecharModalDocumento()" class="px-4 py-2 text-sm font-medium text-slate-600">Cancelar</button>
       <button onclick="salvarDocumento()" id="btnSalvarDoc" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
