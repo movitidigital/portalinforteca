@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatórios Detalhados — Portal Inforteca</title>
+  <title>Relatórios e Auditoria — Portal Inforteca</title>
   <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -23,8 +24,11 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-    /* Estilo para tabela de auditoria */
     th { position: sticky; top: 0; z-index: 10; background-color: #f8fafc; }
+    
+    /* Custom Scrollbar para o Dropdown de Modalidades */
+    .dropdown-scroll::-webkit-scrollbar { width: 6px; }
+    .dropdown-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -33,24 +37,24 @@
     <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
       <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
     </div>
-    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Auditoria</h2>
+    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Relatórios</h2>
   </div>
 
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
   
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
-    <header id="appHeader" data-title="Auditoria de Vendas" data-search="true" data-notif="true"></header>
+    <header id="appHeader" data-title="Relatórios e Auditoria" data-search="true" data-notif="true"></header>
 
-    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in">
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in" onclick="fecharDropdownModalidades(event)">
       
       <div id="relatorios-wrapper" class="bg-[#f4f7f6]">
         
         <!-- Cabeçalho de Filtros -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 relative z-20">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div>
-              <h1 class="text-2xl font-black text-[#000033]">Relatório de Auditoria</h1>
-              <p class="text-sm text-slate-500 mt-1">Dados brutos importados de Datasys e Gestão Click.</p>
+              <h1 class="text-2xl font-black text-[#000033]">Central de Inteligência</h1>
+              <p class="text-sm text-slate-500 mt-1">Gestão, produtividade e auditoria de vendas.</p>
             </div>
             <div class="flex gap-2">
               <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
@@ -62,86 +66,144 @@
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div class="flex flex-wrap gap-3 items-end bg-slate-50 p-3 rounded-xl border border-slate-100">
             <div class="flex flex-col gap-1">
-              <label class="text-[10px] font-black text-slate-500 uppercase">Data Inicial</label>
+              <label class="text-[10px] font-black text-slate-500 uppercase">De:</label>
               <input type="date" id="relDataInicio" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
             </div>
             <div class="flex flex-col gap-1">
-              <label class="text-[10px] font-black text-slate-500 uppercase">Data Final</label>
+              <label class="text-[10px] font-black text-slate-500 uppercase">Até:</label>
               <input type="date" id="relDataFim" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
             </div>
-            <div class="flex flex-col gap-1 w-full md:w-48">
+            <div class="flex flex-col gap-1 w-full md:w-40">
               <label class="text-[10px] font-black text-slate-500 uppercase">Origem</label>
               <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
-                <option value="TODAS">Todas (Datasys + G. Click)</option>
-                <option value="DATASYS">Somente Datasys</option>
-                <option value="GESTAO CLICK">Somente Gestão Click</option>
+                <option value="TODAS">Todas as Fontes</option>
+                <option value="DATASYS">Datasys</option>
+                <option value="GESTAO CLICK">Gestão Click</option>
               </select>
             </div>
-            <div class="flex flex-col gap-1 w-full md:w-64">
-              <label class="text-[10px] font-black text-slate-500 uppercase">Modalidade</label>
-              <select id="relModalidade" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
-                <option value="TODAS">Todas as Modalidades</option>
-                <!-- Preenchido dinamicamente via JS -->
+            <div class="flex flex-col gap-1 w-full md:w-48">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Vendedor</label>
+              <select id="relVendedor" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
+                <option value="TODOS">Todos os Vendedores</option>
+                <!-- Preenchido via JS -->
               </select>
             </div>
-            <button onclick="carregarDados()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2 h-[38px]">
+            
+            <!-- 🚀 DROPDOWN CUSTOMIZADO DE MODALIDADES -->
+            <div class="flex flex-col gap-1 w-full md:w-64 relative" id="dropdownModalidadesContainer">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Modalidades</label>
+              <button type="button" onclick="toggleDropdownModalidades(event)" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-left flex justify-between items-center focus:outline-none focus:border-[#0e8890]">
+                <span id="textoModalidades" class="truncate text-slate-600">Todas as Modalidades</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+              </button>
+              
+              <!-- Painel do Dropdown -->
+              <div id="painelModalidades" class="hidden absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-50">
+                <div class="p-2 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-lg">
+                  <button onclick="selecionarTodasModalidades()" class="text-[10px] font-bold text-[#0e8890] hover:underline uppercase">Marcar Todas</button>
+                  <button onclick="desmarcarTodasModalidades()" class="text-[10px] font-bold text-red-500 hover:underline uppercase">Limpar</button>
+                </div>
+                <div id="listaModalidades" class="max-h-60 overflow-y-auto dropdown-scroll p-2 space-y-1">
+                  <!-- Checkboxes preenchidos via JS -->
+                </div>
+              </div>
+            </div>
+
+            <button onclick="carregarDados()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center justify-center gap-2 h-[38px] w-full md:w-auto md:ml-auto">
               <i data-lucide="search" class="w-4 h-4"></i> Filtrar
             </button>
           </div>
         </div>
 
-        <!-- KPIs Rápidos -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento Filtrado</p>
-            <p id="kpiFaturamento" class="text-xl font-black text-slate-800 mt-1">R$ 0,00</p>
+        <!-- Abas -->
+        <div class="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto relative z-10">
+          <button id="relTab-painel" onclick="trocarAbaRelatorio('painel')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890] whitespace-nowrap">📊 Painel Analítico</button>
+          <button id="relTab-auditoria" onclick="trocarAbaRelatorio('auditoria')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap">🔍 Auditoria Detalhada</button>
+        </div>
+
+        <!-- ABA 1: PAINEL ANALÍTICO -->
+        <div id="relContent-painel" class="block">
+          <!-- KPIs -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento</p>
+              <p id="kpiFaturamento" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
+            </div>
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-indigo-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume de Vendas</p>
+              <p id="kpiVendas" class="text-2xl font-black text-slate-800 mt-1">0</p>
+            </div>
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-amber-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Médio</p>
+              <p id="kpiTicket" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
+            </div>
+            <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-purple-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Clientes Únicos</p>
+              <p id="kpiClientes" class="text-2xl font-black text-slate-800 mt-1">0</p>
+            </div>
           </div>
-          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-indigo-500">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registros</p>
-            <p id="kpiRegistros" class="text-xl font-black text-slate-800 mt-1">0</p>
-          </div>
-          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-amber-500">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Médio</p>
-            <p id="kpiTicket" class="text-xl font-black text-slate-800 mt-1">R$ 0,00</p>
-          </div>
-          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-emerald-500">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Clientes Únicos</p>
-            <p id="kpiClientes" class="text-xl font-black text-slate-800 mt-1">0</p>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Gráfico de Evolução -->
+            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-black text-[#000033] uppercase flex items-center gap-2">
+                  <i data-lucide="trending-up" class="w-4 h-4 text-[#0e8890]"></i> Evolução de Vendas
+                </h3>
+                <!-- Botões de Alternância do Gráfico -->
+                <div class="flex bg-slate-100 rounded-lg p-1">
+                  <button onclick="mudarVisaoGrafico('diario')" id="btnGraf-diario" class="px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-[#0e8890] transition-all">Diário</button>
+                  <button onclick="mudarVisaoGrafico('semanal')" id="btnGraf-semanal" class="px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all">Semanal</button>
+                  <button onclick="mudarVisaoGrafico('mensal')" id="btnGraf-mensal" class="px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all">Mensal</button>
+                </div>
+              </div>
+              <div id="chartEvolucao" class="flex-1"></div>
+            </div>
+
+            <!-- Top Vendedores -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4 flex items-center gap-2">
+                <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Top Vendedores
+              </h3>
+              <div id="podioVendedores" class="flex-1 flex flex-col justify-center space-y-3">
+                <!-- Pódio via JS -->
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Tabela de Auditoria -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style="height: calc(100vh - 350px);">
-          <div class="px-6 py-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
-            <h3 class="text-sm font-black text-[#000033] uppercase">Dados Detalhados (Exportável)</h3>
-            <div class="relative w-full md:w-80">
-              <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-              <input type="text" id="filtroTabela" oninput="filtrarTabela()" placeholder="Buscar por Cliente, CPF, IMEI, Produto..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
+        <!-- ABA 2: AUDITORIA DETALHADA -->
+        <div id="relContent-auditoria" class="hidden">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style="height: calc(100vh - 320px);">
+            <div class="px-6 py-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
+              <h3 class="text-sm font-black text-[#000033] uppercase">Base Bruta de Importação</h3>
+              <div class="relative w-full md:w-80">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                <input type="text" id="filtroTabela" oninput="filtrarTabelaLocal()" placeholder="Buscar por Cliente, CPF, IMEI..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
+              </div>
             </div>
-          </div>
-          
-          <div class="overflow-auto flex-1">
-            <table class="w-full text-left text-xs whitespace-nowrap">
-              <thead class="bg-slate-100 border-b border-slate-200 text-[10px] uppercase text-slate-500">
-                <tr>
-                  <th class="px-3 py-3 font-bold">Data</th>
-                  <th class="px-3 py-3 font-bold">Origem</th>
-                  <th class="px-3 py-3 font-bold">Cliente</th>
-                  <th class="px-3 py-3 font-bold">CPF</th>
-                  <th class="px-3 py-3 font-bold">Telefone</th>
-                  <th class="px-3 py-3 font-bold">Produto / Plano</th>
-                  <th class="px-3 py-3 font-bold">Modalidade</th>
-                  <th class="px-3 py-3 font-bold">IMEI</th>
-                  <th class="px-3 py-3 font-bold">Vendedor</th>
-                  <th class="px-3 py-3 font-bold text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody id="tabelaDados" class="divide-y divide-slate-100 bg-white">
-                <tr><td colspan="10" class="px-6 py-12 text-center text-slate-500 text-sm">Carregando dados...</td></tr>
-              </tbody>
-            </table>
+            
+            <div class="overflow-auto flex-1">
+              <table class="w-full text-left text-xs whitespace-nowrap">
+                <thead class="bg-slate-100 border-b border-slate-200 text-[10px] uppercase text-slate-500">
+                  <tr>
+                    <th class="px-3 py-3 font-bold">Data</th>
+                    <th class="px-3 py-3 font-bold">Origem</th>
+                    <th class="px-3 py-3 font-bold">Cliente</th>
+                    <th class="px-3 py-3 font-bold">CPF / Tel</th>
+                    <th class="px-3 py-3 font-bold">Produto / Plano</th>
+                    <th class="px-3 py-3 font-bold">Modalidade</th>
+                    <th class="px-3 py-3 font-bold">Vendedor</th>
+                    <th class="px-3 py-3 font-bold text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaDados" class="divide-y divide-slate-100 bg-white">
+                  <tr><td colspan="8" class="px-6 py-12 text-center text-slate-500 text-sm">Carregando dados...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -158,10 +220,12 @@
     }
     const sb = window.supabaseClient;
 
-    let dadosBrutos = [];
-    let dadosFiltrados = [];
+    let dadosBrutos = [];     // Dados do banco
+    let dadosFiltrados = [];  // Dados com filtros locais aplicados (vendedor, modalidade)
+    let chartEvolucao = null;
+    let visaoGraficoAtual = 'diario';
 
-    // 🚀 LISTA BASE DE MODALIDADES (Conforme solicitado)
+    // 🚀 LISTA BASE DE MODALIDADES
     const MODALIDADES_BASE = [
       "ATIVAÇÃO CONTROLE", "ATIVAÇÃO EXPRESS", "ATIVAÇÃO PRÉ-PAGO", "MIGRAÇÃO CONTROLE + AP + TC",
       "MIGRAÇÃO CONTROLE + TC", "MIGRAÇÃO EXPRESS + TC", "MIGRAÇÃO PRÉ-PÓS", "PORTABILIDADE CONTROLE",
@@ -172,11 +236,93 @@
       "PORTABILIDADE PÓS PURO"
     ];
 
+    let modalidadesSelecionadas = []; // Array que guarda as modalidades marcadas
+
+    // Inicializa a lista de modalidades base assim que a página carrega
+    window.addEventListener('DOMContentLoaded', () => {
+      renderizarCheckboxesModalidades(MODALIDADES_BASE);
+    });
+
+    function trocarAbaRelatorio(aba) {
+      ['painel', 'auditoria'].forEach(a => {
+        const btn = document.getElementById(`relTab-${a}`);
+        const content = document.getElementById(`relContent-${a}`);
+        if (!btn || !content) return;
+        
+        if (a === aba) {
+          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890] whitespace-nowrap';
+          content.classList.remove('hidden');
+          content.classList.add('block');
+        } else {
+          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap';
+          content.classList.add('hidden');
+          content.classList.remove('block');
+        }
+      });
+      
+      if (aba === 'painel' && chartEvolucao) chartEvolucao.render();
+    }
+
+    // ==========================================
+    // LÓGICA DO DROPDOWN DE MODALIDADES MÚLTIPLAS
+    // ==========================================
+    function toggleDropdownModalidades(event) {
+      event.stopPropagation();
+      const painel = document.getElementById('painelModalidades');
+      painel.classList.toggle('hidden');
+    }
+
+    function fecharDropdownModalidades(event) {
+      const container = document.getElementById('dropdownModalidadesContainer');
+      const painel = document.getElementById('painelModalidades');
+      if (container && !container.contains(event.target)) {
+        painel.classList.add('hidden');
+      }
+    }
+
+    function renderizarCheckboxesModalidades(lista) {
+      const container = document.getElementById('listaModalidades');
+      container.innerHTML = lista.map(m => `
+        <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+          <input type="checkbox" value="${m}" onchange="atualizarSelecaoModalidades()" class="w-4 h-4 accent-[#0e8890]">
+          <span class="text-xs text-slate-700">${m}</span>
+        </label>
+      `).join('');
+    }
+
+    function selecionarTodasModalidades() {
+      document.querySelectorAll('#listaModalidades input[type="checkbox"]').forEach(cb => cb.checked = true);
+      atualizarSelecaoModalidades();
+    }
+
+    function desmarcarTodasModalidades() {
+      document.querySelectorAll('#listaModalidades input[type="checkbox"]').forEach(cb => cb.checked = false);
+      atualizarSelecaoModalidades();
+    }
+
+    function atualizarSelecaoModalidades() {
+      const checkboxes = document.querySelectorAll('#listaModalidades input[type="checkbox"]:checked');
+      modalidadesSelecionadas = Array.from(checkboxes).map(cb => cb.value);
+      
+      const texto = document.getElementById('textoModalidades');
+      if (modalidadesSelecionadas.length === 0) {
+        texto.textContent = "Todas as Modalidades";
+      } else if (modalidadesSelecionadas.length === 1) {
+        texto.textContent = modalidadesSelecionadas[0];
+      } else {
+        texto.textContent = `${modalidadesSelecionadas.length} modalidades selecionadas`;
+      }
+      
+      aplicarFiltrosLocais();
+    }
+
+    // ==========================================
+    // CARREGAMENTO DE DADOS
+    // ==========================================
     async function carregarDados() {
       const dataInicio = document.getElementById('relDataInicio').value;
       const dataFim = document.getElementById('relDataFim').value;
       const origemFiltro = document.getElementById('relOrigem').value;
-      const modalidadeFiltro = document.getElementById('relModalidade').value;
 
       if (!dataInicio || !dataFim) return alert('Selecione as datas.');
 
@@ -186,7 +332,6 @@
       lucide.createIcons();
 
       try {
-        // 1. Puxa os dados da tabela interacoes
         let query = sb.from('interacoes')
           .select('*')
           .gte('data_venda', dataInicio)
@@ -194,62 +339,53 @@
           .order('data_venda', { ascending: false });
 
         if (origemFiltro !== 'TODAS') {
-          // Considera 'DATASYS' ou 'GESTAO CLICK'
           query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
-        }
-        if (modalidadeFiltro !== 'TODAS') {
-          query = query.eq('modalidade', modalidadeFiltro);
         }
 
         const { data: vendas, error } = await query;
         if (error) throw error;
 
-        // 2. Busca os dados dos clientes (nome, cpf, telefone)
+        // Busca os dados dos clientes (JOIN manual)
         const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
         let mapaClientes = {};
         
         if (idsClientes.length > 0) {
-          // Supabase tem limite de itens no IN (geralmente ~1000). Se houver muitos, divide em lotes.
           const chunkSize = 500;
           for (let i = 0; i < idsClientes.length; i += chunkSize) {
             const chunk = idsClientes.slice(i, i + chunkSize);
             const { data: clientes } = await sb.from('clientes_faturas')
               .select('id, nome, cpf, telefone')
               .in('id', chunk);
-
             (clientes || []).forEach(c => { mapaClientes[c.id] = c; });
           }
         }
 
-        // 3. Monta o objeto final cruzando os dados
         dadosBrutos = (vendas || []).map(v => {
           const cli = mapaClientes[v.cliente_id] || {};
-          
-          // Tenta pegar dados do cliente pela tabela oficial, se não tiver, tenta pelo JSON de importação
-          const nome = cli.nome || v.dados_originais?.nome_cliente || v.dados_originais?.CLIENTE || v.dados_originais?.nome || 'Não Informado';
-          const cpf = cli.cpf || v.dados_originais?.cpf || v.dados_originais?.CPF || '—';
-          const tel = cli.telefone || v.dados_originais?.telefone || v.dados_originais?.CELULAR || '—';
-          
           return {
             id: v.id,
             data: v.data_venda,
             origem: v.tipo_fonte || 'N/A',
-            cliente: nome,
-            cpf: cpf,
-            telefone: tel,
+            cliente: cli.nome || v.dados_originais?.nome_cliente || v.dados_originais?.CLIENTE || v.dados_originais?.nome || 'Não Informado',
+            cpf: cli.cpf || v.dados_originais?.cpf || '—',
+            telefone: cli.telefone || v.dados_originais?.telefone || '—',
             produto: v.produto || v.plano || 'N/A',
             modalidade: v.modalidade || 'SEM MODALIDADE',
-            imei: v.imei || '—',
             vendedor: v.vendedor || 'N/A',
             valor: Number(v.valor_total || 0)
           };
         });
 
-        dadosFiltrados = [...dadosBrutos];
+        // 1. Atualiza o filtro de vendedores
+        atualizarFiltroVendedores();
+        
+        // 2. Atualiza a lista de modalidades (caso venha alguma nova)
+        const modBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
+        const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modBanco])].sort();
+        renderizarCheckboxesModalidades(todasModalidades);
 
-        atualizarFiltroModalidades();
-        atualizarKPIs();
-        renderizarTabela();
+        // 3. Aplica filtros iniciais
+        aplicarFiltrosLocais();
         
       } catch (err) {
         console.error(err);
@@ -260,29 +396,40 @@
       }
     }
 
-    // 🚀 LÓGICA DE AUTO-COMPLETAR O FILTRO DE MODALIDADES
-    function atualizarFiltroModalidades() {
-      const select = document.getElementById('relModalidade');
+    function atualizarFiltroVendedores() {
+      const select = document.getElementById('relVendedor');
       const valorAtual = select.value;
+      const vendedores = [...new Set(dadosBrutos.map(v => v.vendedor))].filter(v => v !== 'N/A').sort();
       
-      // Pega as modalidades únicas que vieram do banco de dados
-      const modalidadesBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
-      
-      // Junta a lista base com as novas que apareceram (usando Set para não duplicar)
-      const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modalidadesBanco])].sort();
-
-      // Reconstrói o select
-      select.innerHTML = '<option value="TODAS">Todas as Modalidades</option>';
-      todasModalidades.forEach(m => {
-        select.innerHTML += `<option value="${m}">${m}</option>`;
+      select.innerHTML = '<option value="TODOS">Todos os Vendedores</option>';
+      vendedores.forEach(v => {
+        select.innerHTML += `<option value="${v}">${v}</option>`;
       });
 
-      // Tenta manter a seleção anterior se ela ainda existir
-      if (todasModalidades.includes(valorAtual)) {
-        select.value = valorAtual;
-      }
+      if (vendedores.includes(valorAtual)) select.value = valorAtual;
     }
 
+    function aplicarFiltrosLocais() {
+      const vendedorFiltro = document.getElementById('relVendedor').value;
+      
+      dadosFiltrados = dadosBrutos.filter(v => {
+        // Filtro de Vendedor
+        if (vendedorFiltro !== 'TODOS' && v.vendedor !== vendedorFiltro) return false;
+        
+        // Filtro de Modalidade Múltipla
+        if (modalidadesSelecionadas.length > 0 && !modalidadesSelecionadas.includes(v.modalidade)) return false;
+        
+        return true;
+      });
+
+      atualizarKPIs();
+      renderizarTabela();
+      renderizarGrafico();
+    }
+
+    // ==========================================
+    // RENDERIZAÇÃO
+    // ==========================================
     function atualizarKPIs() {
       const totalFat = dadosFiltrados.reduce((acc, v) => acc + v.valor, 0);
       const qtd = dadosFiltrados.length;
@@ -290,38 +437,30 @@
       const clientesUnicos = new Set(dadosFiltrados.map(v => v.cpf).filter(c => c !== '—')).size;
 
       document.getElementById('kpiFaturamento').textContent = 'R$ ' + totalFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      document.getElementById('kpiRegistros').textContent = qtd;
+      document.getElementById('kpiVendas').textContent = qtd;
       document.getElementById('kpiTicket').textContent = 'R$ ' + ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
       document.getElementById('kpiClientes').textContent = clientesUnicos;
     }
 
     function renderizarTabela() {
       const tbody = document.getElementById('tabelaDados');
-      
       if (dadosFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-12 text-center text-slate-500 text-sm">Nenhum registro encontrado com estes filtros.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-12 text-center text-slate-500 text-sm">Nenhum registro encontrado com estes filtros.</td></tr>';
         return;
       }
 
       tbody.innerHTML = dadosFiltrados.map(v => {
-        // Destaque visual para Gestão Click
         const isGestao = String(v.origem).toUpperCase().includes('GESTAO') || String(v.origem).toUpperCase().includes('CLICK');
         const corOrigem = isGestao ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
 
         return `
           <tr class="hover:bg-slate-50 transition-colors">
             <td class="px-3 py-2 text-slate-600 font-medium">${new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-            <td class="px-3 py-2 text-center">
-              <span class="px-2 py-1 rounded text-[9px] font-black uppercase ${corOrigem}">${v.origem}</span>
-            </td>
-            <td class="px-3 py-2 font-bold text-slate-800 uppercase truncate max-w-[200px]" title="${v.cliente}">${v.cliente}</td>
-            <td class="px-3 py-2 text-slate-500 font-mono">${v.cpf}</td>
-            <td class="px-3 py-2 text-slate-500 font-mono">${v.telefone}</td>
-            <td class="px-3 py-2 text-slate-600 max-w-[200px] truncate" title="${v.produto}">${v.produto}</td>
-            <td class="px-3 py-2">
-              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase whitespace-nowrap">${v.modalidade}</span>
-            </td>
-            <td class="px-3 py-2 text-slate-400 font-mono text-[10px]">${v.imei}</td>
+            <td class="px-3 py-2 text-center"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${corOrigem}">${v.origem}</span></td>
+            <td class="px-3 py-2 font-bold text-slate-800 uppercase truncate max-w-[150px]" title="${v.cliente}">${v.cliente}</td>
+            <td class="px-3 py-2 text-slate-500 font-mono text-[10px]">${v.cpf} <br> ${v.telefone}</td>
+            <td class="px-3 py-2 text-slate-600 max-w-[150px] truncate" title="${v.produto}">${v.produto}</td>
+            <td class="px-3 py-2"><span class="px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase whitespace-nowrap">${v.modalidade}</span></td>
             <td class="px-3 py-2 text-slate-500 uppercase text-[10px] font-bold">${v.vendedor}</td>
             <td class="px-3 py-2 text-right font-black text-emerald-700">R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
           </tr>
@@ -329,27 +468,122 @@
       }).join('');
     }
 
-    // 🚀 FILTRO LOCAL (Texto na tabela)
-    function filtrarTabela() {
+    // Busca local (apenas na tabela, não afeta KPIs)
+    function filtrarTabelaLocal() {
       const termo = document.getElementById('filtroTabela').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#tabelaDados tr');
       
-      if (!termo) {
-        dadosFiltrados = [...dadosBrutos];
-      } else {
-        dadosFiltrados = dadosBrutos.filter(v => 
-          v.cliente.toLowerCase().includes(termo) || 
-          v.cpf.includes(termo) || 
-          v.telefone.includes(termo) ||
-          v.produto.toLowerCase().includes(termo) ||
-          v.imei.includes(termo) ||
-          v.vendedor.toLowerCase().includes(termo)
-        );
-      }
-      
-      atualizarKPIs();
-      renderizarTabela();
+      rows.forEach(row => {
+        const txt = row.textContent.toLowerCase();
+        row.style.display = txt.includes(termo) ? '' : 'none';
+      });
     }
 
+    // ==========================================
+    // GRÁFICOS E PÓDIO
+    // ==========================================
+    function mudarVisaoGrafico(visao) {
+      visaoGraficoAtual = visao;
+      
+      // Atualiza estilo dos botões
+      ['diario', 'semanal', 'mensal'].forEach(v => {
+        const btn = document.getElementById(`btnGraf-${v}`);
+        if (v === visao) {
+          btn.className = 'px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-[#0e8890] transition-all';
+        } else {
+          btn.className = 'px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all';
+        }
+      });
+
+      renderizarGrafico();
+    }
+
+    function renderizarGrafico() {
+      // 1. Lógica de agrupamento de datas
+      const agrupado = {};
+      
+      dadosFiltrados.forEach(v => {
+        const dt = new Date(v.data + 'T12:00:00');
+        let chave = '';
+
+        if (visaoGraficoAtual === 'diario') {
+          chave = dt.toLocaleDateString('pt-BR');
+        } else if (visaoGraficoAtual === 'semanal') {
+          // Achar a segunda-feira da semana
+          const dia = dt.getDay();
+          const diff = dt.getDate() - dia + (dia === 0 ? -6 : 1);
+          const inicioSemana = new Date(dt.setDate(diff));
+          chave = `Semana ${inicioSemana.toLocaleDateString('pt-BR').slice(0, 5)}`;
+        } else if (visaoGraficoAtual === 'mensal') {
+          chave = `${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+        }
+
+        if (!agrupado[chave]) agrupado[chave] = 0;
+        agrupado[chave] += v.valor;
+      });
+
+      // Ordenar as chaves (um pouco complexo com strings, mas vamos converter para data para ordenar)
+      const categorias = Object.keys(agrupado).sort((a, b) => {
+        if (visaoGraficoAtual === 'mensal') {
+          const [mA, yA] = a.split('/'); const [mB, yB] = b.split('/');
+          return new Date(yA, mA - 1) - new Date(yB, mB - 1);
+        }
+        return 0; // Para diario/semanal, a ordem de inserção já ajuda, ou deixa a lib lidar
+      });
+
+      const valores = categorias.map(c => agrupado[c]);
+
+      // 2. Renderiza o Gráfico
+      if (chartEvolucao) chartEvolucao.destroy();
+      chartEvolucao = new ApexCharts(document.querySelector("#chartEvolucao"), {
+        series: [{ name: 'Faturamento', data: valores }],
+        chart: { type: 'area', height: 280, toolbar: { show: false } },
+        colors: ['#0e8890'],
+        xaxis: { categories: categorias },
+        yaxis: { labels: { formatter: (val) => 'R$ ' + val.toLocaleString('pt-BR') } },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05 } },
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth' }
+      });
+      chartEvolucao.render();
+
+      // 3. Renderiza o Pódio (baseado nos dados filtrados)
+      renderizarPodio();
+    }
+
+    function renderizarPodio() {
+      const porVendedor = {};
+      dadosFiltrados.forEach(v => {
+        if (!porVendedor[v.vendedor]) porVendedor[v.vendedor] = { qtd: 0, total: 0 };
+        porVendedor[v.vendedor].qtd += 1;
+        porVendedor[v.vendedor].total += v.valor;
+      });
+      
+      const arr = Object.keys(porVendedor).map(k => ({
+        nome: k, ...porVendedor[k]
+      })).sort((a, b) => b.total - a.total).slice(0, 3); // Top 3
+
+      const podioHTML = arr.map((v, i) => {
+        const medalhas = ['🥇', '🥈', '🥉'];
+        return `
+          <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <span class="text-2xl">${medalhas[i]}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-black text-slate-800 text-sm uppercase truncate">${v.nome}</p>
+              <p class="text-[10px] text-slate-500 font-bold">${v.qtd} vendas</p>
+            </div>
+            <div class="text-right">
+              <p class="font-black text-emerald-700">R$ ${v.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+      document.getElementById('podioVendedores').innerHTML = podioHtml || '<p class="text-sm text-slate-400 text-center">Sem dados para o pódio.</p>';
+    }
+
+    // ==========================================
+    // EXPORTAÇÃO
+    // ==========================================
     function exportarExcel() {
       if (dadosFiltrados.length === 0) return alert('Não há dados para exportar.');
       
@@ -361,14 +595,12 @@
         'Telefone': v.telefone,
         'Produto/Plano': v.produto, 
         'Modalidade': v.modalidade,
-        'IMEI': v.imei,
         'Vendedor': v.vendedor,
         'Valor Total': v.valor
       }));
 
       const ws = XLSX.utils.json_to_sheet(dadosExcel);
-      // Ajusta largura das colunas
-      ws['!cols'] = [ {wch: 12}, {wch: 15}, {wch: 30}, {wch: 15}, {wch: 15}, {wch: 30}, {wch: 25}, {wch: 20}, {wch: 20}, {wch: 12} ];
+      ws['!cols'] = [ {wch: 12}, {wch: 15}, {wch: 30}, {wch: 15}, {wch: 15}, {wch: 30}, {wch: 25}, {wch: 20}, {wch: 12} ];
       
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
@@ -378,15 +610,17 @@
     function exportarPdf() {
       const element = document.getElementById('relatorios-wrapper');
       const opt = {
-        margin: 10, 
-        filename: `auditoria-vendas-${new Date().toISOString().slice(0,10)}.pdf`,
+        margin: 10, filename: `auditoria-vendas-${new Date().toISOString().slice(0,10)}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } // Paisagem para caber a tabela
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
       };
       html2pdf().set(opt).from(element).save();
     }
 
+    // ==========================================
+    // INICIALIZAÇÃO
+    // ==========================================
     window.addEventListener('DOMContentLoaded', async () => {
       if (window.lucide) lucide.createIcons();
       
@@ -399,6 +633,9 @@
         const splash = document.getElementById('splashScreen');
         if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 300); }
       }, 500);
+
+      // O botão de "Filtrar" precisa acionar o filtro local também se a data não mudar
+      document.getElementById('relVendedor').addEventListener('change', aplicarFiltrosLocais);
 
       carregarDados();
     });
