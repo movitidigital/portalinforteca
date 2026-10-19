@@ -213,7 +213,6 @@
     let chartEvolucao = null;
     let visaoGraficoAtual = 'diario';
 
-    // Lista base de modalidades
     const MODALIDADES_BASE = [
       "ATIVAÇÃO CONTROLE", "ATIVAÇÃO EXPRESS", "ATIVAÇÃO PRÉ-PAGO", "MIGRAÇÃO CONTROLE + AP + TC",
       "MIGRAÇÃO CONTROLE + TC", "MIGRAÇÃO EXPRESS + TC", "MIGRAÇÃO PRÉ-PÓS", "PORTABILIDADE CONTROLE",
@@ -229,7 +228,6 @@
     // 🚀 HELPER: Busca valor no JSON independentemente do nome da chave
     function extrairDoJSON(json, chaves) {
       if (!json || typeof json !== 'object') return null;
-      // Converte as chaves para maiúsculo para facilitar a comparação
       const chavesUpper = chaves.map(k => k.toUpperCase().trim());
       
       for (const key in json) {
@@ -262,17 +260,17 @@
           .lte('data_venda', dataFim)
           .order('data_venda', { ascending: false });
 
-        // 🚀 MELHORIA NO FILTRO DE ORIGEM (Pega 'GESTAO', 'GESTAO_CLICK', 'CLICK', etc)
+        // 🚀 LÓGICA CORRETA PARA O FILTRO DE ORIGEM
         if (origemFiltro === 'DATASYS') {
           query = query.ilike('tipo_fonte', `%DATASYS%`);
         } else if (origemFiltro === 'GESTAO') {
-          query = query.or(`tipo_fonte.ilike.%GESTAO%,tipo_fonte.ilike.%CLICK%`);
+          query = query.ilike('tipo_fonte', `%GESTAO%`);
         }
 
         const { data: vendas, error } = await query;
         if (error) throw error;
 
-        // Busca os dados dos clientes (JOIN)
+        // Busca os dados dos clientes (JOIN manual)
         const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
         let mapaClientes = {};
         
@@ -287,43 +285,70 @@
           }
         }
 
-        // 🚀 MONTAGEM BLINDADA DOS DADOS
+        // 🚀 MONTAGEM BLINDADA (TRADUZINDO O JSON DO GESTÃO CLICK)
         dadosBrutos = (vendas || []).map(v => {
           const cli = mapaClientes[v.cliente_id] || {};
           const json = v.dados_originais || {};
 
-          // 1. Tenta achar o nome (na tabela oficial ou no JSON)
-          const nome = cli.nome || extrairDoJSON(json, ['nome', 'nome_cliente', 'cliente', 'NOME DO CLIENTE', 'CLIENTE']) || 'NÃO INFORMADO';
-          
-          // 2. Tenta achar o CPF
-          const cpf = cli.cpf || extrairDoJSON(json, ['cpf', 'cpf_cliente', 'CPF CLIENTE', 'CPF', 'CPF_CLIENTE']) || '—';
-          
-          // 3. Tenta achar o Telefone
-          const tel = cli.telefone || extrairDoJSON(json, ['telefone', 'numero_linha', 'celular', 'NÚMERO DA LINHA', 'GSM', 'TELEFONE']) || '—';
+          // 1. Data
+          let dataFinal = v.data_venda;
+          if (!dataFinal && json['Data']) {
+            // Transforma "29/08/2026" em "2026-08-29"
+            const parts = json['Data'].split('/');
+            if (parts.length === 3) dataFinal = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
 
-          // 4. Identifica a Origem real
-          let origemTxt = v.tipo_fonte || 'DESCONHECIDO';
-          if (String(origemTxt).toUpperCase().includes('CLICK')) origemTxt = 'GESTÃO CLICK';
+          // 2. Nome
+          const nome = cli.nome 
+                    || json['Cliente'] 
+                    || json['nome_cliente'] 
+                    || 'NÃO INFORMADO';
+          
+          // 3. CPF
+          let cpfFinal = cli.cpf 
+                      || json['Cliente › CPF / CNPJ'] 
+                      || json['CPF'] 
+                      || '—';
+          cpfFinal = String(cpfFinal).replace(/\D/g, ''); // Remove pontuação
+
+          // 4. Telefone
+          let telFinal = cli.telefone 
+                      || json['Cliente › Celular'] 
+                      || json['Cliente › Telefone'] 
+                      || json['GSM'] 
+                      || '—';
+          telFinal = String(telFinal).replace(/\D/g, ''); // Remove pontuação
+
+          // 5. Valor (Converte "45,00" para 45.00)
+          let valorFinal = Number(v.valor_total || 0);
+          if (valorFinal === 0 && json['Valor total']) {
+            valorFinal = parseFloat(String(json['Valor total']).replace('.', '').replace(',', '.')) || 0;
+          }
+
+          // 6. Produto / Modalidade / Vendedor
+          const produto = v.produto || v.plano || json['Produto'] || 'N/A';
+          const modalidade = v.modalidade || json['Modalidade'] || 'VENDA DIRETA (G. CLICK)';
+          const vendedor = v.vendedor || json['Vendedor'] || 'N/A';
 
           return {
             id: v.id,
-            data: v.data_venda,
-            origem: origemTxt,
+            data: dataFinal,
+            origem: v.tipo_fonte || 'DESCONHECIDO',
             cliente: nome,
-            cpf: cpf,
-            telefone: tel,
-            produto: v.produto || v.plano || 'N/A',
-            modalidade: v.modalidade || 'SEM MODALIDADE',
-            vendedor: v.vendedor || 'N/A',
-            valor: Number(v.valor_total || 0)
+            cpf: cpfFinal,
+            telefone: telFinal,
+            produto: produto,
+            modalidade: modalidade,
+            vendedor: vendedor,
+            valor: valorFinal
           };
         });
 
         atualizarFiltroVendedores();
         
-        // Atualiza lista de modalidades (base + banco)
-        const modBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
-        const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modBanco])].sort();
+        // Atualiza lista de modalidades
+        const modBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'VENDA DIRETA (G. CLICK)');
+        const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modBanco, 'VENDA DIRETA (G. CLICK)'])].sort();
         renderizarCheckboxesModalidades(todasModalidades);
 
         aplicarFiltrosLocais();
@@ -439,15 +464,21 @@
       }
 
       tbody.innerHTML = dadosFiltrados.map(v => {
-        const isGestao = String(v.origem).toUpperCase().includes('GESTAO') || String(v.origem).toUpperCase().includes('CLICK');
+        const isGestao = String(v.origem).toUpperCase().includes('GESTAO');
         const corOrigem = isGestao ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
+        
+        // Formata CPF e Tel para exibição (se não estiver vazio)
+        const cpfFmt = v.cpf !== '—' && v.cpf.length === 11 ? v.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : v.cpf;
+        const telFmt = v.telefone !== '—' && v.telefone.length >= 10 ? `(${v.telefone.slice(0,2)}) ${v.telefone.slice(2)}` : v.telefone;
+        
+        const dataExibir = v.data ? new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
 
         return `
           <tr class="hover:bg-slate-50 transition-colors">
-            <td class="px-3 py-2 text-slate-600 font-medium">${new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+            <td class="px-3 py-2 text-slate-600 font-medium">${dataExibir}</td>
             <td class="px-3 py-2 text-center"><span class="px-2 py-1 rounded text-[9px] font-black uppercase ${corOrigem}">${v.origem}</span></td>
             <td class="px-3 py-2 font-bold text-slate-800 uppercase truncate max-w-[150px]" title="${v.cliente}">${v.cliente}</td>
-            <td class="px-3 py-2 text-slate-500 font-mono text-[10px]">${v.cpf} <br> ${v.telefone}</td>
+            <td class="px-3 py-2 text-slate-500 font-mono text-[10px]">${cpfFmt} <br> ${telFmt}</td>
             <td class="px-3 py-2 text-slate-600 max-w-[150px] truncate" title="${v.produto}">${v.produto}</td>
             <td class="px-3 py-2"><span class="px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase whitespace-nowrap">${v.modalidade}</span></td>
             <td class="px-3 py-2 text-slate-500 uppercase text-[10px] font-bold">${v.vendedor}</td>
@@ -487,6 +518,7 @@
       const agrupado = {};
       
       dadosFiltrados.forEach(v => {
+        if (!v.data) return; // Pula se não tiver data
         const dt = new Date(v.data + 'T12:00:00');
         let chave = '';
 
@@ -505,7 +537,6 @@
         agrupado[chave] += v.valor;
       });
 
-      // Ordena as categorias cronologicamente para o gráfico não ficar bagunçado
       const categorias = Object.keys(agrupado).sort((a, b) => {
         if (visaoGraficoAtual === 'mensal') {
           const [mA, yA] = a.split('/'); const [mB, yB] = b.split('/');
@@ -570,7 +601,7 @@
       if (dadosFiltrados.length === 0) return alert('Não há dados para exportar.');
       
       const dadosExcel = dadosFiltrados.map(v => ({
-        'Data Venda': new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+        'Data Venda': v.data ? new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR') : '—',
         'Origem': v.origem,
         'Nome Cliente': v.cliente, 
         'CPF': v.cpf,
