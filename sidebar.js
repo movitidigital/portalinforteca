@@ -275,9 +275,16 @@
   }
 })();
 
-// Código para colocar no final do sidebar.js
-
+/* ============================================================
+   VERIFICAÇÃO DE PERMISSÕES DO MENU
+   ============================================================ */
 async function aplicarPermissoesMenu() {
+  // Garante que o supabaseClient já foi carregado pela página
+  if (typeof supabaseClient === 'undefined') {
+    setTimeout(aplicarPermissoesMenu, 50);
+    return;
+  }
+
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session) return;
 
@@ -285,12 +292,22 @@ async function aplicarPermissoesMenu() {
   const { data: cargos } = await supabaseClient.from('cargos').select('*');
   const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
   
-  if (meuCargo?.is_admin === true) return; // Se for admin, para aqui e mostra tudo
+  // Se for Admin Master, não esconde nada
+  if (meuCargo?.is_admin === true) return; 
 
   const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
   const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
 
-  const MODULOS_MENU = ['clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
+  // 🚀 LISTA ATUALIZADA COM TODOS OS MÓDULOS (incluindo treinamento, premiada e usuarios)
+  const MODULOS_MENU = [
+    'clientes', 'portabilidades', 'faturas', 'suspensoes', 'gestao', 
+    'conciliacao', 'espelho', 'politicas', 'prospeccao', 
+    'treinamento', 'premiada', 'metas', 'usuarios'
+  ];
+
+  // Para evitar o "piscar", escondemos o menu temporariamente antes de aplicar as regras
+  const nav = document.querySelector('#sidebar nav');
+  if (nav) nav.style.opacity = '0';
 
   MODULOS_MENU.forEach(m => {
     let nivel = 'nenhum';
@@ -306,7 +323,13 @@ async function aplicarPermissoesMenu() {
       if (menuItem) menuItem.style.display = 'none';
     }
   });
+
+  // Volta a mostrar o menu já com os itens corretos
+  if (nav) nav.style.opacity = '1';
 }
 
-// Chama a função assim que o sidebar for carregado
-setTimeout(aplicarPermissoesMenu, 200);
+// Executa assim que o HTML estiver pronto, sem atrasos desnecessários
+document.addEventListener('DOMContentLoaded', () => {
+  // O 10ms é só para garantir que o IIFE lá em cima já desenhou o menu na tela
+  setTimeout(aplicarPermissoesMenu, 10);
+});
