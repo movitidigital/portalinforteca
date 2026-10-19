@@ -1857,23 +1857,52 @@ async function salvarDocumento() {
 }
 
 /* ==========================================================
-   CONSULTOR: VISUALIZAR, ACEITAR E BAIXAR PDF
+   CONSULTOR: VISUALIZAR, ACEITAR E HISTÓRICO
    ========================================================== */
 async function carregarDocumentoPolitica() {
-  const container = document.getElementById('documentoPoliticaConteudo');
-  container.innerHTML = '<div class="text-center py-12 text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block"></i> Carregando termo...</div>';
+  const containerDestaque = document.getElementById('containerPoliticaDestaque');
+  const avisoEmDia = document.getElementById('avisoPoliticaEmDia');
+  const containerHistorico = document.getElementById('containerHistoricoPoliticas');
+  const tbodyHistorico = document.getElementById('tbodyHistoricoPoliticas');
+  const divConteudo = document.getElementById('documentoPoliticaConteudo');
+
+  if (!containerDestaque || !avisoEmDia || !containerHistorico) return;
+
+  // Esconde tudo enquanto carrega
+  divConteudo.innerHTML = '<div class="text-center py-12 text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block"></i> Carregando...</div>';
+  containerDestaque.style.display = 'block';
+  avisoEmDia.style.display = 'none';
+  containerHistorico.style.display = 'none';
+  if (window.lucide) lucide.createIcons();
 
   const cargoUsuario = state.perfil?.permissao || 'Consultor de Vendas';
 
-  const { data: doc } = await supabaseClient
+  // 1. Busca o documento VIGENTE para o cargo do consultor
+  const { data: doc, error: errDoc } = await supabaseClient
     .from('politicas_documentos')
     .select('*')
     .is('vigencia_fim', null)
     .eq('cargo_aplicavel', cargoUsuario)
     .maybeSingle();
 
-  if (!doc) {
-    container.innerHTML = `
+  // 2. Busca o HISTÓRICO de todos os aceites deste usuário
+  // O "politicas_documentos (titulo)" faz um JOIN para pegarmos o nome da política
+  const { data: historico, error: errHist } = await supabaseClient
+    .from('politicas_aceites')
+    .select('*, politicas_documentos (titulo)')
+    .eq('user_id', state.user.id)
+    .order('aceito_em', { ascending: false });
+
+  // 3. Verifica se a política atual (doc) está na lista de assinadas
+  const jaAssinouAtiva = historico?.some(a => a.politica_id === doc?.id);
+
+  // ----------------------------------------------------
+  // LÓGICA DE EXIBIÇÃO
+  // ----------------------------------------------------
+
+  if (!doc && (!historico || historico.length === 0)) {
+    // Se não tem documento ativo e nunca assinou nada
+    divConteudo.innerHTML = `
       <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 max-w-2xl mx-auto">
         <i data-lucide="file-x" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
         <h3 class="text-lg font-black text-slate-800">Nenhuma política ativa</h3>
@@ -1884,79 +1913,38 @@ async function carregarDocumentoPolitica() {
     return;
   }
 
-  const { data: aceite } = await supabaseClient.from('politicas_aceites').select('*').eq('politica_id', doc.id).eq('user_id', state.user.id).maybeSingle();
-  const dataVig = new Date(doc.vigencia_inicio + 'T12:00:00').toLocaleDateString('pt-BR');
+  // --- BLOCO 1: O DOCUMENTO GRANDE (SÓ SE NÃO ASSINOU A ATIVA) ---
+  if (doc && !jaAssinouAtiva) {
+    containerDestaque.style.display = 'block';
+    avisoEmDia.style.display = 'none';
 
-  container.innerHTML = `
-    <div id="documentoA4" class="bg-white rounded-2xl border border-slate-300 shadow-xl p-8 md:p-14 relative w-full">
-      
-      <!-- Cabeçalho com Logo -->
-      <div class="flex flex-col items-center text-center border-b-4 border-[#000033] pb-6 mb-8">
-        <img src="https://portalinforteca.vercel.app/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 md:h-20 object-contain mb-4">
-        <h2 class="text-2xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
-        <p class="text-sm font-bold text-slate-600 mt-1">CNPJ: 45.765.640/0001-20</p>
-        <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Loja TIM Dom José</p>
-      </div>
-      
-      <div class="text-center mb-8">
-        <span class="inline-block bg-slate-100 text-slate-700 font-black px-4 py-1 rounded-full text-xs uppercase tracking-widest border border-slate-300 mb-4">
-          Aplica-se ao Cargo: ${escapeHTML(cargoUsuario)}
-        </span>
-        <h1 class="text-xl font-black text-center uppercase mb-2">${escapeHTML(doc.titulo)}</h1>
-        <p class="text-xs text-center text-slate-500 uppercase tracking-widest font-bold">Vigência a partir de: ${dataVig}</p>
-      </div>
+    const dataVig = new Date(doc.vigencia_inicio + 'T12:00:00').toLocaleDateString('pt-BR');
 
-      <!-- Conteúdo -->
-      <div class="text-sm text-slate-800 leading-relaxed mb-12 text-justify whitespace-pre-wrap font-medium">${escapeHTML(doc.conteudo)}</div>
-
-      <!-- Área de Assinatura -->
-      <div class="mt-16 pt-8 border-t-2 border-slate-200">
-        <h3 class="text-sm font-black uppercase text-center mb-6">Aceite do Colaborador</h3>
+    // Renderiza o A4 (código antigo mantido, só ajustei a div pai)
+    divConteudo.innerHTML = `
+      <div id="documentoA4" class="bg-white rounded-2xl border border-slate-300 shadow-xl p-8 md:p-14 relative w-full">
+        <!-- Cabeçalho com Logo -->
+        <div class="flex flex-col items-center text-center border-b-4 border-[#000033] pb-6 mb-8">
+          <img src="https://portalinforteca.vercel.app/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 md:h-20 object-contain mb-4">
+          <h2 class="text-2xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
+          <p class="text-sm font-bold text-slate-600 mt-1">CNPJ: 45.765.640/0001-20</p>
+          <p class="text-xs text-slate-500 mt-1 uppercase tracking-widest font-bold">Loja TIM Dom José</p>
+        </div>
         
-        ${aceite ? `
-          <!-- Bloco de Assinatura Digital (Sem Geolocalização) -->
-          <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center max-w-lg mx-auto mb-12">
-            <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-3"></i>
-            <p class="font-black text-emerald-800 text-lg uppercase">Documento Assinado Digitalmente</p>
-            
-            <div class="mt-4 space-y-1 text-sm text-emerald-800">
-              <p>Assinado por <strong>${escapeHTML(aceite.nome_completo)}</strong></p>
-              <p class="text-xs font-mono">CPF: ${escapeHTML(aceite.cpf)}</p>
-              <p class="text-xs font-bold mt-2 flex items-center justify-center gap-1">
-                <i data-lucide="calendar" class="w-3 h-3"></i> 
-                ${new Date(aceite.aceito_em).toLocaleString('pt-BR')}
-              </p>
-            </div>
+        <div class="text-center mb-8">
+          <span class="inline-block bg-slate-100 text-slate-700 font-black px-4 py-1 rounded-full text-xs uppercase tracking-widest border border-slate-300 mb-4">
+            Aplica-se ao Cargo: ${escapeHTML(cargoUsuario)}
+          </span>
+          <h1 class="text-xl font-black text-center uppercase mb-2">${escapeHTML(doc.titulo)}</h1>
+          <p class="text-xs text-center text-slate-500 uppercase tracking-widest font-bold">Vigência a partir de: ${dataVig}</p>
+        </div>
 
-            <button onclick="exportarPdfAceite()" class="mt-6 bg-[#000033] text-white hover:bg-slate-800 px-6 py-3 rounded-lg text-xs font-black uppercase shadow-lg flex items-center justify-center gap-2 mx-auto transition-transform hover:scale-105">
-              <i data-lucide="download" class="w-4 h-4"></i> Baixar PDF Assinado
-            </button>
-          </div>
+        <div class="text-sm text-slate-800 leading-relaxed mb-12 text-justify whitespace-pre-wrap font-medium">${escapeHTML(doc.conteudo)}</div>
 
-          <!-- CAMPOS DE ASSINATURA MANUAL (EMPRESA E COLABORADOR) -->
-          <div class="mt-16 grid grid-cols-1 md:grid-cols-2 gap-8 px-4 md:px-12 text-center">
-            
-            <!-- Assinatura da Empresa -->
-            <div>
-              <div class="border-t border-slate-400 mt-16 pt-3">
-                <p class="text-sm font-black uppercase text-slate-800">INFORTECA LTDA</p>
-                <p class="text-xs text-slate-500">CNPJ: 45.765.640/0001-20</p>
-                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Responsável Legal</p>
-              </div>
-            </div>
-
-            <!-- Assinatura do Colaborador -->
-            <div>
-              <div class="border-t border-slate-400 mt-16 pt-3">
-                <p class="text-sm font-black uppercase text-slate-800">${escapeHTML(aceite.nome_completo)}</p>
-                <p class="text-xs text-slate-500 font-mono">CPF: ${escapeHTML(aceite.cpf)}</p>
-                <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest">Colaborador(a)</p>
-              </div>
-            </div>
-
-          </div>
-        ` : `
-          <!-- Formulário de Assinatura (se ainda não assinou) -->
+        <!-- Área de Assinatura -->
+        <div class="mt-16 pt-8 border-t-2 border-slate-200">
+          <h3 class="text-sm font-black uppercase text-center mb-6">Aceite do Colaborador</h3>
+          
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
             <div>
               <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome Completo</label>
@@ -1973,10 +1961,65 @@ async function carregarDocumentoPolitica() {
             </button>
             <p class="text-[10px] text-slate-400 text-center mt-3">Ao clicar, você declara estar de acordo com as regras acima.</p>
           </div>
-        `}
+        </div>
       </div>
-    </div>
-  `;
+    `;
+  } 
+  // --- BLOCO 2: AVISO VERDE (SE JÁ ASSINOU) ---
+  else if (doc && jaAssinouAtiva) {
+    divConteudo.innerHTML = ''; // Limpa o A4
+    containerDestaque.style.display = 'none';
+    
+    avisoEmDia.style.display = 'block';
+    avisoEmDia.innerHTML = `
+      <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 text-center shadow-sm">
+        <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="check-circle-2" class="w-8 h-8 text-emerald-600"></i>
+        </div>
+        <h3 class="text-xl font-black text-emerald-800 uppercase tracking-wide">Você está em dia!</h3>
+        <p class="text-sm text-emerald-700 mt-2">Você já assinou a política de comissionamento vigente para o seu cargo.</p>
+      </div>
+    `;
+  }
+
+  // --- BLOCO 3: A TABELA DE HISTÓRICO (SEMPRE QUE TIVER DADOS) ---
+  if (historico && historico.length > 0) {
+    containerHistorico.style.display = 'block';
+    
+    tbodyHistorico.innerHTML = historico.map(h => {
+      const dataAceite = new Date(h.aceito_em).toLocaleString('pt-BR');
+      const tituloPol = h.politicas_documentos?.titulo || `Política ID: ${h.politica_id.substring(0,8)}`;
+      const idCurto = h.politica_id.substring(0, 8).toUpperCase();
+      
+      const isAtiva = h.politica_id === doc?.id;
+      const badgeStatus = isAtiva 
+        ? '<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-emerald-50 text-emerald-700 border-emerald-200">Vigente</span>'
+        : '<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-slate-100 text-slate-500 border-slate-200">Histórico</span>';
+
+      const mapa = h.latitude && h.longitude
+        ? `<a href="https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}" target="_blank" class="text-teal-600 hover:underline flex items-center justify-center gap-1 font-bold"><i data-lucide="map-pin" class="w-3 h-3"></i> Ver Local</a>`
+        : '<span class="text-slate-400 text-xs italic">Não capturado</span>';
+
+      return `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-6 py-4">
+            <p class="font-bold text-slate-800 text-sm">${escapeHTML(tituloPol)}</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">ID: ${idCurto}</p>
+          </td>
+          <td class="px-6 py-4 text-center">
+            <p class="text-sm font-medium text-slate-700">${dataAceite}</p>
+          </td>
+          <td class="px-6 py-4 text-center">
+            ${badgeStatus}
+          </td>
+          <td class="px-6 py-3 text-center">
+            ${mapa}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
   if (window.lucide) lucide.createIcons();
 }
 
