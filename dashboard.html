@@ -356,7 +356,7 @@
                 <th class="px-6 py-3 font-semibold">ID / Título</th>
                 <th class="px-6 py-3 font-semibold text-center">Data e Hora do Aceite</th>
                 <th class="px-6 py-3 font-semibold text-center">Status</th>
-                <th class="px-6 py-3 font-semibold text-center">Localização</th>
+                <th class="px-6 py-3 font-semibold text-center">Ações</th> <!-- Coluna Alterada -->
               </tr>
             </thead>
             <tbody id="tbodyHistoricoPoliticas" class="divide-y divide-slate-100">
@@ -1872,6 +1872,39 @@
     <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
       <button onclick="fecharModalPolitica()" class="px-4 py-2 text-sm text-slate-600 font-medium hover:text-slate-800 transition-colors">Cancelar</button>
       <button onclick="salvarPolitica()" id="btnSalvarPolitica" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors">Salvar Política</button>
+    </div>
+  </div>
+</div>
+
+
+
+  <!-- ============ MODAL: LER TERMO ASSINADO (CONSULTOR) ============ -->
+<div id="modalLerTermo" class="fixed inset-0 z-[80] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col">
+    
+    <div class="bg-[#000033] px-6 py-4 flex justify-between items-center shrink-0">
+      <div>
+        <h3 class="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+          <i data-lucide="file-text" class="w-5 h-5 text-teal-400"></i> Visualizar Termo
+        </h3>
+        <p id="lerTermoTitulo" class="text-[10px] text-teal-300 font-bold mt-1 uppercase">Carregando...</p>
+      </div>
+      <button onclick="fecharModalLerTermo()" class="text-slate-400 hover:text-white transition-colors">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+
+    <div class="p-8 md:p-12 overflow-y-auto flex-1 bg-slate-50">
+      <!-- O conteúdo do termo entrará aqui -->
+      <div id="lerTermoConteudo" class="text-sm text-slate-800 leading-relaxed text-justify whitespace-pre-wrap font-medium bg-white p-8 border border-slate-200 rounded-xl shadow-sm">
+        Carregando documento...
+      </div>
+    </div>
+
+    <div class="px-6 py-4 bg-white border-t border-slate-100 flex justify-end shrink-0">
+      <button onclick="fecharModalLerTermo()" class="bg-slate-800 hover:bg-black text-white px-6 py-2 rounded-lg text-sm font-bold transition-colors">
+        Fechar Leitura
+      </button>
     </div>
   </div>
 </div>
