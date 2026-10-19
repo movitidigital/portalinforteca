@@ -67,6 +67,30 @@
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden bg-[#000033]">
 
+<body class="text-slate-800 h-screen flex overflow-hidden bg-[#000033]">
+
+  <!-- 🚀 TELA DE CARREGAMENTO (SPLASH SCREEN) -->
+  <div id="splashScreen" class="fixed inset-0 z-[99999] bg-[#000033] flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
+      <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
+    </div>
+    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Sistema</h2>
+    <div class="w-48 h-1.5 bg-white/20 rounded-full overflow-hidden">
+      <div class="bg-[#0e8890] h-full rounded-full animate-[loading_1.5s_ease-in-out_infinite]" style="width: 50%;"></div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes loading {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+  </style>
+  <!-- FIM DO SPLASH SCREEN -->
+
+  <!-- ============ SIDEBAR ============ -->
+<aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
+  
   <!-- ============ SIDEBAR ============ -->
 <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-opacity duration-300 opacity-0 z-30 shadow-xl shrink-0"></aside>  
   <!-- ============ MAIN ============ -->
