@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatórios — Portal Inforteca</title>
+  <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- 🚀 GRÁFICOS PROFISSIONAIS -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <!-- 🚀 EXPORTAÇÃO PDF/EXCEL -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script src="sidebar.js"></script>
+  <script src="header.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="text-slate-800 h-screen flex overflow-hidden">
+
+  <!-- 🚀 TELA DE CARREGAMENTO -->
+  <div id="splashScreen" class="fixed inset-0 z-[99999] bg-[#000033] flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
+      <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
+    </div>
+    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Relatórios</h2>
+  </div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
+  
+  <!-- ============ MAIN ============ -->
+  <main class="flex-1 flex flex-col h-screen min-w-0 relative">
+    <header id="appHeader" data-title="Relatórios" data-search="true" data-notif="true"></header>
+
+    <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in">
+      
+      <!-- CONTEÚDO PRINCIPAL -->
+      <div id="relatorios-wrapper">
+        
+        <!-- Cabeçalho e Filtros -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div>
+              <h1 class="text-2xl font-black text-[#000033]">Central de Relatórios</h1>
+              <p class="text-sm text-slate-500 mt-1">Análise de vendas, produtividade e metas.</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="exportarRelatorioExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+              </button>
+              <button onclick="exportarRelatorioPdf()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="file-text" class="w-4 h-4"></i> PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- Filtros Globais -->
+          <div class="flex flex-wrap gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-500 uppercase">De:</label>
+              <input type="date" id="relDataInicio" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-500 uppercase">Até:</label>
+              <input type="date" id="relDataFim" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-500 uppercase">Origem:</label>
+              <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+                <option value="TODAS">Todas as Fontes</option>
+                <option value="DATASYS">Datasys</option>
+                <option value="GESTAO_CLICK">Gestão Click</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-500 uppercase">Vendedor:</label>
+              <select id="relVendedor" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+                <option value="TODOS">Todos os Vendedores</option>
+              </select>
+            </div>
+            <button onclick="carregarRelatorios()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors ml-auto">
+              Filtrar
+            </button>
+          </div>
+        </div>
+
+        <!-- Abas -->
+        <div class="flex gap-2 mb-6 border-b border-slate-200">
+          <button id="relTab-painel" onclick="trocarAbaRelatorio('painel')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]">📊 Painel</button>
+          <button id="relTab-vendas" onclick="trocarAbaRelatorio('vendas')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">🛒 Vendas</button>
+          <button id="relTab-vendedor" onclick="trocarAbaRelatorio('vendedor')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">🏆 Vendedores</button>
+          <button id="relTab-categorias" onclick="trocarAbaRelatorio('categorias')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600">📦 Categorias</button>
+        </div>
+
+        <!-- Conteúdo das Abas -->
+        <div id="relContent-painel" class="block">
+          <!-- KPIs -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento Total</p>
+              <p id="kpiFaturamento" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-indigo-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Vendas</p>
+              <p id="kpiVendas" class="text-2xl font-black text-slate-800 mt-1">0</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-amber-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Médio</p>
+              <p id="kpiTicket" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-purple-500">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Portabilidades</p>
+              <p id="kpiPortabilidade" class="text-2xl font-black text-slate-800 mt-1">0</p>
+            </div>
+          </div>
+          
+          <!-- Gráfico de Evolução -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+            <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Evolução de Vendas Diárias</h3>
+            <div id="chartEvolucao"></div>
+          </div>
+        </div>
+
+        <div id="relContent-vendas" class="hidden">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+              <h3 class="text-lg font-bold text-slate-800">Lista de Vendas Detalhada</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500">
+                  <tr>
+                    <th class="px-4 py-3">Data</th>
+                    <th class="px-4 py-3">Cliente</th>
+                    <th class="px-4 py-3">Linha</th>
+                    <th class="px-4 py-3">Plano / Produto</th>
+                    <th class="px-4 py-3">Vendedor</th>
+                    <th class="px-4 py-3">Origem</th>
+                    <th class="px-4 py-3 text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaRelatorioVendas" class="divide-y divide-slate-100">
+                  <tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="relContent-vendedor" class="hidden">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+              <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Vendedor</th>
+                  <th class="px-4 py-3 text-center">Qtd Vendas</th>
+                  <th class="px-4 py-3 text-right">Faturamento Total</th>
+                  <th class="px-4 py-3 text-right">Ticket Médio</th>
+                  <th class="px-4 py-3 text-center">Portabilidades</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaRelatorioVendedor" class="divide-y divide-slate-100">
+                <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="relContent-categorias" class="hidden">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Mix de Produtos</h3>
+              <div id="chartCategorias"></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Modalidade</h3>
+              <div id="chartModalidades"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* ==========================================================
+       CONFIGURAÇÃO SUPABASE
+       ========================================================== */
+    const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAuNDU1OTc1LCJleHAiOjIxMDYwMzE5NzV9.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+    
+    if (!window.supabaseClient) {
+      window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+    const supabaseClient = window.supabaseClient;
+
+    /* ==========================================================
+       CONTROLE DE ABAS E GRÁFICOS
+       ========================================================== */
+    let chartEvolucaoInstance = null;
+    let chartCategoriasInstance = null;
+    let chartModalidadesInstance = null;
+
+    function trocarAbaRelatorio(aba) {
+      ['painel', 'vendas', 'vendedor', 'categorias'].forEach(a => {
+        const btn = document.getElementById(`relTab-${a}`);
+        const content = document.getElementById(`relContent-${a}`);
+        if (a === aba) {
+          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890]';
+          content.classList.remove('hidden');
+          content.classList.add('block');
+        } else {
+          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600';
+          content.classList.add('hidden');
+          content.classList.remove('block');
+        }
+      });
+      
+      // Redesenha gráficos para não ficarem "bugados" ao trocar de aba
+      if (aba === 'painel' && chartEvolucaoInstance) chartEvolucaoInstance.render();
+      if (aba === 'categorias') {
+        if (chartCategoriasInstance) chartCategoriasInstance.render();
+        if (chartModalidadesInstance) chartModalidadesInstance.render();
+      }
+    }
+
+    // Função temporária apenas para visualizar os gráficos funcionando
+    function carregarRelatorios() {
+      console.log("Aguardando a definição da tabela correta para buscar os dados...");
+      document.getElementById('tabelaRelatorioVendas').innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Aguardando definição da tabela de vendas no banco...</td></tr>';
+      document.getElementById('tabelaRelatorioVendedor').innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Aguardando definição da tabela de vendas no banco...</td></tr>';
+    }
+
+    // Inicializa a tela
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      
+      // Esconde a splash screen
+      setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        if (splash) {
+          splash.style.opacity = '0';
+          setTimeout(() => splash.remove(), 300);
+        }
+      }, 500);
+    });
+  </script>
+</body>
+</html>
