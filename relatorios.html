@@ -25,8 +25,6 @@
     .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     th { position: sticky; top: 0; z-index: 10; background-color: #f8fafc; }
-    
-    /* Custom Scrollbar para o Dropdown de Modalidades */
     .dropdown-scroll::-webkit-scrollbar { width: 6px; }
     .dropdown-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
   </style>
@@ -37,7 +35,7 @@
     <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
       <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
     </div>
-    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Relatórios</h2>
+    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Processando Dados</h2>
   </div>
 
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
@@ -49,7 +47,7 @@
       
       <div id="relatorios-wrapper" class="bg-[#f4f7f6]">
         
-        <!-- Cabeçalho de Filtros -->
+        <!-- Filtros -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 relative z-20">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div>
@@ -80,18 +78,17 @@
               <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
                 <option value="TODAS">Todas as Fontes</option>
                 <option value="DATASYS">Datasys</option>
-                <option value="GESTAO CLICK">Gestão Click</option>
+                <option value="GESTAO">Gestão Click</option>
               </select>
             </div>
             <div class="flex flex-col gap-1 w-full md:w-48">
               <label class="text-[10px] font-black text-slate-500 uppercase">Vendedor</label>
               <select id="relVendedor" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
                 <option value="TODOS">Todos os Vendedores</option>
-                <!-- Preenchido via JS -->
               </select>
             </div>
             
-            <!-- 🚀 DROPDOWN CUSTOMIZADO DE MODALIDADES -->
+            <!-- Dropdown Múltiplo de Modalidades -->
             <div class="flex flex-col gap-1 w-full md:w-64 relative" id="dropdownModalidadesContainer">
               <label class="text-[10px] font-black text-slate-500 uppercase">Modalidades</label>
               <button type="button" onclick="toggleDropdownModalidades(event)" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-left flex justify-between items-center focus:outline-none focus:border-[#0e8890]">
@@ -99,15 +96,12 @@
                 <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
               </button>
               
-              <!-- Painel do Dropdown -->
               <div id="painelModalidades" class="hidden absolute top-full left-0 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-50">
                 <div class="p-2 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-lg">
                   <button onclick="selecionarTodasModalidades()" class="text-[10px] font-bold text-[#0e8890] hover:underline uppercase">Marcar Todas</button>
                   <button onclick="desmarcarTodasModalidades()" class="text-[10px] font-bold text-red-500 hover:underline uppercase">Limpar</button>
                 </div>
-                <div id="listaModalidades" class="max-h-60 overflow-y-auto dropdown-scroll p-2 space-y-1">
-                  <!-- Checkboxes preenchidos via JS -->
-                </div>
+                <div id="listaModalidades" class="max-h-60 overflow-y-auto dropdown-scroll p-2 space-y-1"></div>
               </div>
             </div>
 
@@ -123,9 +117,8 @@
           <button id="relTab-auditoria" onclick="trocarAbaRelatorio('auditoria')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap">🔍 Auditoria Detalhada</button>
         </div>
 
-        <!-- ABA 1: PAINEL ANALÍTICO -->
+        <!-- Painel Analítico -->
         <div id="relContent-painel" class="block">
-          <!-- KPIs -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
               <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento</p>
@@ -146,13 +139,11 @@
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <!-- Gráfico de Evolução -->
             <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
               <div class="flex justify-between items-center mb-4">
                 <h3 class="text-sm font-black text-[#000033] uppercase flex items-center gap-2">
                   <i data-lucide="trending-up" class="w-4 h-4 text-[#0e8890]"></i> Evolução de Vendas
                 </h3>
-                <!-- Botões de Alternância do Gráfico -->
                 <div class="flex bg-slate-100 rounded-lg p-1">
                   <button onclick="mudarVisaoGrafico('diario')" id="btnGraf-diario" class="px-3 py-1 text-xs font-bold rounded-md bg-white shadow-sm text-[#0e8890] transition-all">Diário</button>
                   <button onclick="mudarVisaoGrafico('semanal')" id="btnGraf-semanal" class="px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all">Semanal</button>
@@ -162,19 +153,16 @@
               <div id="chartEvolucao" class="flex-1"></div>
             </div>
 
-            <!-- Top Vendedores -->
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col">
               <h3 class="text-sm font-black text-[#000033] uppercase mb-4 flex items-center gap-2">
                 <i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Top Vendedores
               </h3>
-              <div id="podioVendedores" class="flex-1 flex flex-col justify-center space-y-3">
-                <!-- Pódio via JS -->
-              </div>
+              <div id="podioVendedores" class="flex-1 flex flex-col justify-center space-y-3"></div>
             </div>
           </div>
         </div>
 
-        <!-- ABA 2: AUDITORIA DETALHADA -->
+        <!-- Auditoria Detalhada -->
         <div id="relContent-auditoria" class="hidden">
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style="height: calc(100vh - 320px);">
             <div class="px-6 py-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
@@ -220,12 +208,12 @@
     }
     const sb = window.supabaseClient;
 
-    let dadosBrutos = [];     // Dados do banco
-    let dadosFiltrados = [];  // Dados com filtros locais aplicados (vendedor, modalidade)
+    let dadosBrutos = [];
+    let dadosFiltrados = [];
     let chartEvolucao = null;
     let visaoGraficoAtual = 'diario';
 
-    // 🚀 LISTA BASE DE MODALIDADES
+    // Lista base de modalidades
     const MODALIDADES_BASE = [
       "ATIVAÇÃO CONTROLE", "ATIVAÇÃO EXPRESS", "ATIVAÇÃO PRÉ-PAGO", "MIGRAÇÃO CONTROLE + AP + TC",
       "MIGRAÇÃO CONTROLE + TC", "MIGRAÇÃO EXPRESS + TC", "MIGRAÇÃO PRÉ-PÓS", "PORTABILIDADE CONTROLE",
@@ -236,40 +224,125 @@
       "PORTABILIDADE PÓS PURO"
     ];
 
-    let modalidadesSelecionadas = []; // Array que guarda as modalidades marcadas
+    let modalidadesSelecionadas = [];
 
-    // Inicializa a lista de modalidades base assim que a página carrega
-    window.addEventListener('DOMContentLoaded', () => {
-      renderizarCheckboxesModalidades(MODALIDADES_BASE);
-    });
-
-    function trocarAbaRelatorio(aba) {
-      ['painel', 'auditoria'].forEach(a => {
-        const btn = document.getElementById(`relTab-${a}`);
-        const content = document.getElementById(`relContent-${a}`);
-        if (!btn || !content) return;
-        
-        if (a === aba) {
-          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890] whitespace-nowrap';
-          content.classList.remove('hidden');
-          content.classList.add('block');
-        } else {
-          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap';
-          content.classList.add('hidden');
-          content.classList.remove('block');
-        }
-      });
+    // 🚀 HELPER: Busca valor no JSON independentemente do nome da chave
+    function extrairDoJSON(json, chaves) {
+      if (!json || typeof json !== 'object') return null;
+      // Converte as chaves para maiúsculo para facilitar a comparação
+      const chavesUpper = chaves.map(k => k.toUpperCase().trim());
       
-      if (aba === 'painel' && chartEvolucao) chartEvolucao.render();
+      for (const key in json) {
+        if (chavesUpper.includes(key.toUpperCase().trim())) {
+          const val = json[key];
+          if (val !== null && val !== undefined && String(val).trim() !== '') {
+            return String(val).trim();
+          }
+        }
+      }
+      return null;
+    }
+
+    async function carregarDados() {
+      const dataInicio = document.getElementById('relDataInicio').value;
+      const dataFim = document.getElementById('relDataFim').value;
+      const origemFiltro = document.getElementById('relOrigem').value;
+
+      if (!dataInicio || !dataFim) return alert('Selecione as datas.');
+
+      const btn = document.querySelector('button[onclick="carregarDados()"]');
+      const htmlOriginal = btn.innerHTML;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Buscando...';
+      lucide.createIcons();
+
+      try {
+        let query = sb.from('interacoes')
+          .select('*')
+          .gte('data_venda', dataInicio)
+          .lte('data_venda', dataFim)
+          .order('data_venda', { ascending: false });
+
+        // 🚀 MELHORIA NO FILTRO DE ORIGEM (Pega 'GESTAO', 'GESTAO_CLICK', 'CLICK', etc)
+        if (origemFiltro === 'DATASYS') {
+          query = query.ilike('tipo_fonte', `%DATASYS%`);
+        } else if (origemFiltro === 'GESTAO') {
+          query = query.or(`tipo_fonte.ilike.%GESTAO%,tipo_fonte.ilike.%CLICK%`);
+        }
+
+        const { data: vendas, error } = await query;
+        if (error) throw error;
+
+        // Busca os dados dos clientes (JOIN)
+        const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
+        let mapaClientes = {};
+        
+        if (idsClientes.length > 0) {
+          const chunkSize = 500;
+          for (let i = 0; i < idsClientes.length; i += chunkSize) {
+            const chunk = idsClientes.slice(i, i + chunkSize);
+            const { data: clientes } = await sb.from('clientes_faturas')
+              .select('id, nome, cpf, telefone')
+              .in('id', chunk);
+            (clientes || []).forEach(c => { mapaClientes[c.id] = c; });
+          }
+        }
+
+        // 🚀 MONTAGEM BLINDADA DOS DADOS
+        dadosBrutos = (vendas || []).map(v => {
+          const cli = mapaClientes[v.cliente_id] || {};
+          const json = v.dados_originais || {};
+
+          // 1. Tenta achar o nome (na tabela oficial ou no JSON)
+          const nome = cli.nome || extrairDoJSON(json, ['nome', 'nome_cliente', 'cliente', 'NOME DO CLIENTE', 'CLIENTE']) || 'NÃO INFORMADO';
+          
+          // 2. Tenta achar o CPF
+          const cpf = cli.cpf || extrairDoJSON(json, ['cpf', 'cpf_cliente', 'CPF CLIENTE', 'CPF', 'CPF_CLIENTE']) || '—';
+          
+          // 3. Tenta achar o Telefone
+          const tel = cli.telefone || extrairDoJSON(json, ['telefone', 'numero_linha', 'celular', 'NÚMERO DA LINHA', 'GSM', 'TELEFONE']) || '—';
+
+          // 4. Identifica a Origem real
+          let origemTxt = v.tipo_fonte || 'DESCONHECIDO';
+          if (String(origemTxt).toUpperCase().includes('CLICK')) origemTxt = 'GESTÃO CLICK';
+
+          return {
+            id: v.id,
+            data: v.data_venda,
+            origem: origemTxt,
+            cliente: nome,
+            cpf: cpf,
+            telefone: tel,
+            produto: v.produto || v.plano || 'N/A',
+            modalidade: v.modalidade || 'SEM MODALIDADE',
+            vendedor: v.vendedor || 'N/A',
+            valor: Number(v.valor_total || 0)
+          };
+        });
+
+        atualizarFiltroVendedores();
+        
+        // Atualiza lista de modalidades (base + banco)
+        const modBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
+        const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modBanco])].sort();
+        renderizarCheckboxesModalidades(todasModalidades);
+
+        aplicarFiltrosLocais();
+        
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao buscar dados: ' + err.message);
+      } finally {
+        btn.innerHTML = htmlOriginal;
+        lucide.createIcons();
+      }
     }
 
     // ==========================================
-    // LÓGICA DO DROPDOWN DE MODALIDADES MÚLTIPLAS
+    // LÓGICA DE FILTROS E UI
     // ==========================================
     function toggleDropdownModalidades(event) {
       event.stopPropagation();
-      const painel = document.getElementById('painelModalidades');
-      painel.classList.toggle('hidden');
+      document.getElementById('painelModalidades').classList.toggle('hidden');
     }
 
     function fecharDropdownModalidades(event) {
@@ -316,86 +389,6 @@
       aplicarFiltrosLocais();
     }
 
-    // ==========================================
-    // CARREGAMENTO DE DADOS
-    // ==========================================
-    async function carregarDados() {
-      const dataInicio = document.getElementById('relDataInicio').value;
-      const dataFim = document.getElementById('relDataFim').value;
-      const origemFiltro = document.getElementById('relOrigem').value;
-
-      if (!dataInicio || !dataFim) return alert('Selecione as datas.');
-
-      const btn = document.querySelector('button[onclick="carregarDados()"]');
-      const htmlOriginal = btn.innerHTML;
-      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Buscando...';
-      lucide.createIcons();
-
-      try {
-        let query = sb.from('interacoes')
-          .select('*')
-          .gte('data_venda', dataInicio)
-          .lte('data_venda', dataFim)
-          .order('data_venda', { ascending: false });
-
-        if (origemFiltro !== 'TODAS') {
-          query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
-        }
-
-        const { data: vendas, error } = await query;
-        if (error) throw error;
-
-        // Busca os dados dos clientes (JOIN manual)
-        const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
-        let mapaClientes = {};
-        
-        if (idsClientes.length > 0) {
-          const chunkSize = 500;
-          for (let i = 0; i < idsClientes.length; i += chunkSize) {
-            const chunk = idsClientes.slice(i, i + chunkSize);
-            const { data: clientes } = await sb.from('clientes_faturas')
-              .select('id, nome, cpf, telefone')
-              .in('id', chunk);
-            (clientes || []).forEach(c => { mapaClientes[c.id] = c; });
-          }
-        }
-
-        dadosBrutos = (vendas || []).map(v => {
-          const cli = mapaClientes[v.cliente_id] || {};
-          return {
-            id: v.id,
-            data: v.data_venda,
-            origem: v.tipo_fonte || 'N/A',
-            cliente: cli.nome || v.dados_originais?.nome_cliente || v.dados_originais?.CLIENTE || v.dados_originais?.nome || 'Não Informado',
-            cpf: cli.cpf || v.dados_originais?.cpf || '—',
-            telefone: cli.telefone || v.dados_originais?.telefone || '—',
-            produto: v.produto || v.plano || 'N/A',
-            modalidade: v.modalidade || 'SEM MODALIDADE',
-            vendedor: v.vendedor || 'N/A',
-            valor: Number(v.valor_total || 0)
-          };
-        });
-
-        // 1. Atualiza o filtro de vendedores
-        atualizarFiltroVendedores();
-        
-        // 2. Atualiza a lista de modalidades (caso venha alguma nova)
-        const modBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
-        const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modBanco])].sort();
-        renderizarCheckboxesModalidades(todasModalidades);
-
-        // 3. Aplica filtros iniciais
-        aplicarFiltrosLocais();
-        
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao buscar dados: ' + err.message);
-      } finally {
-        btn.innerHTML = htmlOriginal;
-        lucide.createIcons();
-      }
-    }
-
     function atualizarFiltroVendedores() {
       const select = document.getElementById('relVendedor');
       const valorAtual = select.value;
@@ -413,12 +406,8 @@
       const vendedorFiltro = document.getElementById('relVendedor').value;
       
       dadosFiltrados = dadosBrutos.filter(v => {
-        // Filtro de Vendedor
         if (vendedorFiltro !== 'TODOS' && v.vendedor !== vendedorFiltro) return false;
-        
-        // Filtro de Modalidade Múltipla
         if (modalidadesSelecionadas.length > 0 && !modalidadesSelecionadas.includes(v.modalidade)) return false;
-        
         return true;
       });
 
@@ -427,9 +416,6 @@
       renderizarGrafico();
     }
 
-    // ==========================================
-    // RENDERIZAÇÃO
-    // ==========================================
     function atualizarKPIs() {
       const totalFat = dadosFiltrados.reduce((acc, v) => acc + v.valor, 0);
       const qtd = dadosFiltrados.length;
@@ -442,6 +428,9 @@
       document.getElementById('kpiClientes').textContent = clientesUnicos;
     }
 
+    // ==========================================
+    // RENDERIZAÇÃO DA TABELA
+    // ==========================================
     function renderizarTabela() {
       const tbody = document.getElementById('tabelaDados');
       if (dadosFiltrados.length === 0) {
@@ -468,7 +457,6 @@
       }).join('');
     }
 
-    // Busca local (apenas na tabela, não afeta KPIs)
     function filtrarTabelaLocal() {
       const termo = document.getElementById('filtroTabela').value.toLowerCase().trim();
       const rows = document.querySelectorAll('#tabelaDados tr');
@@ -484,8 +472,6 @@
     // ==========================================
     function mudarVisaoGrafico(visao) {
       visaoGraficoAtual = visao;
-      
-      // Atualiza estilo dos botões
       ['diario', 'semanal', 'mensal'].forEach(v => {
         const btn = document.getElementById(`btnGraf-${v}`);
         if (v === visao) {
@@ -494,12 +480,10 @@
           btn.className = 'px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all';
         }
       });
-
       renderizarGrafico();
     }
 
     function renderizarGrafico() {
-      // 1. Lógica de agrupamento de datas
       const agrupado = {};
       
       dadosFiltrados.forEach(v => {
@@ -509,11 +493,10 @@
         if (visaoGraficoAtual === 'diario') {
           chave = dt.toLocaleDateString('pt-BR');
         } else if (visaoGraficoAtual === 'semanal') {
-          // Achar a segunda-feira da semana
           const dia = dt.getDay();
           const diff = dt.getDate() - dia + (dia === 0 ? -6 : 1);
           const inicioSemana = new Date(dt.setDate(diff));
-          chave = `Semana ${inicioSemana.toLocaleDateString('pt-BR').slice(0, 5)}`;
+          chave = `Sem ${inicioSemana.toLocaleDateString('pt-BR').slice(0, 5)}`;
         } else if (visaoGraficoAtual === 'mensal') {
           chave = `${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
         }
@@ -522,18 +505,17 @@
         agrupado[chave] += v.valor;
       });
 
-      // Ordenar as chaves (um pouco complexo com strings, mas vamos converter para data para ordenar)
+      // Ordena as categorias cronologicamente para o gráfico não ficar bagunçado
       const categorias = Object.keys(agrupado).sort((a, b) => {
         if (visaoGraficoAtual === 'mensal') {
           const [mA, yA] = a.split('/'); const [mB, yB] = b.split('/');
           return new Date(yA, mA - 1) - new Date(yB, mB - 1);
         }
-        return 0; // Para diario/semanal, a ordem de inserção já ajuda, ou deixa a lib lidar
+        return 0;
       });
 
       const valores = categorias.map(c => agrupado[c]);
 
-      // 2. Renderiza o Gráfico
       if (chartEvolucao) chartEvolucao.destroy();
       chartEvolucao = new ApexCharts(document.querySelector("#chartEvolucao"), {
         series: [{ name: 'Faturamento', data: valores }],
@@ -547,7 +529,6 @@
       });
       chartEvolucao.render();
 
-      // 3. Renderiza o Pódio (baseado nos dados filtrados)
       renderizarPodio();
     }
 
@@ -561,7 +542,7 @@
       
       const arr = Object.keys(porVendedor).map(k => ({
         nome: k, ...porVendedor[k]
-      })).sort((a, b) => b.total - a.total).slice(0, 3); // Top 3
+      })).sort((a, b) => b.total - a.total).slice(0, 3);
 
       const podioHTML = arr.map((v, i) => {
         const medalhas = ['🥇', '🥈', '🥉'];
@@ -579,7 +560,6 @@
         `;
       }).join('');
 
-      // 🚀 CORREÇÃO AQUI: Trocado podioHtml por podioHTML
       document.getElementById('podioVendedores').innerHTML = podioHTML || '<p class="text-sm text-slate-400 text-center">Sem dados para o pódio.</p>';
     }
 
@@ -620,9 +600,6 @@
       html2pdf().set(opt).from(element).save();
     }
 
-    // ==========================================
-    // INICIALIZAÇÃO
-    // ==========================================
     window.addEventListener('DOMContentLoaded', async () => {
       if (window.lucide) lucide.createIcons();
       
@@ -636,7 +613,6 @@
         if (splash) { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 300); }
       }, 500);
 
-      // O botão de "Filtrar" precisa acionar o filtro local também se a data não mudar
       document.getElementById('relVendedor').addEventListener('change', aplicarFiltrosLocais);
 
       carregarDados();
