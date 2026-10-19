@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatórios — Portal Inforteca</title>
+  <title>Relatórios Detalhados — Portal Inforteca</title>
   <link rel="icon" type="image/png" href="/favicon-portalinforteca.png">
   
   <script src="https://cdn.tailwindcss.com"></script>
@@ -11,7 +11,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -24,6 +23,8 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    /* Estilo para tabela de auditoria */
+    th { position: sticky; top: 0; z-index: 10; background-color: #f8fafc; }
   </style>
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -32,24 +33,24 @@
     <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
       <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
     </div>
-    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Processando Dados</h2>
+    <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Auditoria</h2>
   </div>
 
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
   
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
-    <header id="appHeader" data-title="Relatórios Gerenciais" data-search="true" data-notif="true"></header>
+    <header id="appHeader" data-title="Auditoria de Vendas" data-search="true" data-notif="true"></header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in">
       
       <div id="relatorios-wrapper" class="bg-[#f4f7f6]">
         
-        <!-- Cabeçalho e Filtros -->
+        <!-- Cabeçalho de Filtros -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div>
-              <h1 class="text-2xl font-black text-[#000033]">Painel de Gestão</h1>
-              <p class="text-sm text-slate-500 mt-1">Visão estratégica de vendas e produtividade.</p>
+              <h1 class="text-2xl font-black text-[#000033]">Relatório de Auditoria</h1>
+              <p class="text-sm text-slate-500 mt-1">Dados brutos importados de Datasys e Gestão Click.</p>
             </div>
             <div class="flex gap-2">
               <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
@@ -61,148 +62,86 @@
             </div>
           </div>
 
-          <!-- Filtros Globais (Agora com Modalidade) -->
-          <div class="flex flex-wrap gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <div class="flex items-center gap-2">
-              <label class="text-xs font-bold text-slate-500 uppercase">De:</label>
-              <input type="date" id="relDataInicio" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+          <div class="flex flex-wrap gap-4 items-end bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Data Inicial</label>
+              <input type="date" id="relDataInicio" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
             </div>
-            <div class="flex items-center gap-2">
-              <label class="text-xs font-bold text-slate-500 uppercase">Até:</label>
-              <input type="date" id="relDataFim" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Data Final</label>
+              <input type="date" id="relDataFim" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
             </div>
-            <div class="flex items-center gap-2">
-              <label class="text-xs font-bold text-slate-500 uppercase">Origem:</label>
-              <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
-                <option value="TODAS">Todas as Fontes</option>
-                <option value="DATASYS">Datasys</option>
-                <option value="GESTAO CLICK">Gestão Click</option>
+            <div class="flex flex-col gap-1 w-full md:w-48">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Origem</label>
+              <select id="relOrigem" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
+                <option value="TODAS">Todas (Datasys + G. Click)</option>
+                <option value="DATASYS">Somente Datasys</option>
+                <option value="GESTAO CLICK">Somente Gestão Click</option>
               </select>
             </div>
-            <!-- 🚀 NOVO FILTRO DE MODALIDADE -->
-            <div class="flex items-center gap-2">
-              <label class="text-xs font-bold text-slate-500 uppercase">Modalidade:</label>
-              <select id="relModalidade" class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[#0e8890]">
-                <option value="TODAS">Todas</option>
-                <!-- Preenchido via JS -->
+            <div class="flex flex-col gap-1 w-full md:w-64">
+              <label class="text-[10px] font-black text-slate-500 uppercase">Modalidade</label>
+              <select id="relModalidade" class="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
+                <option value="TODAS">Todas as Modalidades</option>
+                <!-- Preenchido dinamicamente via JS -->
               </select>
             </div>
-            <button onclick="carregarDados()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors ml-auto flex items-center gap-2">
+            <button onclick="carregarDados()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2 h-[38px]">
               <i data-lucide="search" class="w-4 h-4"></i> Filtrar
             </button>
           </div>
         </div>
 
-        <!-- Abas -->
-        <div class="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto">
-          <button id="relTab-painel" onclick="trocarAbaRelatorio('painel')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890] whitespace-nowrap">📊 Visão Geral</button>
-          <button id="relTab-vendas" onclick="trocarAbaRelatorio('vendas')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap">🛒 Auditoria de Vendas</button>
-          <button id="relTab-vendedor" onclick="trocarAbaRelatorio('vendedor')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap">🏆 Ranking da Equipe</button>
-          <button id="relTab-categorias" onclick="trocarAbaRelatorio('categorias')" class="px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap">📦 Análise de Mix</button>
+        <!-- KPIs Rápidos -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento Filtrado</p>
+            <p id="kpiFaturamento" class="text-xl font-black text-slate-800 mt-1">R$ 0,00</p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-indigo-500">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Registros</p>
+            <p id="kpiRegistros" class="text-xl font-black text-slate-800 mt-1">0</p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-amber-500">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Médio</p>
+            <p id="kpiTicket" class="text-xl font-black text-slate-800 mt-1">R$ 0,00</p>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm border-l-4 border-emerald-500">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Clientes Únicos</p>
+            <p id="kpiClientes" class="text-xl font-black text-slate-800 mt-1">0</p>
+          </div>
         </div>
 
-        <!-- ABA 1: VISÃO GERAL -->
-        <div id="relContent-painel" class="block">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento Total</p>
-              <p id="kpiFaturamento" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
-              <div id="kpiVarFat" class="mt-2 text-xs font-bold text-slate-400">Calculando...</div>
-            </div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-indigo-500">
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume de Vendas</p>
-              <p id="kpiVendas" class="text-2xl font-black text-slate-800 mt-1">0</p>
-            </div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-amber-500">
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Médio</p>
-              <p id="kpiTicket" class="text-2xl font-black text-slate-800 mt-1">R$ 0,00</p>
-            </div>
-            <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-purple-500">
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Itens</p>
-              <p id="kpiAcessorios" class="text-2xl font-black text-slate-800 mt-1">0</p>
+        <!-- Tabela de Auditoria -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col" style="height: calc(100vh - 350px);">
+          <div class="px-6 py-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
+            <h3 class="text-sm font-black text-[#000033] uppercase">Dados Detalhados (Exportável)</h3>
+            <div class="relative w-full md:w-80">
+              <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+              <input type="text" id="filtroTabela" oninput="filtrarTabela()" placeholder="Buscar por Cliente, CPF, IMEI, Produto..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
             </div>
           </div>
           
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4 flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4 text-[#0e8890]"></i> Evolução Diária</h3>
-              <div id="chartEvolucao"></div>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4 text-amber-500"></i> Top Vendedores</h3>
-              <div id="podioVendedores" class="flex-1 flex flex-col justify-center space-y-4"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ABA 2: AUDITORIA DE VENDAS (Dados do Cliente Inclusos) -->
-        <div id="relContent-vendas" class="hidden">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b bg-slate-50 flex flex-col md:flex-row justify-between items-center gap-3">
-              <h3 class="text-lg font-bold text-slate-800">Relatório Detalhado</h3>
-              <div class="relative w-full md:w-72">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                <input type="text" id="filtroTabelaVendas" oninput="filtrarTabelaVendas()" placeholder="Buscar cliente, CPF ou produto..." class="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-[#0e8890]">
-              </div>
-            </div>
-            <div class="overflow-x-auto max-h-[600px]">
-              <table class="w-full text-left text-sm whitespace-nowrap">
-                <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500 sticky top-0">
-                  <tr>
-                    <th class="px-4 py-3">Data</th>
-                    <th class="px-4 py-3">Cliente</th>
-                    <th class="px-4 py-3">CPF / Telefone</th>
-                    <th class="px-4 py-3">Produto / Plano</th>
-                    <th class="px-4 py-3">Modalidade</th>
-                    <th class="px-4 py-3">Vendedor</th>
-                    <th class="px-4 py-3 text-right">Valor</th>
-                  </tr>
-                </thead>
-                <tbody id="tabelaRelatorioVendas" class="divide-y divide-slate-100">
-                  <tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- ABA 3: RANKING DA EQUIPE -->
-        <div id="relContent-vendedor" class="hidden">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <table class="w-full text-left text-sm whitespace-nowrap">
-              <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500">
+          <div class="overflow-auto flex-1">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="bg-slate-100 border-b border-slate-200 text-[10px] uppercase text-slate-500">
                 <tr>
-                  <th class="px-4 py-3">Posição</th>
-                  <th class="px-4 py-3">Vendedor</th>
-                  <th class="px-4 py-3 text-center">Qtd Vendas</th>
-                  <th class="px-4 py-3 text-right">Faturamento</th>
-                  <th class="px-4 py-3 text-right">Ticket Médio</th>
-                  <th class="px-4 py-3">Participação na Loja</th>
+                  <th class="px-3 py-3 font-bold">Data</th>
+                  <th class="px-3 py-3 font-bold">Origem</th>
+                  <th class="px-3 py-3 font-bold">Cliente</th>
+                  <th class="px-3 py-3 font-bold">CPF</th>
+                  <th class="px-3 py-3 font-bold">Telefone</th>
+                  <th class="px-3 py-3 font-bold">Produto / Plano</th>
+                  <th class="px-3 py-3 font-bold">Modalidade</th>
+                  <th class="px-3 py-3 font-bold">IMEI</th>
+                  <th class="px-3 py-3 font-bold">Vendedor</th>
+                  <th class="px-3 py-3 font-bold text-right">Valor</th>
                 </tr>
               </thead>
-              <tbody id="tabelaRelatorioVendedor" class="divide-y divide-slate-100">
-                <tr><td colspan="6" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+              <tbody id="tabelaDados" class="divide-y divide-slate-100 bg-white">
+                <tr><td colspan="10" class="px-6 py-12 text-center text-slate-500 text-sm">Carregando dados...</td></tr>
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <!-- ABA 4: ANÁLISE DE MIX (Gráficos Restaurados + Top Produtos) -->
-        <div id="relContent-categorias" class="hidden">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Faturamento por Vendedor</h3>
-              <div id="chartMixVendedor"></div>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Modalidade</h3>
-              <div id="chartMixModalidade"></div>
-            </div>
-          </div>
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <h3 class="text-sm font-black text-[#000033] uppercase mb-4 flex items-center gap-2"><i data-lucide="bar-chart-horizontal" class="w-4 h-4 text-indigo-600"></i> Top 10 Produtos Mais Vendidos (Por Faturamento)</h3>
-            <div id="chartTopProdutos"></div>
           </div>
         </div>
 
@@ -219,35 +158,19 @@
     }
     const sb = window.supabaseClient;
 
-    let vendasGlobais = [];
-    let vendasFiltradas = [];
-    let chartEvolucao, chartMixVendedor, chartMixModalidade, chartTopProdutos;
+    let dadosBrutos = [];
+    let dadosFiltrados = [];
 
-    function trocarAbaRelatorio(aba) {
-      ['painel', 'vendas', 'vendedor', 'categorias'].forEach(a => {
-        const btn = document.getElementById(`relTab-${a}`);
-        const content = document.getElementById(`relContent-${a}`);
-        if (!btn || !content) return;
-        
-        if (a === aba) {
-          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-[#0e8890] text-[#0e8890] whitespace-nowrap';
-          content.classList.remove('hidden');
-          content.classList.add('block');
-        } else {
-          btn.className = 'px-5 py-3 text-sm font-black uppercase tracking-wide border-b-2 border-transparent text-slate-400 hover:text-slate-600 whitespace-nowrap';
-          content.classList.add('hidden');
-          content.classList.remove('block');
-        }
-      });
-      
-      // Renderiza gráficos ocultos ao trocar de aba
-      if (aba === 'painel' && chartEvolucao) chartEvolucao.render();
-      if (aba === 'categorias') {
-        if (chartMixVendedor) chartMixVendedor.render();
-        if (chartMixModalidade) chartMixModalidade.render();
-        if (chartTopProdutos) chartTopProdutos.render();
-      }
-    }
+    // 🚀 LISTA BASE DE MODALIDADES (Conforme solicitado)
+    const MODALIDADES_BASE = [
+      "ATIVAÇÃO CONTROLE", "ATIVAÇÃO EXPRESS", "ATIVAÇÃO PRÉ-PAGO", "MIGRAÇÃO CONTROLE + AP + TC",
+      "MIGRAÇÃO CONTROLE + TC", "MIGRAÇÃO EXPRESS + TC", "MIGRAÇÃO PRÉ-PÓS", "PORTABILIDADE CONTROLE",
+      "TROCA DE APARELHO", "TROCA DE APARELHO PRÉ", "TROCA DE CHIP POS", "TROCA DE CHIP PRÉ",
+      "TROCA DE TECNOLOGIA E-SIM", "UPGRADE CONTROLE + AP", "ATIVAÇÃO PÓS PURO", "DEPENDENTE FAMILIA + CHIP",
+      "MIGRAÇÃO DEPENDENTE FAMILIA", "PORTABILIDADE PRÉ-PAGO", "PORTABILIDADE PÓS PURO AP + CH",
+      "MIGRAÇÃO PÓS PURO + TC", "PORTABILIDADE CONTROLE AP + CH", "PORTABILIDADE EXPRESS",
+      "PORTABILIDADE PÓS PURO"
+    ];
 
     async function carregarDados() {
       const dataInicio = document.getElementById('relDataInicio').value;
@@ -263,82 +186,71 @@
       lucide.createIcons();
 
       try {
+        // 1. Puxa os dados da tabela interacoes
         let query = sb.from('interacoes')
           .select('*')
           .gte('data_venda', dataInicio)
-          .lte('data_venda', dataFim);
+          .lte('data_venda', dataFim)
+          .order('data_venda', { ascending: false });
 
-        if (origemFiltro !== 'TODAS') query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
-        if (modalidadeFiltro !== 'TODAS') query = query.ilike('modalidade', `%${modalidadeFiltro}%`);
+        if (origemFiltro !== 'TODAS') {
+          // Considera 'DATASYS' ou 'GESTAO CLICK'
+          query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
+        }
+        if (modalidadeFiltro !== 'TODAS') {
+          query = query.eq('modalidade', modalidadeFiltro);
+        }
 
         const { data: vendas, error } = await query;
         if (error) throw error;
 
-        // Busca os clientes (Nome, CPF, Telefone) para cruzar
+        // 2. Busca os dados dos clientes (nome, cpf, telefone)
         const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
         let mapaClientes = {};
         
         if (idsClientes.length > 0) {
-          const { data: clientes } = await sb.from('clientes_faturas')
-            .select('id, nome, cpf, telefone')
-            .in('id', idsClientes);
+          // Supabase tem limite de itens no IN (geralmente ~1000). Se houver muitos, divide em lotes.
+          const chunkSize = 500;
+          for (let i = 0; i < idsClientes.length; i += chunkSize) {
+            const chunk = idsClientes.slice(i, i + chunkSize);
+            const { data: clientes } = await sb.from('clientes_faturas')
+              .select('id, nome, cpf, telefone')
+              .in('id', chunk);
 
-          (clientes || []).forEach(c => {
-            mapaClientes[c.id] = c;
-          });
+            (clientes || []).forEach(c => { mapaClientes[c.id] = c; });
+          }
         }
 
-        // Monta o objeto com os dados do cliente inclusos
-        vendasGlobais = (vendas || []).map(v => {
+        // 3. Monta o objeto final cruzando os dados
+        dadosBrutos = (vendas || []).map(v => {
           const cli = mapaClientes[v.cliente_id] || {};
-          const nomeEncontrado = cli.nome 
-                              || v.dados_originais?.nome_cliente 
-                              || v.dados_originais?.CLIENTE 
-                              || v.dados_originais?.nome 
-                              || 'Não Informado';
           
-          const cpfEncontrado = cli.cpf || v.dados_originais?.cpf || '—';
-          const telEncontrado = cli.telefone || v.dados_originais?.telefone || '—';
-
+          // Tenta pegar dados do cliente pela tabela oficial, se não tiver, tenta pelo JSON de importação
+          const nome = cli.nome || v.dados_originais?.nome_cliente || v.dados_originais?.CLIENTE || v.dados_originais?.nome || 'Não Informado';
+          const cpf = cli.cpf || v.dados_originais?.cpf || v.dados_originais?.CPF || '—';
+          const tel = cli.telefone || v.dados_originais?.telefone || v.dados_originais?.CELULAR || '—';
+          
           return {
             id: v.id,
-            data: v.data_venda || v.created_at,
-            cliente: nomeEncontrado,
-            cpf: cpfEncontrado,
-            telefone: telEncontrado,
-            produto: v.produto || v.plano || 'N/A',
-            vendedor: v.vendedor || 'N/A',
+            data: v.data_venda,
             origem: v.tipo_fonte || 'N/A',
-            valor: Number(v.valor_total || 0),
-            modalidade: v.modalidade || 'N/A'
+            cliente: nome,
+            cpf: cpf,
+            telefone: tel,
+            produto: v.produto || v.plano || 'N/A',
+            modalidade: v.modalidade || 'SEM MODALIDADE',
+            imei: v.imei || '—',
+            vendedor: v.vendedor || 'N/A',
+            valor: Number(v.valor_total || 0)
           };
         });
 
-        vendasFiltradas = [...vendasGlobais];
-        preencherFiltroModalidades(); // Popula o select com as opções encontradas
+        dadosFiltrados = [...dadosBrutos];
 
-        // Cálculo do Mês Anterior
-        const dtInicio = new Date(dataInicio + 'T12:00:00');
-        const dtFim = new Date(dataFim + 'T12:00:00');
-        const difDias = Math.ceil((dtFim - dtInicio) / (1000 * 60 * 60 * 24));
+        atualizarFiltroModalidades();
+        atualizarKPIs();
+        renderizarTabela();
         
-        const mesAntFim = new Date(dtInicio);
-        mesAntFim.setDate(mesAntFim.getDate() - 1);
-        const mesAntInicio = new Date(mesAntFim);
-        mesAntInicio.setDate(mesAntInicio.getDate() - difDias);
-
-        let queryAnt = sb.from('interacoes')
-          .select('valor_total')
-          .gte('data_venda', mesAntInicio.toISOString().slice(0,10))
-          .lte('data_venda', mesAntFim.toISOString().slice(0,10));
-        
-        if (origemFiltro !== 'TODAS') queryAnt = queryAnt.ilike('tipo_fonte', `%${origemFiltro}%`);
-        if (modalidadeFiltro !== 'TODAS') queryAnt = queryAnt.ilike('modalidade', `%${modalidadeFiltro}%`);
-        
-        const { data: dataAnt } = await queryAnt;
-        const fatAnt = (dataAnt || []).reduce((acc, v) => acc + Number(v.valor_total), 0);
-
-        processarDados(fatAnt);
       } catch (err) {
         console.error(err);
         alert('Erro ao buscar dados: ' + err.message);
@@ -348,247 +260,131 @@
       }
     }
 
-    function preencherFiltroModalidades() {
+    // 🚀 LÓGICA DE AUTO-COMPLETAR O FILTRO DE MODALIDADES
+    function atualizarFiltroModalidades() {
       const select = document.getElementById('relModalidade');
-      // Mantém as opções originais e adiciona as novas encontradas
-      const modalidadesUnicas = [...new Set(vendasGlobais.map(v => v.modalidade))].filter(m => m !== 'N/A' && m !== 'TODAS');
+      const valorAtual = select.value;
       
-      select.innerHTML = '<option value="TODAS">Todas</option>';
-      modalidadesUnicas.sort().forEach(m => {
+      // Pega as modalidades únicas que vieram do banco de dados
+      const modalidadesBanco = dadosBrutos.map(d => d.modalidade).filter(m => m && m !== 'SEM MODALIDADE');
+      
+      // Junta a lista base com as novas que apareceram (usando Set para não duplicar)
+      const todasModalidades = [...new Set([...MODALIDADES_BASE, ...modalidadesBanco])].sort();
+
+      // Reconstrói o select
+      select.innerHTML = '<option value="TODAS">Todas as Modalidades</option>';
+      todasModalidades.forEach(m => {
         select.innerHTML += `<option value="${m}">${m}</option>`;
       });
-    }
 
-    function processarDados(fatAnt) {
-      // 1. KPIs
-      const totalFaturamento = vendasGlobais.reduce((acc, v) => acc + v.valor, 0);
-      const totalVendas = vendasGlobais.length;
-      const ticketMedio = totalVendas > 0 ? totalFaturamento / totalVendas : 0;
-
-      document.getElementById('kpiFaturamento').textContent = 'R$ ' + totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      document.getElementById('kpiVendas').textContent = totalVendas;
-      document.getElementById('kpiTicket').textContent = 'R$ ' + ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-      document.getElementById('kpiAcessorios').textContent = totalVendas; // Simplificado, você pode filtrar por produto se quiser
-
-      // Comparativo Mês Anterior
-      const elVarFat = document.getElementById('kpiVarFat');
-      if (fatAnt > 0) {
-        const varFat = ((totalFaturamento - fatAnt) / fatAnt) * 100;
-        const isPositivo = varFat >= 0;
-        elVarFat.innerHTML = `<span class="${isPositivo ? 'text-emerald-600' : 'text-red-600'} flex items-center gap-1">
-          <i data-lucide="${isPositivo ? 'arrow-up-right' : 'arrow-down-right'}" class="w-3 h-3"></i> 
-          ${Math.abs(varFat).toFixed(1)}%
-        </span> vs período anterior`;
-      } else {
-        elVarFat.textContent = 'Sem dados anteriores';
+      // Tenta manter a seleção anterior se ela ainda existir
+      if (todasModalidades.includes(valorAtual)) {
+        select.value = valorAtual;
       }
-
-      renderizarTabelaVendas();
-      renderizarVendedores();
-      renderizarGraficos();
-      lucide.createIcons();
     }
 
-    function renderizarTabelaVendas() {
-      const tbody = document.getElementById('tabelaRelatorioVendas');
-      if (vendasFiltradas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Nenhuma venda encontrada.</td></tr>';
+    function atualizarKPIs() {
+      const totalFat = dadosFiltrados.reduce((acc, v) => acc + v.valor, 0);
+      const qtd = dadosFiltrados.length;
+      const ticket = qtd > 0 ? totalFat / qtd : 0;
+      const clientesUnicos = new Set(dadosFiltrados.map(v => v.cpf).filter(c => c !== '—')).size;
+
+      document.getElementById('kpiFaturamento').textContent = 'R$ ' + totalFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpiRegistros').textContent = qtd;
+      document.getElementById('kpiTicket').textContent = 'R$ ' + ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpiClientes').textContent = clientesUnicos;
+    }
+
+    function renderizarTabela() {
+      const tbody = document.getElementById('tabelaDados');
+      
+      if (dadosFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-12 text-center text-slate-500 text-sm">Nenhum registro encontrado com estes filtros.</td></tr>';
         return;
       }
-      tbody.innerHTML = vendasFiltradas.map(v => `
-        <tr class="hover:bg-slate-50">
-          <td class="px-4 py-3 text-slate-500">${new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-          <td class="px-4 py-3 font-bold text-slate-800 uppercase truncate max-w-[200px]" title="${v.cliente}">${v.cliente}</td>
-          <td class="px-4 py-3 text-slate-500 text-xs">${v.cpf} <br> ${v.telefone}</td>
-          <td class="px-4 py-3 text-slate-600 text-xs">${v.produto}</td>
-          <td class="px-4 py-3 text-[10px] uppercase text-slate-400 font-bold">${v.modalidade}</td>
-          <td class="px-4 py-3 text-slate-600 uppercase text-xs">${v.vendedor}</td>
-          <td class="px-4 py-3 text-right font-black text-emerald-700">R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-        </tr>
-      `).join('');
-    }
 
-    function filtrarTabelaVendas() {
-      const termo = document.getElementById('filtroTabelaVendas').value.toLowerCase();
-      vendasFiltradas = vendasGlobais.filter(v => 
-        v.cliente.toLowerCase().includes(termo) || 
-        v.cpf.includes(termo) || 
-        v.vendedor.toLowerCase().includes(termo) ||
-        v.produto.toLowerCase().includes(termo)
-      );
-      renderizarTabelaVendas();
-    }
+      tbody.innerHTML = dadosFiltrados.map(v => {
+        // Destaque visual para Gestão Click
+        const isGestao = String(v.origem).toUpperCase().includes('GESTAO') || String(v.origem).toUpperCase().includes('CLICK');
+        const corOrigem = isGestao ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700';
 
-    function renderizarVendedores() {
-      const porVendedor = {};
-      vendasGlobais.forEach(v => {
-        if (!porVendedor[v.vendedor]) porVendedor[v.vendedor] = { qtd: 0, total: 0 };
-        porVendedor[v.vendedor].qtd += 1;
-        porVendedor[v.vendedor].total += v.valor;
-      });
-      
-      const arr = Object.keys(porVendedor).map(k => ({
-        nome: k, ...porVendedor[k], ticket: porVendedor[k].total / porVendedor[k].qtd
-      })).sort((a, b) => b.total - a.total);
-
-      const totalLoja = arr.reduce((acc, v) => acc + v.total, 0);
-
-      // Pódio (Painel)
-      const podioHTML = arr.slice(0, 3).map((v, i) => {
-        const medalhas = ['🥇', '🥈', '🥉'];
         return `
-          <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-            <span class="text-2xl">${medalhas[i]}</span>
-            <div class="flex-1 min-w-0">
-              <p class="font-black text-slate-800 text-sm uppercase truncate">${v.nome}</p>
-              <p class="text-[10px] text-slate-500 font-bold">${v.qtd} vendas</p>
-            </div>
-            <div class="text-right">
-              <p class="font-black text-emerald-700">R$ ${v.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-        `;
-      }).join('');
-      document.getElementById('podioVendedores').innerHTML = podioHTML;
-
-      // Tabela Completa
-      document.getElementById('tabelaRelatorioVendedor').innerHTML = arr.map((v, i) => {
-        const pct = totalLoja > 0 ? (v.total / totalLoja) * 100 : 0;
-        return `
-          <tr class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-black text-slate-400 text-lg">#${i + 1}</td>
-            <td class="px-4 py-3 font-bold text-slate-800 uppercase">${v.nome}</td>
-            <td class="px-4 py-3 text-center">${v.qtd}</td>
-            <td class="px-4 py-3 text-right font-black text-emerald-700">R$ ${v.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-            <td class="px-4 py-3 text-right text-slate-500">R$ ${v.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
-                <div class="flex-1 bg-slate-100 rounded-full h-2">
-                  <div class="bg-[#0e8890] h-2 rounded-full" style="width: ${pct}%"></div>
-                </div>
-                <span class="text-[10px] font-bold text-slate-500 w-8">${pct.toFixed(0)}%</span>
-              </div>
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-3 py-2 text-slate-600 font-medium">${new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+            <td class="px-3 py-2 text-center">
+              <span class="px-2 py-1 rounded text-[9px] font-black uppercase ${corOrigem}">${v.origem}</span>
             </td>
+            <td class="px-3 py-2 font-bold text-slate-800 uppercase truncate max-w-[200px]" title="${v.cliente}">${v.cliente}</td>
+            <td class="px-3 py-2 text-slate-500 font-mono">${v.cpf}</td>
+            <td class="px-3 py-2 text-slate-500 font-mono">${v.telefone}</td>
+            <td class="px-3 py-2 text-slate-600 max-w-[200px] truncate" title="${v.produto}">${v.produto}</td>
+            <td class="px-3 py-2">
+              <span class="px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold uppercase whitespace-nowrap">${v.modalidade}</span>
+            </td>
+            <td class="px-3 py-2 text-slate-400 font-mono text-[10px]">${v.imei}</td>
+            <td class="px-3 py-2 text-slate-500 uppercase text-[10px] font-bold">${v.vendedor}</td>
+            <td class="px-3 py-2 text-right font-black text-emerald-700">R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
           </tr>
         `;
       }).join('');
     }
 
-    function renderizarGraficos() {
-      // 1. Gráfico de Evolução (Linha)
-      const porData = {};
-      vendasGlobais.forEach(v => {
-        const d = new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR');
-        if (!porData[d]) porData[d] = 0;
-        porData[d] += v.valor;
-      });
-      const datasOrd = Object.keys(porData).sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-
-      if (chartEvolucao) chartEvolucao.destroy();
-      chartEvolucao = new ApexCharts(document.querySelector("#chartEvolucao"), {
-        series: [{ name: 'Faturamento', data: datasOrd.map(d => porData[d]) }],
-        chart: { type: 'area', height: 280, toolbar: { show: false } },
-        colors: ['#0e8890'],
-        xaxis: { categories: datasOrd },
-        yaxis: { labels: { formatter: (val) => 'R$ ' + val.toLocaleString('pt-BR') } },
-        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        dataLabels: { enabled: false }
-      });
-      chartEvolucao.render();
-
-      // 2. Gráficos de Mix (Pizza)
-      const porVendedor = {};
-      const porModalidade = {};
-      vendasGlobais.forEach(v => {
-        if (!porVendedor[v.vendedor]) porVendedor[v.vendedor] = 0;
-        porVendedor[v.vendedor] += v.valor;
-        
-        if (!porModalidade[v.modalidade]) porModalidade[v.modalidade] = 0;
-        porModalidade[v.modalidade]++;
-      });
+    // 🚀 FILTRO LOCAL (Texto na tabela)
+    function filtrarTabela() {
+      const termo = document.getElementById('filtroTabela').value.toLowerCase().trim();
       
-      const arrVend = Object.keys(porVendedor).map(k => ({ nome: k, total: porVendedor[k] })).sort((a,b) => b.total - a.total).slice(0, 5); // Top 5 para não poluir
-
-      if (chartMixVendedor) chartMixVendedor.destroy();
-      chartMixVendedor = new ApexCharts(document.querySelector("#chartMixVendedor"), {
-        series: arrVend.map(v => v.total),
-        labels: arrVend.map(v => v.nome),
-        chart: { type: 'donut', height: 350 },
-        colors: ['#0e8890', '#4f46e5', '#f59e0b', '#ef4444', '#8b5cf6'],
-        legend: { position: 'bottom' },
-        dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + '%' }
-      });
-      chartMixVendedor.render();
-
-      if (chartMixModalidade) chartMixModalidade.destroy();
-      chartMixModalidade = new ApexCharts(document.querySelector("#chartMixModalidade"), {
-        series: Object.values(porModalidade),
-        labels: Object.keys(porModalidade),
-        chart: { type: 'pie', height: 350 },
-        colors: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'],
-        legend: { position: 'bottom' }
-      });
-      chartMixModalidade.render();
-
-      // 3. Top Produtos (Barras Horizontais)
-      const porProduto = {};
-      vendasGlobais.forEach(v => {
-        const prod = v.produto.split('-')[0].trim().toUpperCase(); 
-        if (!porProduto[prod]) porProduto[prod] = 0;
-        porProduto[prod] += v.valor;
-      });
+      if (!termo) {
+        dadosFiltrados = [...dadosBrutos];
+      } else {
+        dadosFiltrados = dadosBrutos.filter(v => 
+          v.cliente.toLowerCase().includes(termo) || 
+          v.cpf.includes(termo) || 
+          v.telefone.includes(termo) ||
+          v.produto.toLowerCase().includes(termo) ||
+          v.imei.includes(termo) ||
+          v.vendedor.toLowerCase().includes(termo)
+        );
+      }
       
-      const arrProd = Object.keys(porProduto)
-        .map(k => ({ nome: k, total: porProduto[k] }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10);
+      atualizarKPIs();
+      renderizarTabela();
+    }
 
-      if (chartTopProdutos) chartTopProdutos.destroy();
-      chartTopProdutos = new ApexCharts(document.querySelector("#chartTopProdutos"), {
-        series: [{ name: 'Faturamento', data: arrProd.map(p => p.total) }],
-        chart: { type: 'bar', height: 400, toolbar: { show: false } },
-        plotOptions: { bar: { horizontal: true, borderRadius: 4, distributed: true } },
-        colors: ['#4f46e5', '#0e8890', '#f59e0b', '#ef4444', '#8b5cf6', '#10b981'],
-        xaxis: { categories: arrProd.map(p => p.nome) },
-        dataLabels: { 
-          enabled: true, 
-          formatter: (val) => 'R$ ' + val.toLocaleString('pt-BR'),
-          style: { fontSize: '10px', fontWeight: 'bold', colors: ['#fff'] }
-        },
-        legend: { show: false },
-        yaxis: { labels: { style: { fontSize: '11px', fontWeight: 600 } } }
-      });
-      chartTopProdutos.render();
+    function exportarExcel() {
+      if (dadosFiltrados.length === 0) return alert('Não há dados para exportar.');
+      
+      const dadosExcel = dadosFiltrados.map(v => ({
+        'Data Venda': new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR'),
+        'Origem': v.origem,
+        'Nome Cliente': v.cliente, 
+        'CPF': v.cpf,
+        'Telefone': v.telefone,
+        'Produto/Plano': v.produto, 
+        'Modalidade': v.modalidade,
+        'IMEI': v.imei,
+        'Vendedor': v.vendedor,
+        'Valor Total': v.valor
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dadosExcel);
+      // Ajusta largura das colunas
+      ws['!cols'] = [ {wch: 12}, {wch: 15}, {wch: 30}, {wch: 15}, {wch: 15}, {wch: 30}, {wch: 25}, {wch: 20}, {wch: 20}, {wch: 12} ];
+      
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
+      XLSX.writeFile(wb, `auditoria-vendas-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
     function exportarPdf() {
       const element = document.getElementById('relatorios-wrapper');
       const opt = {
-        margin: 10, filename: `relatorio-inforteca-${new Date().toISOString().slice(0,10)}.pdf`,
+        margin: 10, 
+        filename: `auditoria-vendas-${new Date().toISOString().slice(0,10)}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } // Paisagem para caber a tabela
       };
       html2pdf().set(opt).from(element).save();
-    }
-
-    function exportarExcel() {
-      if (vendasGlobais.length === 0) return alert('Não há dados para exportar.');
-      const dadosExcel = vendasGlobais.map(v => ({
-        'Data': new Date(v.data + 'T12:00:00').toLocaleDateString('pt-BR'),
-        'Cliente': v.cliente, 
-        'CPF': v.cpf,
-        'Telefone': v.telefone,
-        'Produto': v.produto, 
-        'Modalidade': v.modalidade,
-        'Vendedor': v.vendedor,
-        'Origem': v.origem, 
-        'Valor': v.valor
-      }));
-      const ws = XLSX.utils.json_to_sheet(dadosExcel);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Vendas");
-      XLSX.writeFile(wb, `relatorio-inforteca-${new Date().toISOString().slice(0,10)}.xlsx`);
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
