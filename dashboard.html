@@ -330,11 +330,43 @@
     <div id="politicasTbody" class="space-y-6"></div>
   </div>
 
-  <!-- VIEW DO CONSULTOR (DOCUMENTO A4) -->
+  <!-- VIEW DO CONSULTOR (DOCUMENTO A4 + HISTÓRICO) -->
   <div id="consultorPoliticasView" class="hidden">
-    <div id="documentoPoliticaConteudo" class="max-w-4xl mx-auto pb-12"></div>
+    
+    <!-- 1. Área de Destaque: Só aparece se tiver política pendente de assinatura -->
+    <div id="containerPoliticaDestaque" class="max-w-4xl mx-auto pb-12">
+      <div id="documentoPoliticaConteudo"></div>
+    </div>
+
+    <!-- 2. Aviso de "Em Dia": Só aparece se ele já assinou a política atual -->
+    <div id="avisoPoliticaEmDia" class="hidden max-w-4xl mx-auto mb-6"></div>
+
+    <!-- 3. Tabela de Histórico -->
+    <div id="containerHistoricoPoliticas" class="hidden max-w-4xl mx-auto mt-8 mb-12">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="history" class="w-5 h-5 text-[#0e8890]"></i> Histórico de Políticas Assinadas
+          </h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm whitespace-nowrap">
+            <thead class="bg-white border-b border-slate-100 text-xs uppercase text-slate-500 tracking-wider">
+              <tr>
+                <th class="px-6 py-3 font-semibold">ID / Título</th>
+                <th class="px-6 py-3 font-semibold text-center">Data e Hora do Aceite</th>
+                <th class="px-6 py-3 font-semibold text-center">Status</th>
+                <th class="px-6 py-3 font-semibold text-center">Localização</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyHistoricoPoliticas" class="divide-y divide-slate-100">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
       
       <!-- ===== FATURAS ===== -->
       <div id="view-faturas" class="hidden animate-fade-in">
