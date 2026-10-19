@@ -24,6 +24,7 @@
     { key: 'conciliacao',    tipo: 'view', viewId: 'conciliacao',    icon: 'file-search',      label: 'Conciliação TIM' },
     { key: 'espelho',        tipo: 'view', viewId: 'espelho',        icon: 'receipt',          label: 'Meu Espelho' },
     { key: 'politicas',      tipo: 'view', viewId: 'politicas',      icon: 'settings-2',       label: 'Políticas de Comissão' },
+    { key: 'relatorios',     tipo: 'page', url: 'relatorios.html',   icon: 'bar-chart-3',      label: 'Relatórios' },
 
     // Páginas externas (HTML separado)
     { key: 'prospeccao',     tipo: 'page', url: 'prospeccao.html',   icon: 'users',            label: 'Prospecção' },
@@ -298,10 +299,9 @@ async function aplicarPermissoesMenu() {
   const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
   const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
 
-  // 🚀 LISTA ATUALIZADA COM TODOS OS MÓDULOS (incluindo treinamento, premiada e usuarios)
   const MODULOS_MENU = [
     'clientes', 'portabilidades', 'faturas', 'suspensoes', 'gestao', 
-    'conciliacao', 'espelho', 'politicas', 'prospeccao', 
+    'conciliacao', 'espelho', 'politicas', 'relatorios', 'prospeccao', 
     'treinamento', 'premiada', 'metas', 'usuarios'
   ];
 
