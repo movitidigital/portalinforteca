@@ -1322,6 +1322,114 @@
   </div>
 </div>
 
+  <!-- ============ MODAL: EDITAR CLIENTE / VENDA ============ -->
+  <div id="modalEditarCliente" class="fixed inset-0 z-[80] hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden max-h-[92vh] flex flex-col">
+      
+      <div class="bg-[#000033] px-6 py-4 flex justify-between items-center shrink-0">
+        <div>
+          <h3 class="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-5 h-5 text-[#0e8890]"></i> Editar Cliente / Venda
+          </h3>
+          <p class="text-[10px] text-indigo-300 font-bold mt-1">Atualize os dados direto no banco de dados</p>
+        </div>
+        <button onclick="fecharModalEditarCliente()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto flex-1 space-y-5">
+        <input type="hidden" id="editClienteId">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dados Principais -->
+          <div class="md:col-span-2 lg:col-span-3">
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Nome Completo</label>
+            <input type="text" id="editNome" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">CPF</label>
+            <input type="text" id="editCpf" maxlength="11" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Data Nasc.</label>
+            <input type="date" id="editNascimento" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Data da Venda</label>
+            <input type="date" id="editDataVenda" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
+          </div>
+
+          <!-- Contatos -->
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Telefone Principal</label>
+            <input type="text" id="editTelefone" maxlength="11" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Número Provisório</label>
+            <input type="text" id="editProvisorio" maxlength="11" placeholder="Opcional" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Contato Alternativo</label>
+            <input type="text" id="editTelefoneAlt" maxlength="11" placeholder="Opcional" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
+          </div>
+
+          <!-- Venda -->
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Modalidade</label>
+            <input type="text" id="editModalidade" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Plano</label>
+            <input type="text" id="editPlano" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Consultor</label>
+            <input type="text" id="editConsultor" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold uppercase focus:outline-none focus:border-[#0e8890]">
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">IMEI</label>
+            <input type="text" id="editImei" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Valor Receita (R$)</label>
+            <input type="number" step="0.01" id="editValorReceita" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-right focus:outline-none focus:border-[#0e8890]">
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Vencimento (Dia ou CC)</label>
+            <input type="text" id="editVencimento" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+          </div>
+          
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Débito Automático</label>
+            <select id="editDebito" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold focus:outline-none focus:border-[#0e8890]">
+              <option value="NÃO">NÃO</option>
+              <option value="SIM">SIM</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+          <p class="text-[11px] text-amber-800 leading-relaxed">
+            <strong>Atenção:</strong> Ao salvar, essas informações substituirão os dados atuais no banco de dados. Certifique-se de que os campos estão corretos antes de gravar.
+          </p>
+        </div>
+
+        <div id="editClienteAlert" class="hidden text-xs p-3 rounded-xl border font-medium"></div>
+      </div>
+
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+        <button onclick="fecharModalEditarCliente()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800">Cancelar</button>
+        <button id="btnSalvarEdicaoCliente" onclick="salvarEdicaoCliente()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+          <i data-lucide="save" class="w-4 h-4"></i> Gravar Alterações
+        </button>
+      </div>
+    </div>
+  </div>
+  
 <!-- ============ MODAL USUÁRIO DA LINHA ============ -->
 <div id="modalUserLine" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -2641,7 +2749,7 @@ function renderClienteCard(c) {
     ? `(${telefone.slice(0,2)}) ${telefone.slice(2,7)}-${telefone.slice(7)}`
     : telefone;
   
-  // 🚀 NOVO: Lógica para número provisório e portabilidade
+  // 🚀 Lógica para número provisório e portabilidade
   const telProv = c.telefone_provisorio ? normalizarTelefone(c.telefone_provisorio) : null;
   const isPort = String(c.modalidade || '').toUpperCase().includes('PORT');
   const isTroca = String(c.modalidade || '').toUpperCase().includes('TROCA DE APARELHO');
@@ -2699,11 +2807,24 @@ function renderClienteCard(c) {
               </span>` : ''}
           </div>
         </div>
-        <button onclick="copiarClienteCard('${cpfFmt}')"
-          title="Copiar dados do cliente"
-          class="p-2 text-slate-400 hover:text-[#0e8890] hover:bg-slate-50 rounded-lg transition-colors shrink-0">
-          <i data-lucide="copy" class="w-4 h-4"></i>
-        </button>
+        
+        <!-- 🚀 BLOCO DE BOTÕES (Editar + Copiar) -->
+        <div class="flex items-center gap-1">
+          ${state._permissoes?.clientes === 'editar' ? `
+            <button onclick="abrirModalEditarCliente('${c.id}')"
+              title="Editar dados do cliente"
+              class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+          ` : ''}
+
+          <button onclick="copiarClienteCard('${cpfFmt}')"
+            title="Copiar dados do cliente"
+            class="p-2 text-slate-400 hover:text-[#0e8890] hover:bg-slate-50 rounded-lg transition-colors shrink-0">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+          </button>
+        </div>
+
       </div>
 
       <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
@@ -6315,6 +6436,110 @@ document.addEventListener('keydown', (e) => {
     if (e.target === palette) fecharBuscaGlobal();
   });
 })();
+
+    /* ==========================================================
+   EDITAR CLIENTE (Gestão de Base Geral)
+   ========================================================== */
+function abrirModalEditarCliente(id) {
+  // Encontra o cliente na lista atual da busca
+  const c = (state.clientesBusca || []).find(x => x.id === id);
+  if (!c) return;
+
+  // Bloqueio de segurança (frontend)
+  if (state._permissoes?.clientes !== 'editar') {
+    alert('Você não tem permissão para editar este cliente.');
+    return;
+  }
+
+  $('editClienteId').value = c.id;
+  $('editNome').value = c.nome || '';
+  $('editCpf').value = c.cpf || '';
+  $('editNascimento').value = c.data_nascimento || '';
+  $('editDataVenda').value = c.data_venda || '';
+  
+  $('editTelefone').value = c.telefone || '';
+  $('editProvisorio').value = c.telefone_provisorio || '';
+  $('editTelefoneAlt').value = c.telefone_alt || '';
+  
+  $('editModalidade').value = c.modalidade || '';
+  $('editPlano').value = c.plano || '';
+  $('editConsultor').value = c.consultor || '';
+  $('editImei').value = c.imei || '';
+  $('editValorReceita').value = c.valor_receita_contratada || '';
+  $('editVencimento').value = c.data_vencimento_base || '';
+  $('editDebito').value = c.debito_automatico || 'NÃO';
+
+  $('editClienteAlert').classList.add('hidden');
+  $('modalEditarCliente').classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function fecharModalEditarCliente() {
+  $('modalEditarCliente').classList.add('hidden');
+}
+
+async function salvarEdicaoCliente() {
+  if (state._permissoes?.clientes !== 'editar') return;
+
+  const id = $('editClienteId').value;
+  const btn = $('btnSalvarEdicaoCliente');
+  const alertBox = $('editClienteAlert');
+
+  const nome = $('editNome').value.trim();
+  if (!nome) {
+    alertBox.textContent = 'O nome é obrigatório.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+
+  const payload = {
+    nome: nome,
+    cpf: $('editCpf').value.replace(/\D/g, ''),
+    data_nascimento: $('editNascimento').value || null,
+    data_venda: $('editDataVenda').value || null,
+    telefone: $('editTelefone').value.replace(/\D/g, ''),
+    telefone_provisorio: $('editProvisorio').value.replace(/\D/g, '') || null,
+    telefone_alt: $('editTelefoneAlt').value.replace(/\D/g, '') || null,
+    modalidade: $('editModalidade').value.trim(),
+    plano: $('editPlano').value.trim(),
+    consultor: $('editConsultor').value.trim(),
+    imei: $('editImei').value.trim() || null,
+    valor_receita_contratada: parseFloat($('editValorReceita').value) || null,
+    data_vencimento_base: $('editVencimento').value.trim(),
+    debito_automatico: $('editDebito').value
+  };
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Gravando…';
+  lucide.createIcons();
+
+  try {
+    const { error } = await supabaseClient
+      .from('clientes_faturas')
+      .update(payload)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    fecharModalEditarCliente();
+    
+    // Recarrega a busca para mostrar os dados atualizados na tela
+    await buscarClientes(); 
+    
+    // Mostra um alerta de sucesso rápido
+    mostrarToastCopy('✅ Cliente atualizado com sucesso!');
+
+  } catch (err) {
+    console.error('[Editar Cliente]', err);
+    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Gravar Alterações';
+    lucide.createIcons();
+  }
+}
 </script>
 </body>
 </html>
