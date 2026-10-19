@@ -242,9 +242,9 @@
       lucide.createIcons();
 
       try {
-        // 🚀 O PULO DO GATO: JOIN com clientes_faturas para pegar o nome!
+        // 1. Busca as vendas (Sem o JOIN que deu erro)
         let query = sb.from('interacoes')
-          .select('*, clientes_faturas(nome)')
+          .select('*')
           .gte('data_venda', dataInicio)
           .lte('data_venda', dataFim);
 
@@ -252,25 +252,47 @@
           query = query.ilike('tipo_fonte', `%${origemFiltro}%`);
         }
 
-        const { data, error } = await query;
+        const { data: vendas, error } = await query;
         if (error) throw error;
 
-        // Mapeamento tratando o JOIN
-        vendasGlobais = (data || []).map(v => ({
-          id: v.id,
-          data: v.data_venda || v.created_at,
-          // Se o JOIN funcionou, pega o nome. Senão, tenta o JSON ou deixa N/A.
-          cliente: v.clientes_faturas?.nome || v.dados_originais?.nome_cliente || 'Não Informado',
-          produto: v.produto || v.plano || 'N/A',
-          vendedor: v.vendedor || 'N/A',
-          origem: v.tipo_fonte || 'N/A',
-          valor: Number(v.valor_total || 0),
-          modalidade: v.modalidade || 'N/A'
-        }));
+        // 2. Pega a lista de IDs de clientes únicos desta consulta
+        const idsClientes = [...new Set((vendas || []).map(v => v.cliente_id).filter(Boolean))];
+
+        // 3. Busca os nomes dos clientes de uma vez só (Muito rápido)
+        let mapaClientes = {};
+        if (idsClientes.length > 0) {
+          const { data: clientes } = await sb.from('clientes_faturas')
+            .select('id, nome')
+            .in('id', idsClientes);
+
+          (clientes || []).forEach(c => {
+            mapaClientes[c.id] = c.nome;
+          });
+        }
+
+        // 4. Monta os dados cruzando as informações no JavaScript
+        vendasGlobais = (vendas || []).map(v => {
+          let nomeEncontrado = mapaClientes[v.cliente_id] 
+                            || v.dados_originais?.nome_cliente 
+                            || v.dados_originais?.CLIENTE 
+                            || v.dados_originais?.nome 
+                            || 'Não Informado';
+
+          return {
+            id: v.id,
+            data: v.data_venda || v.created_at,
+            cliente: nomeEncontrado,
+            produto: v.produto || v.plano || 'N/A',
+            vendedor: v.vendedor || 'N/A',
+            origem: v.tipo_fonte || 'N/A',
+            valor: Number(v.valor_total || 0),
+            modalidade: v.modalidade || 'N/A'
+          };
+        });
 
         vendasFiltradas = [...vendasGlobais];
         
-        // Buscar dados do Mês Anterior para o Comparativo
+        // 5. Busca dados do Mês Anterior para o Comparativo
         const dtInicio = new Date(dataInicio + 'T12:00:00');
         const dtFim = new Date(dataFim + 'T12:00:00');
         const difDias = Math.ceil((dtFim - dtInicio) / (1000 * 60 * 60 * 24));
