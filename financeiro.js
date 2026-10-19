@@ -1419,48 +1419,98 @@ async function carregarPoliticas() {
 }
 
 function renderizarPoliticas() {
-  const tbody = document.getElementById('politicasTbody');
-  if (!tbody) return;
+  const container = document.getElementById('politicasTbody');
+  if (!container) return;
+
+  // Se o HTML antigo era uma tabela, vamos substituir o conteúdo da tabela por cartões
+  const tableParent = container.closest('table').parentElement.parentElement;
+  tableParent.innerHTML = `<div id="politicasListaAgrupada" class="space-y-6 p-4"></div>`;
+  const boxAgrupado = document.getElementById('politicasListaAgrupada');
 
   if (finState.politicas.lista.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Nenhuma política cadastrada no banco.</td></tr>`;
+    boxAgrupado.innerHTML = `<div class="text-center py-12 text-slate-500">Nenhuma política cadastrada no banco.</div>`;
     return;
   }
 
-  tbody.innerHTML = finState.politicas.lista.map(p => {
-    const dataVig = p.vigencia_inicio ? p.vigencia_inicio.split('-').reverse().join('/') : '—';
-    const dataFim = p.vigencia_fim ? p.vigencia_fim.split('-').reverse().join('/') : 'Atual';
-    
-    // Transforma o objeto em string para passar no botão de editar com segurança
-    const polString = encodeURIComponent(JSON.stringify(p));
+  // Agrupar por vigência
+  const grupos = {};
+  finState.politicas.lista.forEach(p => {
+    const chave = `${p.vigencia_inicio}_${p.vigencia_fim}`;
+    if (!grupos[chave]) {
+      grupos[chave] = {
+        inicio: p.vigencia_inicio,
+        fim: p.vigencia_fim,
+        regras: []
+      };
+    }
+    grupos[chave].regras.push(p);
+  });
 
-    // Cores por categoria para ficar mais visual
-    const corCat = {
-      'SERVICO_TIM': 'bg-blue-50 text-blue-700 border-blue-200',
-      'APARELHO': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      'ACESSORIO': 'bg-purple-50 text-purple-700 border-purple-200'
-    }[p.categoria] || 'bg-slate-50 text-slate-700 border-slate-200';
+  // Ordenar as vigências (mais recentes primeiro)
+  const gruposOrdenados = Object.values(grupos).sort((a, b) => {
+    return new Date(b.inicio) - new Date(a.inicio);
+  });
 
-    return `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-6 py-4">
-        <span class="px-2 py-1 rounded-md text-[10px] font-black border uppercase tracking-wider ${corCat}">
-          ${p.categoria}
-        </span>
-      </td>
-      <td class="px-6 py-4 text-xs font-bold text-slate-700">${p.faixa_atingimento}</td>
-      <td class="px-6 py-4 text-right font-black text-[#0e8890]">${(p.fator_remuneracao * 100).toFixed(2)}%</td>
-      <td class="px-6 py-4 text-xs text-slate-500">${dataVig} até ${dataFim}</td>
-      <td class="px-6 py-4 text-center">
-        <div class="flex justify-center gap-2">
-          <button onclick="abrirModalPolitica(JSON.parse(decodeURIComponent('${polString}')))" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
-            <i data-lucide="edit-2" class="w-4 h-4"></i>
-          </button>
-          <button onclick="excluirPolitica('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Excluir">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
+  // Renderizar cada caixinha
+  boxAgrupado.innerHTML = gruposOrdenados.map(g => {
+    const dataVig = g.inicio ? g.inicio.split('-').reverse().join('/') : '—';
+    const dataFim = g.fim ? g.fim.split('-').reverse().join('/') : 'Atual';
+    const isAtual = !g.fim;
+
+    return `
+      <div class="bg-white rounded-2xl border ${isAtual ? 'border-emerald-200 shadow-md' : 'border-slate-200 shadow-sm'} overflow-hidden">
+        <div class="px-6 py-4 ${isAtual ? 'bg-emerald-50' : 'bg-slate-50'} border-b border-slate-100 flex justify-between items-center">
+          <h3 class="text-sm font-black text-[#000033] flex items-center gap-2 uppercase tracking-wide">
+            <i data-lucide="calendar" class="w-4 h-4 ${isAtual ? 'text-emerald-600' : 'text-slate-500'}"></i>
+            Vigência: ${dataVig} até ${dataFim}
+          </h3>
+          ${isAtual ? `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full border border-emerald-200 uppercase">Regras Ativas</span>` : ''}
         </div>
-      </td>
-    </tr>`;
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left whitespace-nowrap">
+            <thead class="bg-white text-[10px] uppercase text-slate-400 border-b border-slate-100">
+              <tr>
+                <th class="px-6 py-3 font-black">Categoria</th>
+                <th class="px-6 py-3 font-black">Faixa</th>
+                <th class="px-6 py-3 font-black text-right">Fator</th>
+                <th class="px-6 py-3 font-black text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${g.regras.map(p => {
+                const corCat = {
+                  'SERVICO_TIM': 'bg-blue-50 text-blue-700 border-blue-200',
+                  'APARELHO': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                  'ACESSORIO': 'bg-purple-50 text-purple-700 border-purple-200'
+                }[p.categoria] || 'bg-slate-50 text-slate-700 border-slate-200';
+
+                const polString = encodeURIComponent(JSON.stringify(p));
+
+                return `<tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4">
+                    <span class="px-2 py-1 rounded-md text-[10px] font-black border uppercase tracking-wider ${corCat}">
+                      ${p.categoria}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-xs font-bold text-slate-700">${p.faixa_atingimento}</td>
+                  <td class="px-6 py-4 text-right font-black text-[#0e8890]">${(p.fator_remuneracao * 100).toFixed(2)}%</td>
+                  <td class="px-6 py-4 text-center">
+                    <div class="flex justify-center gap-2">
+                      <button onclick="abrirModalPolitica(JSON.parse(decodeURIComponent('${polString}')))" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+                        <i data-lucide="edit-2" class="w-4 h-4"></i>
+                      </button>
+                      <button onclick="excluirPolitica('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Excluir">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }).join('');
 
   if (window.lucide) lucide.createIcons();
@@ -1501,31 +1551,53 @@ async function salvarPolitica() {
   const inicio = document.getElementById('pol_inicio').value || null;
   const fim = document.getElementById('pol_fim').value || null;
 
-  if (!faixa || isNaN(fatorInput)) {
-    return alert('Preencha a faixa e o fator corretamente.');
+  if (!faixa || isNaN(fatorInput) || !inicio) {
+    return alert('Preencha a faixa, o fator e a data de início corretamente.');
   }
 
-  // Converte 15.5 (na tela) para 0.155 (no banco)
   const fator = fatorInput / 100;
-
-  const payload = {
-    categoria,
-    faixa_atingimento: faixa,
-    fator_remuneracao: fator,
-    vigencia_inicio: inicio,
-    vigencia_fim: fim
-  };
+  const payload = { categoria, faixa_atingimento: faixa, fator_remuneracao: fator, vigencia_inicio: inicio, vigencia_fim: fim };
 
   btn.disabled = true;
   btn.innerHTML = '<svg class="animate-spin w-4 h-4 inline-block" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Salvando...';
 
   try {
+    // 🚀 LÓGICA DE ENCERRAMENTO AUTOMÁTICO
+    // Se estamos criando uma NOVA política (sem ID) e não colocamos data de fim
+    if (!id && !fim) {
+      // Calcula o dia anterior ao início da nova política
+      const dataInicioObj = new Date(inicio + 'T12:00:00'); // T12 evita problemas de fuso
+      dataInicioObj.setDate(dataInicioObj.getDate() - 1);
+      const diaAnterior = dataInicioObj.toISOString().split('T')[0];
+
+      // Procura a política ativa (vigencia_fim = null) da mesma categoria e faixa
+      const { data: ativa, error: errBusca } = await supabaseClient
+        .from('financeiro_politicas_b2c')
+        .select('id')
+        .eq('categoria', categoria)
+        .eq('faixa_atingimento', faixa)
+        .is('vigencia_fim', null)
+        .maybeSingle();
+
+      if (errBusca) throw errBusca;
+
+      // Se achou uma política ativa, encerra ela na data calculada
+      if (ativa) {
+        const { error: errClose } = await supabaseClient
+          .from('financeiro_politicas_b2c')
+          .update({ vigencia_fim: diaAnterior })
+          .eq('id', ativa.id);
+          
+        if (errClose) throw errClose;
+        console.log(`[Políticas] Política anterior (${ativa.id}) encerrada em ${diaAnterior}`);
+      }
+    }
+
+    // Agora insere ou atualiza a nova política
     if (id) {
-      // Atualizar
       const { error } = await supabaseClient.from('financeiro_politicas_b2c').update(payload).eq('id', id);
       if (error) throw error;
     } else {
-      // Criar
       const { error } = await supabaseClient.from('financeiro_politicas_b2c').insert([payload]);
       if (error) throw error;
     }
@@ -1535,7 +1607,7 @@ async function salvarPolitica() {
     
     fecharModalPolitica();
     await carregarPoliticas(); 
-    alert('✅ Política salva com sucesso!');
+    alert('✅ Política salva e vigências atualizadas com sucesso!');
 
   } catch (err) {
     alert('Erro ao salvar: ' + err.message);
