@@ -1970,14 +1970,14 @@ document.getElementById('btnMenuUsuarios')?.classList.remove('hidden');
   MODULOS.forEach(m => {
     if (perms[m] === 'nenhum' && m !== 'dashboard') {
       const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
-      if (menuItem) menuItem.style.display = 'none'; 
+      if (menuItem) menuItem.style.display = 'none'; // Esconde o botão
     }
   });
 
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.classList.remove('opacity-0');
-    sidebar.classList.add('opacity-100');
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    splash.style.opacity = '0'; // Fade out
+    setTimeout(() => splash.remove(), 300); // Remove do HTML depois de 300ms
   }
 
   navegar(destinoInicial);
