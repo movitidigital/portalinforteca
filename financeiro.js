@@ -1877,7 +1877,7 @@ async function carregarDocumentoPolitica() {
 
   const cargoUsuario = state.perfil?.permissao || 'Consultor de Vendas';
 
-  // 1. Busca o documento VIGENTE para o cargo do consultor
+  // 1. Busca o documento VIGENTE
   const { data: doc, error: errDoc } = await supabaseClient
     .from('politicas_documentos')
     .select('*')
@@ -1885,45 +1885,24 @@ async function carregarDocumentoPolitica() {
     .eq('cargo_aplicavel', cargoUsuario)
     .maybeSingle();
 
-  // 2. Busca o HISTÓRICO de todos os aceites deste usuário
-  // O "politicas_documentos (titulo)" faz um JOIN para pegarmos o nome da política
+  // 2. Busca o HISTÓRICO trazendo título e conteúdo para o botão de leitura
   const { data: historico, error: errHist } = await supabaseClient
     .from('politicas_aceites')
-    .select('*, politicas_documentos (titulo)')
+    .select('*, politicas_documentos (titulo, conteudo)')
     .eq('user_id', state.user.id)
     .order('aceito_em', { ascending: false });
 
-  // 3. Verifica se a política atual (doc) está na lista de assinadas
   const jaAssinouAtiva = historico?.some(a => a.politica_id === doc?.id);
 
-  // ----------------------------------------------------
-  // LÓGICA DE EXIBIÇÃO
-  // ----------------------------------------------------
-
-  if (!doc && (!historico || historico.length === 0)) {
-    // Se não tem documento ativo e nunca assinou nada
-    divConteudo.innerHTML = `
-      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 max-w-2xl mx-auto">
-        <i data-lucide="file-x" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
-        <h3 class="text-lg font-black text-slate-800">Nenhuma política ativa</h3>
-        <p class="text-sm text-slate-500 mt-1">Não há termo de comissionamento vigente para o seu cargo (${cargoUsuario}).</p>
-      </div>
-    `;
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-
-  // --- BLOCO 1: O DOCUMENTO GRANDE (SÓ SE NÃO ASSINOU A ATIVA) ---
+  // --- BLOCO 1: O DOCUMENTO GRANDE (SÓ SE NÃO ASSINOU) ---
   if (doc && !jaAssinouAtiva) {
     containerDestaque.style.display = 'block';
     avisoEmDia.style.display = 'none';
 
     const dataVig = new Date(doc.vigencia_inicio + 'T12:00:00').toLocaleDateString('pt-BR');
 
-    // Renderiza o A4 (código antigo mantido, só ajustei a div pai)
     divConteudo.innerHTML = `
       <div id="documentoA4" class="bg-white rounded-2xl border border-slate-300 shadow-xl p-8 md:p-14 relative w-full">
-        <!-- Cabeçalho com Logo -->
         <div class="flex flex-col items-center text-center border-b-4 border-[#000033] pb-6 mb-8">
           <img src="https://portalinforteca.vercel.app/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 md:h-20 object-contain mb-4">
           <h2 class="text-2xl font-black text-[#000033] tracking-tighter uppercase">INFORTECA LTDA</h2>
@@ -1941,10 +1920,8 @@ async function carregarDocumentoPolitica() {
 
         <div class="text-sm text-slate-800 leading-relaxed mb-12 text-justify whitespace-pre-wrap font-medium">${escapeHTML(doc.conteudo)}</div>
 
-        <!-- Área de Assinatura -->
         <div class="mt-16 pt-8 border-t-2 border-slate-200">
           <h3 class="text-sm font-black uppercase text-center mb-6">Aceite do Colaborador</h3>
-          
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
             <div>
               <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">Nome Completo</label>
@@ -1959,15 +1936,14 @@ async function carregarDocumentoPolitica() {
             <button onclick="registrarAceite('${doc.id}')" id="btnAceitar" class="w-full bg-[#0e8890] hover:bg-[#0b6c72] text-white py-3 rounded-xl font-black uppercase tracking-wide shadow-md transition-colors flex items-center justify-center gap-2">
               <i data-lucide="pen-tool" class="w-5 h-5"></i> Assinar e Aceitar Termo
             </button>
-            <p class="text-[10px] text-slate-400 text-center mt-3">Ao clicar, você declara estar de acordo com as regras acima.</p>
           </div>
         </div>
       </div>
     `;
   } 
-  // --- BLOCO 2: AVISO VERDE (SE JÁ ASSINOU) ---
+  // --- BLOCO 2: AVISO VERDE ---
   else if (doc && jaAssinouAtiva) {
-    divConteudo.innerHTML = ''; // Limpa o A4
+    divConteudo.innerHTML = ''; 
     containerDestaque.style.display = 'none';
     
     avisoEmDia.style.display = 'block';
@@ -1982,7 +1958,7 @@ async function carregarDocumentoPolitica() {
     `;
   }
 
-  // --- BLOCO 3: A TABELA DE HISTÓRICO (SEMPRE QUE TIVER DADOS) ---
+  // --- BLOCO 3: A TABELA DE HISTÓRICO (SEM GEOLOCALIZAÇÃO E COM BOTÃO DE LER) ---
   if (historico && historico.length > 0) {
     containerHistorico.style.display = 'block';
     
@@ -1996,9 +1972,8 @@ async function carregarDocumentoPolitica() {
         ? '<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-emerald-50 text-emerald-700 border-emerald-200">Vigente</span>'
         : '<span class="px-2 py-1 rounded text-[10px] font-black uppercase border bg-slate-100 text-slate-500 border-slate-200">Histórico</span>';
 
-      const mapa = h.latitude && h.longitude
-        ? `<a href="https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}" target="_blank" class="text-teal-600 hover:underline flex items-center justify-center gap-1 font-bold"><i data-lucide="map-pin" class="w-3 h-3"></i> Ver Local</a>`
-        : '<span class="text-slate-400 text-xs italic">Não capturado</span>';
+      // Pega o conteúdo do termo para enviar ao modal no clique
+      const conteudoTermo = h.politicas_documentos?.conteudo || 'Conteúdo não disponível.';
 
       return `
         <tr class="hover:bg-slate-50 transition-colors">
@@ -2013,7 +1988,10 @@ async function carregarDocumentoPolitica() {
             ${badgeStatus}
           </td>
           <td class="px-6 py-3 text-center">
-            ${mapa}
+            <button onclick="abrirModalLerTermo('${escapeHTML(tituloPol)}', \`${escapeHTML(conteudoTermo).replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)" 
+              class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i> Ler Termo
+            </button>
           </td>
         </tr>
       `;
@@ -2021,6 +1999,16 @@ async function carregarDocumentoPolitica() {
   }
 
   if (window.lucide) lucide.createIcons();
+}
+
+function abrirModalLerTermo(titulo, conteudo) {
+  document.getElementById('lerTermoTitulo').textContent = titulo;
+  document.getElementById('lerTermoConteudo').innerHTML = conteudo;
+  document.getElementById('modalLerTermo').classList.remove('hidden');
+}
+
+function fecharModalLerTermo() {
+  document.getElementById('modalLerTermo').classList.add('hidden');
 }
 
 async function registrarAceite(politicaId) {
