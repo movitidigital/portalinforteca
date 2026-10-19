@@ -11,9 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- 🚀 GRÁFICOS PROFISSIONAIS -->
+  <!-- GRÁFICOS E EXPORTAÇÃO -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-  <!-- 🚀 EXPORTAÇÃO PDF/EXCEL -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
@@ -30,7 +29,6 @@
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
-  <!-- 🚀 TELA DE CARREGAMENTO -->
   <div id="splashScreen" class="fixed inset-0 z-[99999] bg-[#000033] flex flex-col items-center justify-center transition-opacity duration-300">
     <div class="bg-white p-3 rounded-2xl mb-4 shadow-xl animate-pulse">
       <img src="/LOGOINFORTECATIM2026.png" alt="Inforteca" class="h-16 w-auto object-contain" onerror="this.src=''; this.parentElement.innerHTML='<span class=\'text-[#000033] font-black text-2xl\'>INFORTECA</span>'">
@@ -38,17 +36,15 @@
     <h2 class="text-white font-black uppercase tracking-widest text-sm mb-3">Carregando Relatórios</h2>
   </div>
 
-  <!-- ============ SIDEBAR ============ -->
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex z-30 shadow-xl shrink-0"></aside>
   
-  <!-- ============ MAIN ============ -->
   <main class="flex-1 flex flex-col h-screen min-w-0 relative">
     <header id="appHeader" data-title="Relatórios" data-search="true" data-notif="true"></header>
 
     <div class="flex-1 overflow-y-auto p-4 md:p-8 relative animate-fade-in">
       
-      <!-- CONTEÚDO PRINCIPAL -->
-      <div id="relatorios-wrapper">
+      <!-- O wrapper é usado para exportar o PDF -->
+      <div id="relatorios-wrapper" class="bg-[#f4f7f6]">
         
         <!-- Cabeçalho e Filtros -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6">
@@ -58,10 +54,10 @@
               <p class="text-sm text-slate-500 mt-1">Análise de vendas, produtividade e metas.</p>
             </div>
             <div class="flex gap-2">
-              <button onclick="exportarRelatorioExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+              <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
                 <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
               </button>
-              <button onclick="exportarRelatorioPdf()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+              <button onclick="exportarPdf()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
                 <i data-lucide="file-text" class="w-4 h-4"></i> PDF
               </button>
             </div>
@@ -91,8 +87,8 @@
                 <option value="TODOS">Todos os Vendedores</option>
               </select>
             </div>
-            <button onclick="carregarRelatorios()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors ml-auto">
-              Filtrar
+            <button onclick="carregarDados()" class="bg-[#0e8890] hover:bg-[#0b6c72] text-white px-5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-colors ml-auto flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i> Filtrar
             </button>
           </div>
         </div>
@@ -107,7 +103,6 @@
 
         <!-- Conteúdo das Abas -->
         <div id="relContent-painel" class="block">
-          <!-- KPIs -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm border-l-4 border-[#0e8890]">
               <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento Total</p>
@@ -127,7 +122,6 @@
             </div>
           </div>
           
-          <!-- Gráfico de Evolução -->
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
             <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Evolução de Vendas Diárias</h3>
             <div id="chartEvolucao"></div>
@@ -144,16 +138,14 @@
                 <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500">
                   <tr>
                     <th class="px-4 py-3">Data</th>
-                    <th class="px-4 py-3">Cliente</th>
-                    <th class="px-4 py-3">Linha</th>
-                    <th class="px-4 py-3">Plano / Produto</th>
+                    <th class="px-4 py-3">Cliente / ID</th>
                     <th class="px-4 py-3">Vendedor</th>
-                    <th class="px-4 py-3">Origem</th>
+                    <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaRelatorioVendas" class="divide-y divide-slate-100">
-                  <tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+                  <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -169,11 +161,10 @@
                   <th class="px-4 py-3 text-center">Qtd Vendas</th>
                   <th class="px-4 py-3 text-right">Faturamento Total</th>
                   <th class="px-4 py-3 text-right">Ticket Médio</th>
-                  <th class="px-4 py-3 text-center">Portabilidades</th>
                 </tr>
               </thead>
               <tbody id="tabelaRelatorioVendedor" class="divide-y divide-slate-100">
-                <tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
+                <tr><td colspan="4" class="px-6 py-12 text-center text-slate-500">Carregando dados...</td></tr>
               </tbody>
             </table>
           </div>
@@ -182,11 +173,11 @@
         <div id="relContent-categorias" class="hidden">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Mix de Produtos</h3>
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Distribuição por Vendedor</h3>
               <div id="chartCategorias"></div>
             </div>
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Modalidade</h3>
+              <h3 class="text-sm font-black text-[#000033] uppercase mb-4">Vendas por Status</h3>
               <div id="chartModalidades"></div>
             </div>
           </div>
@@ -198,7 +189,7 @@
 
   <script>
     /* ==========================================================
-       CONFIGURAÇÃO SUPABASE
+       CONFIGURAÇÃO E ESTADO
        ========================================================== */
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAuNDU1OTc1LCJleHAiOjIxMDYwMzE5NzV9.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
@@ -206,15 +197,14 @@
     if (!window.supabaseClient) {
       window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
-    const supabaseClient = window.supabaseClient;
+    const sb = window.supabaseClient;
+
+    let vendasGlobais = [];
+    let chartEvolucao, chartCategorias, chartModalidades;
 
     /* ==========================================================
-       CONTROLE DE ABAS E GRÁFICOS
+       NAVEGAÇÃO DE ABAS
        ========================================================== */
-    let chartEvolucaoInstance = null;
-    let chartCategoriasInstance = null;
-    let chartModalidadesInstance = null;
-
     function trocarAbaRelatorio(aba) {
       ['painel', 'vendas', 'vendedor', 'categorias'].forEach(a => {
         const btn = document.getElementById(`relTab-${a}`);
@@ -230,25 +220,221 @@
         }
       });
       
-      // Redesenha gráficos para não ficarem "bugados" ao trocar de aba
-      if (aba === 'painel' && chartEvolucaoInstance) chartEvolucaoInstance.render();
+      if (aba === 'painel' && chartEvolucao) chartEvolucao.render();
       if (aba === 'categorias') {
-        if (chartCategoriasInstance) chartCategoriasInstance.render();
-        if (chartModalidadesInstance) chartModalidadesInstance.render();
+        if (chartCategorias) chartCategorias.render();
+        if (chartModalidades) chartModalidades.render();
       }
     }
 
-    // Função temporária apenas para visualizar os gráficos funcionando
-    function carregarRelatorios() {
-      console.log("Aguardando a definição da tabela correta para buscar os dados...");
-      document.getElementById('tabelaRelatorioVendas').innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">Aguardando definição da tabela de vendas no banco...</td></tr>';
-      document.getElementById('tabelaRelatorioVendedor').innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Aguardando definição da tabela de vendas no banco...</td></tr>';
+    /* ==========================================================
+       CARREGAMENTO DE DADOS
+       ========================================================== */
+    async function carregarDados() {
+      const dataInicio = document.getElementById('relDataInicio').value;
+      const dataFim = document.getElementById('relDataFim').value;
+      const vendedorFiltro = document.getElementById('relVendedor').value;
+
+      if (!dataInicio || !dataFim) {
+        alert('Por favor, selecione a Data Inicial e a Data Final.');
+        return;
+      }
+
+      // 🚨 ATENÇÃO: AQUI ESTÁ A TABELA DE VENDAS
+      // Como a "prospeccao_leads" não tem valores, vamos usar a "interacoes" ou "premiada_vendas_pontuadas"
+      // Troque 'interacoes' pelo nome correto se necessário
+      const TABELA_VENDAS = 'interacoes'; 
+
+      const btn = document.querySelector('button[onclick="carregarDados()"]');
+      const htmlOriginal = btn.innerHTML;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Buscando...';
+      lucide.createIcons();
+
+      try {
+        let query = sb.from(TABELA_VENDAS)
+          .select('*')
+          .gte('data_venda', dataInicio)
+          .lte('data_venda', dataFim);
+
+        if (vendedorFiltro !== 'TODOS') {
+          query = query.eq('vendedor', vendedorFiltro);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        // Mapeamento genérico assumindo colunas padrão. 
+        // Se a tabela for outra, ajuste os nomes (ex: valor, vendedor, data_venda)
+        vendasGlobais = (data || []).map(v => ({
+          id: v.id,
+          data: v.data_venda || v.created_at,
+          cliente: v.cliente_nome || v.nome || 'N/A',
+          vendedor: v.vendedor || 'N/A',
+          valor: Number(v.valor || v.total_recebido || v.valor_receita_contratada || 0),
+          status: v.status || v.conciliacao_status || 'PENDENTE',
+          modalidade: v.modalidade || 'N/A'
+        }));
+
+        processarDados();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao buscar dados: ' + err.message);
+      } finally {
+        btn.innerHTML = htmlOriginal;
+        lucide.createIcons();
+      }
     }
 
-    // Inicializa a tela
-    window.addEventListener('DOMContentLoaded', () => {
+    /* ==========================================================
+       PROCESSAMENTO E RENDERIZAÇÃO
+       ========================================================== */
+    function processarDados() {
+      // 1. KPIs
+      const totalFaturamento = vendasGlobais.reduce((acc, v) => acc + v.valor, 0);
+      const totalVendas = vendasGlobais.length;
+      const ticketMedio = totalVendas > 0 ? totalFaturamento / totalVendas : 0;
+      const totalPort = vendasGlobais.filter(v => String(v.modalidade).toUpperCase().includes('PORT')).length;
+
+      document.getElementById('kpiFaturamento').textContent = 'R$ ' + totalFaturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpiVendas').textContent = totalVendas;
+      document.getElementById('kpiTicket').textContent = 'R$ ' + ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+      document.getElementById('kpiPortabilidade').textContent = totalPort;
+
+      // 2. Tabela de Vendas
+      const tbodyVendas = document.getElementById('tabelaRelatorioVendas');
+      if (totalVendas === 0) {
+        tbodyVendas.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-500">Nenhuma venda encontrada no período.</td></tr>';
+      } else {
+        tbodyVendas.innerHTML = vendasGlobais.map(v => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 text-slate-500">${new Date(v.data).toLocaleDateString('pt-BR')}</td>
+            <td class="px-4 py-3 font-bold text-slate-800 uppercase">${v.cliente}</td>
+            <td class="px-4 py-3 text-slate-600">${v.vendedor}</td>
+            <td class="px-4 py-3 text-center"><span class="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold">${v.status}</span></td>
+            <td class="px-4 py-3 text-right font-black text-emerald-700">R$ ${v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+          </tr>
+        `).join('');
+      }
+
+      // 3. Tabela de Vendedores
+      const porVendedor = {};
+      vendasGlobais.forEach(v => {
+        if (!porVendedor[v.vendedor]) porVendedor[v.vendedor] = { qtd: 0, total: 0 };
+        porVendedor[v.vendedor].qtd += 1;
+        porVendedor[v.vendedor].total += v.valor;
+      });
+      
+      const arrVendedores = Object.keys(porVendedor).map(k => ({
+        nome: k, ...porVendedor[k], ticket: porVendedor[k].total / porVendedor[k].qtd
+      })).sort((a, b) => b.total - a.total);
+
+      document.getElementById('tabelaRelatorioVendedor').innerHTML = arrVendedores.map(v => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3 font-bold text-slate-800 uppercase">${v.nome}</td>
+          <td class="px-4 py-3 text-center">${v.qtd}</td>
+          <td class="px-4 py-3 text-right font-black text-emerald-700">R$ ${v.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+          <td class="px-4 py-3 text-right text-slate-500">R$ ${v.ticket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+        </tr>
+      `).join('');
+
+      renderizarGraficos(arrVendedores);
+    }
+
+    function renderizarGraficos(arrVendedores) {
+      // Gráfico de Evolução (Linha)
+      const porData = {};
+      vendasGlobais.forEach(v => {
+        const d = new Date(v.data).toLocaleDateString('pt-BR');
+        if (!porData[d]) porData[d] = 0;
+        porData[d] += v.valor;
+      });
+      const datasOrd = Object.keys(porData).sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+
+      if (chartEvolucao) chartEvolucao.destroy();
+      chartEvolucao = new ApexCharts(document.querySelector("#chartEvolucao"), {
+        series: [{ name: 'Faturamento', data: datasOrd.map(d => porData[d]) }],
+        chart: { type: 'area', height: 300, toolbar: { show: false } },
+        colors: ['#0e8890'],
+        xaxis: { categories: datasOrd },
+        yaxis: { labels: { formatter: (val) => 'R$ ' + val.toLocaleString('pt-BR') } },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        dataLabels: { enabled: false }
+      });
+      chartEvolucao.render();
+
+      // Gráfico de Pizza (Vendedores)
+      if (chartCategorias) chartCategorias.destroy();
+      chartCategorias = new ApexCharts(document.querySelector("#chartCategorias"), {
+        series: arrVendedores.map(v => v.total),
+        labels: arrVendedores.map(v => v.nome),
+        chart: { type: 'donut', height: 350 },
+        colors: ['#0e8890', '#4f46e5', '#f59e0b', '#ef4444', '#8b5cf6'],
+        legend: { position: 'bottom' }
+      });
+      chartCategorias.render();
+
+      // Gráfico de Pizza (Status)
+      const porStatus = {};
+      vendasGlobais.forEach(v => {
+        if (!porStatus[v.status]) porStatus[v.status] = 0;
+        porStatus[v.status]++;
+      });
+      if (chartModalidades) chartModalidades.destroy();
+      chartModalidades = new ApexCharts(document.querySelector("#chartModalidades"), {
+        series: Object.values(porStatus),
+        labels: Object.keys(porStatus),
+        chart: { type: 'pie', height: 350 },
+        colors: ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'],
+        legend: { position: 'bottom' }
+      });
+      chartModalidades.render();
+    }
+
+    /* ==========================================================
+       EXPORTAÇÃO
+       ========================================================== */
+    function exportarPdf() {
+      const element = document.getElementById('relatorios-wrapper');
+      const opt = {
+        margin: 10,
+        filename: `relatorio-inforteca-${new Date().toISOString().slice(0,10)}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    function exportarExcel() {
+      if (vendasGlobais.length === 0) return alert('Não há dados para exportar.');
+      
+      const dadosExcel = vendasGlobais.map(v => ({
+        'Data': new Date(v.data).toLocaleDateString('pt-BR'),
+        'Cliente': v.cliente,
+        'Vendedor': v.vendedor,
+        'Status': v.status,
+        'Modalidade': v.modalidade,
+        'Valor': v.valor
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dadosExcel);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vendas");
+      XLSX.writeFile(wb, `relatorio-inforteca-${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    /* ==========================================================
+       INICIALIZAÇÃO
+       ========================================================== */
+    window.addEventListener('DOMContentLoaded', async () => {
       if (window.lucide) lucide.createIcons();
       
+      // Preenche as datas com o mês atual por padrão
+      const hoje = new Date();
+      const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      document.getElementById('relDataInicio').value = primeiroDia.toISOString().slice(0, 10);
+      document.getElementById('relDataFim').value = hoje.toISOString().slice(0, 10);
+
       // Esconde a splash screen
       setTimeout(() => {
         const splash = document.getElementById('splashScreen');
@@ -257,6 +443,13 @@
           setTimeout(() => splash.remove(), 300);
         }
       }, 500);
+
+      // Aqui você pode carregar a lista de vendedores para o select (se quiser)
+      // const { data: perfis } = await sb.from('perfis').select('nome_completo');
+      // ... lógica de preencher o select de vendedores ...
+      
+      // Já carrega os dados iniciais
+      carregarDados();
     });
   </script>
 </body>
