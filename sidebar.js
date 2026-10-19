@@ -206,6 +206,8 @@
     }
   }
 
+
+   
   /* ============================================================
      COLLAPSE
      ============================================================ */
@@ -272,3 +274,39 @@
     init();
   }
 })();
+
+// Código para colocar no final do sidebar.js
+
+async function aplicarPermissoesMenu() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) return;
+
+  const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', session.user.id).single();
+  const { data: cargos } = await supabaseClient.from('cargos').select('*');
+  const meuCargo = (cargos || []).find(c => c.id === perfil?.cargo_id);
+  
+  if (meuCargo?.is_admin === true) return; // Se for admin, para aqui e mostra tudo
+
+  const cargoPerms = meuCargo ? (await supabaseClient.from('cargo_permissoes').select('*').eq('cargo_id', meuCargo.id)).data || [] : [];
+  const userPerms = (await supabaseClient.from('usuario_permissoes').select('*').eq('user_id', session.user.id)).data || [];
+
+  const MODULOS_MENU = ['clientes','portabilidades','faturas','suspensoes','gestao','conciliacao','espelho','politicas','prospeccao','metas'];
+
+  MODULOS_MENU.forEach(m => {
+    let nivel = 'nenhum';
+    const ov = userPerms.find(o => o.modulo === m);
+    if (ov) nivel = ov.nivel;
+    else {
+      const cp = cargoPerms.find(p => p.modulo === m);
+      if (cp) nivel = cp.nivel;
+    }
+
+    if (nivel === 'nenhum') {
+      const menuItem = document.querySelector(`.nav-item[data-nav="${m}"]`);
+      if (menuItem) menuItem.style.display = 'none';
+    }
+  });
+}
+
+// Chama a função assim que o sidebar for carregado
+setTimeout(aplicarPermissoesMenu, 200);
