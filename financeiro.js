@@ -1554,7 +1554,18 @@ async function abrirModalDocumento() {
 
   document.getElementById('doc_titulo').value = data?.titulo || 'Política de Comissionamento - Retail Dealer';
   document.getElementById('doc_inicio').value = data?.vigencia_inicio || new Date().toISOString().split('T')[0];
-  
+
+  // 🚀 PUXA A BASE DE REMUNERAÇÃO DINAMICAMENTE
+  const { data: planos } = await supabaseClient
+    .from('financeiro_base_remuneracao')
+    .select('*')
+    .eq('ativo', true)
+    .order('nome_plano');
+
+  const listaPlanosFormatada = (planos || []).map(p => 
+    `- ${p.nome_plano}: R$ ${Number(p.valor_referencia).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+  ).join('\n');
+
   const templatePadrao = `1. OBJETIVO
 A presente Política de Comissionamento tem por objetivo estabelecer os critérios para remuneração variável dos Consultores de Vendas da Loja TIM Dom José, promovendo transparência, meritocracia e incentivo ao desempenho comercial.
 
@@ -1570,23 +1581,7 @@ Esta política aplica-se aos Consultores de Vendas do Canal Revendas – Retail 
 
 3. BASE DE REMUNERAÇÃO
 A comissão será calculada utilizando como base a Tabela Oficial de Referência de Remuneração dos Serviços da TIM:
-- TIM Controle: R$ 55,00
-- TIM Controle Plus: R$ 75,00
-- TIM Controle Redes Sociais: R$ 75,00
-- TIM Controle Premium: R$ 86,00
-- TIM Controle Básico: R$ 45,00
-- TIM Controle Light: R$ 50,00
-- Express TIM Controle Pro: R$ 55,00
-- Express TIM Black A: R$ 119,99
-- Express TIM Black B: R$ 144,99
-- Express TIM Black C: R$ 164,99
-- TIM Black: R$ 120,00
-- TIM Black Plus: R$ 135,00
-- TIM Black Premium: R$ 160,00
-- TIM Black Família: R$ 285,00
-- TIM Black Família Plus: R$ 360,00
-- TIM Black Família Premium: R$ 410,00
-- TIM Black Família VIP: R$ 550,00
+${listaPlanosFormatada}
 
 4. INDICADORES DE QUALIDADE
 O pagamento estará condicionado ao desempenho de qualidade (safra TIM – 6 meses anteriores).
@@ -1624,6 +1619,134 @@ Esta Política entra em vigor na data de sua aprovação, revogando quaisquer po
   document.getElementById('doc_conteudo').value = data?.conteudo || templatePadrao;
   document.getElementById('modalDocumento').classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
+}
+
+/* ==========================================================
+   ADMIN: GERENCIAR BASE DE REMUNERAÇÃO
+   ========================================================== */
+async function abrirModalBaseRemuneracao() {
+  document.getElementById('modalBaseRemuneracao').classList.remove('hidden');
+  carregarBaseRemuneracao();
+}
+
+function fecharModalBaseRemuneracao() {
+  document.getElementById('modalBaseRemuneracao').classList.add('hidden');
+}
+
+async function carregarBaseRemuneracao() {
+  const tbody = document.getElementById('tabelaBaseRemuneracao');
+  tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Carregando...</td></tr>';
+
+  const { data, error } = await supabaseClient
+    .from('financeiro_base_remuneracao')
+    .select('*')
+    .order('nome_plano');
+
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-red-500">Erro: ${error.message}</td></tr>`;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum plano cadastrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => `
+    <tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-4 py-3 text-sm font-bold text-slate-700">${escapeHTML(p.nome_plano)}</td>
+      <td class="px-4 py-3 text-sm font-black text-emerald-700 text-right">
+        R$ ${Number(p.valor_referencia).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+      </td>
+      <td class="px-4 py-3 text-center">
+        <span class="inline-block px-2 py-1 rounded text-[10px] font-bold border uppercase ${p.ativo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}">
+          ${p.ativo ? 'Ativo' : 'Inativo'}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-center">
+        <div class="flex justify-center gap-2">
+          <button onclick="abrirModalPlanoRemuneracao('${p.id}')" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" title="Editar">
+            <i data-lucide="edit-2" class="w-4 h-4"></i>
+          </button>
+          <button onclick="excluirPlanoRemuneracao('${p.id}')" class="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Excluir">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+let _planoEditandoId = null;
+
+async function abrirModalPlanoRemuneracao(id = null) {
+  _planoEditandoId = id;
+  
+  if (id) {
+    const { data } = await supabaseClient.from('financeiro_base_remuneracao').select('*').eq('id', id).single();
+    if (data) {
+      document.getElementById('mpTitulo').textContent = 'Editar Plano';
+      document.getElementById('mpId').value = data.id;
+      document.getElementById('mpNome').value = data.nome_plano;
+      document.getElementById('mpValor').value = data.valor_referencia;
+      document.getElementById('mpAtivo').value = data.ativo.toString();
+    }
+  } else {
+    document.getElementById('mpTitulo').textContent = 'Novo Plano';
+    document.getElementById('mpId').value = '';
+    document.getElementById('mpNome').value = '';
+    document.getElementById('mpValor').value = '';
+    document.getElementById('mpAtivo').value = 'true';
+  }
+
+  document.getElementById('modalPlano').classList.remove('hidden');
+  document.getElementById('mpNome').focus();
+}
+
+function fecharModalPlano() {
+  document.getElementById('modalPlano').classList.add('hidden');
+}
+
+async function salvarPlanoRemuneracao() {
+  const id = document.getElementById('mpId').value;
+  const nome = document.getElementById('mpNome').value.trim();
+  const valor = parseFloat(document.getElementById('mpValor').value);
+  const ativo = document.getElementById('mpAtivo').value === 'true';
+
+  if (!nome || isNaN(valor)) {
+    return alert('Preencha o nome e o valor corretamente.');
+  }
+
+  const payload = { nome_plano: nome, valor_referencia: valor, ativo };
+
+  try {
+    if (id) {
+      const { error } = await supabaseClient.from('financeiro_base_remuneracao').update(payload).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseClient.from('financeiro_base_remuneracao').insert([payload]);
+      if (error) throw error;
+    }
+    
+    fecharModalPlano();
+    carregarBaseRemuneracao();
+  } catch (err) {
+    alert('Erro ao salvar: ' + err.message);
+  }
+}
+
+async function excluirPlanoRemuneracao(id) {
+  if (!confirm('⚠️ Excluir este plano da base de remuneração?')) return;
+
+  try {
+    const { error } = await supabaseClient.from('financeiro_base_remuneracao').delete().eq('id', id);
+    if (error) throw error;
+    carregarBaseRemuneracao();
+  } catch (err) {
+    alert('Erro ao excluir: ' + err.message);
+  }
 }
 
 function fecharModalDocumento() {
