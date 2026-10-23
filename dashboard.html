@@ -3671,22 +3671,40 @@ function calcularFaturasTIM(dataVenda, diaVenc) {
   if (!diaVenc) return ['N/A', 'N/A', 'N/A'];
 
   const diaVencNum = parseInt(diaVenc, 10);
-  const venda = new Date(dataVenda);
+  if (isNaN(diaVencNum)) return ['N/A', 'N/A', 'N/A'];
+
+  // 🛡️ BLINDAGEM CONTRA TIMEZONE (O erro estava aqui)
+  // Se dataVenda for string "YYYY-MM-DD", parseia manualmente para não voltar 1 dia no fuso BR
+  let venda;
+  if (typeof dataVenda === 'string' && dataVenda.includes('-')) {
+    const [ano, mes, dia] = dataVenda.split('T')[0].split('-').map(Number);
+    venda = new Date(ano, mes - 1, dia);
+  } else {
+    venda = new Date(dataVenda);
+  }
   if (isNaN(venda.getTime())) return ['N/A', 'N/A', 'N/A'];
+  venda.setHours(0,0,0,0); // Zera horas
 
   const regra = { 1: 7, 7: 14, 10: 19, 12: 19, 15: 25, 20: 1, 25: 1 };
   const diaRenov = regra[diaVencNum];
   if (!diaRenov) return ['N/A', 'N/A', 'N/A'];
 
+  // 🎯 CALCULA A DATA DE RENOVAÇÃO DO MÊS DA VENDA
   let dataRenov = new Date(venda.getFullYear(), venda.getMonth(), diaRenov);
-  if (diaRenov === 1) {
-    dataRenov.setMonth(dataRenov.getMonth() + 1);
-  } else if (dataRenov <= venda) {
+  dataRenov.setHours(0,0,0,0);
+
+  // Se a venda foi no dia da renovação OU depois, o ciclo pula para o próximo mês
+  if (venda >= dataRenov) {
     dataRenov.setMonth(dataRenov.getMonth() + 1);
   }
 
+  // 🎯 CALCULA A 1ª FATURA COM BASE NO CICLO CORRETO
   let dataF1 = new Date(dataRenov.getFullYear(), dataRenov.getMonth(), diaVencNum);
-  if (dataF1 <= dataRenov) dataF1.setMonth(dataF1.getMonth() + 1);
+
+  // Se o vencimento cair ANTES da renovação no mesmo mês (ex: Venc 01, Renov 07), joga pro próximo mês
+  if (dataF1 < dataRenov) {
+    dataF1.setMonth(dataF1.getMonth() + 1);
+  }
 
   const dataF2 = new Date(dataF1.getFullYear(), dataF1.getMonth() + 1, diaVencNum);
   const dataF3 = new Date(dataF1.getFullYear(), dataF1.getMonth() + 2, diaVencNum);
