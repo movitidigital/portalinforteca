@@ -4604,22 +4604,31 @@ async function processarDatasys(input) {
     }
 
     const mapa = new Map();
-    registros.forEach(r => mapa.set(`${r.cpf}|${r.telefone}|${r.data_venda}`, r));
+    registros.forEach(r => {
+      const chave = `${r.cpf}|${r.telefone}|${r.data_venda}|${r.modalidade}|${r.imei || ''}|${r.plano || ''}`;
+      mapa.set(chave, r);
+    });
     const payload = Array.from(mapa.values());
     const dupInternas = registros.length - payload.length;
 
     statusEl.textContent = `🔍 Verificando ${payload.length} registros contra a base...`;
     const cpfs = payload.map(r => r.cpf);
+    
+    // Adicionado modalidade, imei e plano na busca de existentes
     const { data: existentes, error: errCheck } = await supabaseClient
       .from('clientes_faturas')
-      .select('cpf, telefone, data_venda')
+      .select('cpf, telefone, data_venda, modalidade, imei, plano')
       .in('cpf', cpfs);
     if (errCheck) throw errCheck;
 
+    // Monta a chave exata de comparação
     const existentesSet = new Set((existentes || []).map(e =>
-      `${e.cpf}|${e.telefone}|${e.data_venda}`));
-    const novos = payload.filter(r => !existentesSet.has(`${r.cpf}|${r.telefone}|${r.data_venda}`));
-    const pulados = payload.length - novos.length;
+      `${e.cpf}|${e.telefone}|${e.data_venda}|${e.modalidade}|${e.imei || ''}|${e.plano || ''}`));
+      
+    const novos = payload.filter(r => {
+      const chave = `${r.cpf}|${r.telefone}|${r.data_venda}|${r.modalidade}|${r.imei || ''}|${r.plano || ''}`;
+      return !existentesSet.has(chave);
+    });    const pulados = payload.length - novos.length;
 
     if (!novos.length) {
       statusEl.textContent = `✅ Nada novo para importar. ${pulados} já existem.`;
