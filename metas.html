@@ -1288,8 +1288,8 @@ async function verificarAuth() {
       window.location.href = 'index.html';
     }
 
-     /* ==========================================================
-       SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO BLINDADA)
+    /* ==========================================================
+       SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO DEFINITIVA)
        ========================================================== */
     async function sincronizarVendasBanco() {
       const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
@@ -1344,10 +1344,7 @@ async function verificarAuth() {
         if (errFat) throw errFat;
 
         let totalPlanosLidos = 0;
-        let totalFiltrados = 0;
-
-        // 🚀 TRAVA POR CPF + DATA + PLANO (Evita duplicata exata, mas permite 2 planos no mesmo dia)
-        const vendasProcessadas = new Set();
+        let totalTrocasIgnoradas = 0;
 
         faturas.forEach(f => {
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(f.consultor));
@@ -1358,25 +1355,18 @@ async function verificarAuth() {
           const planoLimpo = limparNomePlano(planoOriginal);
           const modalidade = normStr(f.modalidade);
           
-          // Filtro de Trocas e E-SIM
+          // 🚀 FILTRO CORRETO: Ignora apenas Trocas e E-SIM
           if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
-            totalFiltrados++;
+            totalTrocasIgnoradas++;
             return;
           }
 
-          // Trava de Segurança
-          const chaveUnica = `${f.cpf}_${f.data_venda}_${planoLimpo}`;
-          if (vendasProcessadas.has(chaveUnica)) {
-            totalFiltrados++;
-            return; // É uma duplicata exata, ignora
-          }
-          vendasProcessadas.add(chaveUnica);
-
+          // 🚀 TRAVA DE DUPLICIDADE REMOVIDA (Agora conta todas as vendas reais)
           totalPlanosLidos++;
+          
           const dia = parseInt(f.data_venda.split('-')[2]) - 1;
           let valorFat = Number(f.valor_receita_contratada) || 0;
 
-          // Regra Família
           if (planoNorm.includes('FAMILIA')) {
             if (remunMap[planoLimpo] !== undefined) {
               valorFat = remunMap[planoLimpo];
@@ -1389,25 +1379,22 @@ async function verificarAuth() {
 
           const d = novoDiario[consultorObj.id];
 
-          // Lógica CONTROLE
           if (planoNorm.includes('CONTROLE')) {
             d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
             d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
           }
           
-          // Lógica PÓS / BLACK / FAMÍLIA
           if (planoNorm.includes('BLACK') || planoNorm.includes('POS') || planoNorm.includes('FAMILIA')) {
             d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
             d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
           }
 
-          // Portabilidade
           if (modalidade.includes('PORT')) {
             d['PORTABILIDADE'][dia] = (Number(d['PORTABILIDADE'][dia]) || 0) + 1;
           }
         });
 
-        // Busca Aparelhos e Acessórios (Mantida)
+        // Busca Aparelhos e Acessórios
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
           .select('data_venda, vendedor, categoria, valor_total')
@@ -1448,7 +1435,7 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); 
 
-        alert(`✅ Sincronização Concluída!\n\nPlanos válidos lidos: ${totalPlanosLidos}\nVendas ignoradas (duplicatas/trocas): ${totalFiltrados}\nAparelhos/Acessórios: ${totalProdutosLidos}`);
+        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas de Aparelho ignoradas: ${totalTrocasIgnoradas}`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
