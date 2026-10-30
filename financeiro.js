@@ -270,50 +270,58 @@ async function processarArquivoTim(file) {
       return parseFloat(s) || 0;
     };
 
+    // 🚀 BUSCA DE COLUNAS INTELIGENTE (ignora acentos, maiúsculas e espaços)
     const get = (l, ...keys) => {
       for (const k of keys) {
         if (l[k] != null && String(l[k]).trim() !== '') return l[k];
+        const kNorm = k.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        for (const key of Object.keys(l)) {
+          const keyNorm = key.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          if (keyNorm === kNorm && l[key] != null && String(l[key]).trim() !== '') {
+            return l[key];
+          }
+        }
       }
       return null;
     };
 
+    const apenasNumeros = (v) => String(v || '').replace(/\D/g, '');
+    
+    const limparTelefone = (v) => {
+        let t = apenasNumeros(v);
+        if (t.startsWith('55') && t.length > 10) t = t.substring(2); // Remove o 55 do início
+        return t;
+    };
+
     const payload = linhas
       .map(l => {
-        let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone');
-        
-        if (gsmRaw === 0 || gsmRaw === '0' || gsmRaw === '-' || String(gsmRaw).trim() === '') {
-            gsmRaw = null;
-        }
+        let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone', 'numero_linha', 'linha', 'numero');
+        let cpfRaw = get(l, 'cpf_cnpjcliente', 'CPF', 'cpf', 'cpf_cnpj', 'documento', 'CPF/CNPJ');
 
         return {
-          gsm: gsmRaw ? String(gsmRaw).trim() : '',
-          cpf: String(get(l, 'cpf_cnpjcliente', 'CPF', 'cpf') || '').trim(),
-          plano: String(get(l, 'plano', 'Plano') || '').trim(),
-          dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação')),
-          valor_pago: parseMoney(get(l, 'valorpagar', 'ValorPagar', 'valor_pago')),
-          motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao') || 'PAGO').trim()
+          gsm: limparTelefone(gsmRaw),
+          cpf: apenasNumeros(cpfRaw),
+          plano: String(get(l, 'plano', 'Plano', 'nome_plano', 'oferta') || '').trim(),
+          dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação', 'data_venda', 'data')),
+          valor_pago: parseMoney(get(l, 'valorpagar', 'ValorPagar', 'valor_pago', 'valor_pagar', 'vl_pago', 'comissao', 'valor_comissao', 'valor')),
+          motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao', 'motivo', 'glosa') || 'PAGO').trim()
         };
       })
       .filter(l => {
-          const planoMaiusculo = l.plano.toUpperCase();
-          const motivoMaiusculo = l.motivo_glosa.toUpperCase();
+          const planoMai = (l.plano || '').toUpperCase();
+          const motivoMai = (l.motivo_glosa || '').toUpperCase();
 
-          if (planoMaiusculo.includes('PRE TOP') || planoMaiusculo.includes('PRÉ-PAGO')) {
-              return false;
-          }
-          if (motivoMaiusculo.includes('SALDO NEGATIVO')) {
-              return false;
-          }
-          if (planoMaiusculo.includes('OUTROS')) {
-              return true; 
-          }
-          if (!l.gsm) {
-              return false;
-          }
+          // Remove planos inválidos
+          if (planoMai.includes('PRE TOP') || planoMai.includes('PRÉ-PAGO') || planoMai.includes('PRE-PAGO')) return false;
+          if (motivoMai.includes('SALDO NEGATIVO')) return false;
+
+          // Só mantém se tiver GSM ou CPF para poder conciliar
+          if (!l.gsm && !l.cpf) return false;
+
           return true;
       });
 
-    if (!payload.length) throw new Error('Nenhuma linha válida encontrada.');
+    if (!payload.length) throw new Error('Nenhuma linha válida encontrada (verifique se a planilha tem GSM ou CPF).');
 
     const mes = document.getElementById('concMes').value;
     finState.conciliacao.mes = mes;
@@ -345,7 +353,6 @@ async function processarArquivoTim(file) {
       (inter || []).forEach(i => { mapaVend[i.id] = i.vendedor; });
     }
 
-    // Atualiza estado interno
     finState.conciliacao.linhas = (detalhes || []).map(d => {
       let tag = 'OK';
       if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
@@ -361,17 +368,11 @@ async function processarArquivoTim(file) {
       };
     });
 
-    // 🚀 AJUSTES AQUI PARA MOSTRAR A TELA E OS CARDS
     document.getElementById('concDrop').style.display = 'none';
     document.getElementById('concCards').style.display = 'block';
     
-    // 1. Preenche os cards la de cima (Linhas, Match, etc)
     atualizarCardsConciliacao(finState.conciliacao.resumo);
-
-    // 2. Preenche o resumo de Canvass e Vendedores la embaixo
     renderizarResumoConsolidado(`${mes}-01`);
-
-    // 3. Limpa a mensagem de "Processando..."
     status.innerHTML = '';
 
   } catch (err) {
