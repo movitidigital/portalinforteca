@@ -1318,13 +1318,28 @@ async function verificarAuth() {
         const ultimoDia = new Date(ano, mesNum, 0).getDate();
         const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
 
-        // 2. Prepara a estrutura para receber os novos dados
+        // 🚀 2. BUSCA A BASE DE REMUNERAÇÃO OFICIAL (Para os planos Família)
+        const { data: baseRemun, error: errRemun } = await supabaseClient
+          .from('financeiro_base_remuneracao')
+          .select('nome_plano, valor_referencia')
+          .eq('ativo', true);
+          
+        if (errRemun) throw errRemun;
+
+        // Cria um mapa para busca rápida ignorando maiúsculas/minúsculas e acentos
+        const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const remunMap = {};
+        (baseRemun || []).forEach(r => {
+          remunMap[normStr(r.nome_plano)] = Number(r.valor_referencia);
+        });
+
+        // 3. Prepara a estrutura para receber os novos dados
         const novoDiario = {};
         m.consultores.forEach(c => {
           novoDiario[c.id] = criarDiarioZerado();
         });
 
-        // 3. BUSCA PLANOS TIM (Tabela clientes_faturas)
+        // 4. BUSCA PLANOS TIM (Tabela clientes_faturas)
         const { data: faturas, error: errFat } = await supabaseClient
           .from('clientes_faturas')
           .select('data_venda, consultor, plano, modalidade, valor_receita_contratada')
@@ -1338,20 +1353,32 @@ async function verificarAuth() {
           if (!consultorObj) return; // Se o vendedor não estiver na lista de metas, ignora
 
           const dia = parseInt(f.data_venda.split('-')[2]) - 1; // Pega o dia (0-30)
-          const plano = String(f.plano || '').toUpperCase();
+          const planoOriginal = String(f.plano || '');
+          const planoNorm = normStr(planoOriginal);
           const modalidade = String(f.modalidade || '').toUpperCase();
-          const valorFat = Number(f.valor_receita_contratada) || 0;
+          
+          let valorFat = Number(f.valor_receita_contratada) || 0;
+
+          // 🚀 REGRA DE OURO: Se for Família, busca na Base de Remuneração
+          if (planoNorm.includes('FAMILIA')) {
+            // Tenta achar uma chave na Base que bata com o nome do plano do cliente
+            const chaveEncontrada = Object.keys(remunMap).find(k => planoNorm.includes(k) || k.includes(planoNorm));
+            
+            if (chaveEncontrada) {
+              valorFat = remunMap[chaveEncontrada];
+            }
+          }
 
           const d = novoDiario[consultorObj.id];
 
           // Regra: Controle
-          if (plano.includes('CONTROLE')) {
+          if (planoNorm.includes('CONTROLE')) {
             d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
             d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
           }
           
           // Regra: Pós / Black
-          if (plano.includes('BLACK') || plano.includes('PÓS') || plano.includes('POS')) {
+          if (planoNorm.includes('BLACK') || planoNorm.includes('POS')) {
             d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
             d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
           }
@@ -1362,7 +1389,7 @@ async function verificarAuth() {
           }
         });
 
-        // 4. BUSCA APARELHOS E ACESSÓRIOS (Tabela interacoes)
+        // 5. BUSCA APARELHOS E ACESSÓRIOS (Tabela interacoes)
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
           .select('data_venda, vendedor, categoria, valor_total')
@@ -1387,14 +1414,14 @@ async function verificarAuth() {
           }
         });
 
-        // 5. Limpa os valores zerados (deixa vazio para não poluir a tela)
+        // 6. Limpa os valores zerados (deixa vazio para não poluir a tela)
         Object.keys(novoDiario).forEach(id => {
           LINHAS_DIARIO.forEach(key => {
             novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
           });
         });
 
-        // 6. Salva no estado e no banco de dados
+        // 7. Salva no estado e no banco de dados
         m.consultores.forEach(c => {
           c.diario = novoDiario[c.id];
         });
@@ -1402,7 +1429,7 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); // Atualiza a tela toda (diário, dashboard, etc.)
 
-        alert("✅ Vendas sincronizadas com sucesso!");
+        alert("✅ Vendas sincronizadas com sucesso!\n\n(Planos Família foram calculados usando a Base de Remuneração oficial).");
 
       } catch (err) {
         console.error('[Sincronização]', err);
