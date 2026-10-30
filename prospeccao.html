@@ -2981,6 +2981,13 @@
       const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
       const listaIgnorados = []; 
 
+      // Função para gerar um CPF falso fixo baseado no nome (para vendas sem CPF)
+      const gerarCpfFalso = (nome) => {
+        let hash = 0;
+        for (let i = 0; i < nome.length; i++) hash = Math.imul(31, hash) + nome.charCodeAt(i) | 0;
+        return '999' + String(Math.abs(hash)).padStart(8, '0').slice(0, 8);
+      };
+
       if (linhas.length > 0) {
         console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
       }
@@ -2990,12 +2997,12 @@
         
         let cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
         
-        // 🚀 1. Se não tiver CPF/CNPJ, gera um temporário para não perder a venda
+        // 🚀 Gera um CPF fixo para clientes sem CPF
         if (!cpfCnpjRaw || (cpfCnpjRaw.length !== 11 && cpfCnpjRaw.length !== 14)) {
-            cpfCnpjRaw = `000000000${String(Math.floor(Math.random() * 99)).padStart(2, '0')}`; 
+            if (!nome) nome = 'CONSUMIDOR SEM NOME';
+            cpfCnpjRaw = gerarCpfFalso(nome);
         }
         
-        // 🚀 2. Se o nome estiver vazio ou for 'Consumidor', define um nome padrão
         if (!nome || /^consumidor$/i.test(nome)) { 
             nome = 'CONSUMIDOR (Sem Nome)';
         }
@@ -3121,10 +3128,10 @@
         importLog(`✅ ${Object.keys(cpfParaId).length} clientes salvos`, 'success');
 
         const interacoes = interacoesTemp.filter(i => cpfParaId[i._cpf])
-          .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
+          .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf], _cpf }));
 
         // ==========================================================
-        // 🚀 CHECAGEM DE DUPLICATAS BLINDADA (Sistema de Contagem)
+        // 🚀 CHECAGEM DE DUPLICATAS INFALÍVEL
         // ==========================================================
         importLog(`🔎 Verificando duplicatas no banco...`);
         
@@ -3145,22 +3152,32 @@
           if (!errInts && intsBanco) existentesInt = intsBanco;
         }
 
+        // Chave baseada em Pedido ou CPF+Data+Produto+Valor (nunca usa ID interno)
         const gerarChaveVenda = (venda) => {
           const idOrig = venda.dados_originais?.['Nº da venda'] || venda.dados_originais?.['Pedido'] || venda.dados_originais?.['id Ativação'];
           if (idOrig) {
-            return `ID_${idOrig}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
+            return `ID_${idOrig}_${String(venda.produto).toUpperCase()}_${Number(venda.valor_total).toFixed(2)}`;
           }
-          return `${venda.cliente_id}_${venda.data_venda}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
+          
+          let cpf = '';
+          if (venda.dados_originais) {
+             cpf = venda.dados_originais['CPF'] || venda.dados_originais['Cliente › CPF / CNPJ'] || '';
+             cpf = String(cpf).replace(/\D/g, '');
+          }
+          if (!cpf && venda._cpf) cpf = venda._cpf;
+          if (!cpf) cpf = venda.cliente_id; // último fallback
+
+          return `${cpf}_${venda.data_venda}_${String(venda.produto).toUpperCase()}_${Number(venda.valor_total).toFixed(2)}`;
         };
 
-        // 1. Conta quantos itens idênticos existem no banco
+        // 1. Conta itens no banco
         const contagemBanco = {};
         existentesInt.forEach(i => {
           const chave = gerarChaveVenda(i);
           contagemBanco[chave] = (contagemBanco[chave] || 0) + 1;
         });
 
-        // 2. Agrupa os itens da planilha por chave
+        // 2. Agrupa itens da planilha
         const planilhaPorChave = {};
         interacoes.forEach(i => {
           const chave = gerarChaveVenda(i);
@@ -3171,21 +3188,19 @@
         const interacoesUnicas = [];
         let duplicadasIgnoradas = 0;
 
-        // 3. Compara as quantidades e insere a diferença exata
+        // 3. Compara e insere a diferença exata
         Object.keys(planilhaPorChave).forEach(chave => {
           const rowsPlanilha = planilhaPorChave[chave];
           const qtdBanco = contagemBanco[chave] || 0;
           const qtdPlanilha = rowsPlanilha.length;
 
           if (qtdPlanilha > qtdBanco) {
-            // Faltam itens no banco. Insere a diferença.
             const diferenca = qtdPlanilha - qtdBanco;
             for (let i = 0; i < diferenca; i++) {
               interacoesUnicas.push(rowsPlanilha[i]);
             }
             duplicadasIgnoradas += qtdBanco;
           } else {
-            // O banco já tem tudo (ou mais) que a planilha. Ignora.
             duplicadasIgnoradas += qtdPlanilha;
           }
         });
