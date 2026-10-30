@@ -1288,7 +1288,7 @@ async function verificarAuth() {
       window.location.href = 'index.html';
     }
 
-    /* ==========================================================
+     /* ==========================================================
        SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO BLINDADA)
        ========================================================== */
     async function sincronizarVendasBanco() {
@@ -1303,12 +1303,11 @@ async function verificarAuth() {
 
       try {
         const m = mesAtivo();
-        const nomeMesStr = m.parametros.mes; // Ex: "OUTUBRO / 2026"
+        const nomeMesStr = m.parametros.mes;
 
-        // 1. Descobre o primeiro e último dia do mês selecionado
         const MESES_MAP = { 'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12 };
         const match = nomeMesStr.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
-        if (!match) throw new Error("Formato de mês inválido. Use Ex: OUTUBRO / 2026");
+        if (!match) throw new Error("Formato de mês inválido.");
 
         const mesNome = match[1].toUpperCase();
         const ano = parseInt(match[2]);
@@ -1318,95 +1317,97 @@ async function verificarAuth() {
         const ultimoDia = new Date(ano, mesNum, 0).getDate();
         const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
 
-        // Funções de limpeza de texto
         const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-        const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim(); // Remove "2.0" do final
+        const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim();
 
-        // 🚀 2. BUSCA A BASE DE REMUNERAÇÃO OFICIAL
-        const { data: baseRemun, error: errRemun } = await supabaseClient
+        const { data: baseRemun } = await supabaseClient
           .from('financeiro_base_remuneracao')
           .select('nome_plano, valor_referencia')
           .eq('ativo', true);
-          
-        if (errRemun) throw errRemun;
 
-        // Mapa com os nomes limpos (ex: "TIM BLACK FAMILIA VIP")
         const remunMap = {};
         (baseRemun || []).forEach(r => {
           remunMap[limparNomePlano(r.nome_plano)] = Number(r.valor_referencia);
         });
 
-        // 3. Prepara a estrutura para receber os novos dados
         const novoDiario = {};
         m.consultores.forEach(c => {
           novoDiario[c.id] = criarDiarioZerado();
         });
 
-        // 4. BUSCA PLANOS TIM (Tabela clientes_faturas)
         const { data: faturas, error: errFat } = await supabaseClient
           .from('clientes_faturas')
-          .select('data_venda, consultor, plano, modalidade, valor_receita_contratada')
+          .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
           .gte('data_venda', dtInicio)
           .lte('data_venda', dtFim);
 
         if (errFat) throw errFat;
 
         let totalPlanosLidos = 0;
-        let totalFamiliaLidos = 0;
+        let totalFiltrados = 0;
+
+        // 🚀 TRAVA POR CPF + DATA + PLANO (Evita duplicata exata, mas permite 2 planos no mesmo dia)
+        const vendasProcessadas = new Set();
 
         faturas.forEach(f => {
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(f.consultor));
           if (!consultorObj) return; 
 
-          totalPlanosLidos++;
-          const dia = parseInt(f.data_venda.split('-')[2]) - 1;
-          
           const planoOriginal = String(f.plano || '');
           const planoNorm = normStr(planoOriginal);
           const planoLimpo = limparNomePlano(planoOriginal);
           const modalidade = normStr(f.modalidade);
           
+          // Filtro de Trocas e E-SIM
+          if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
+            totalFiltrados++;
+            return;
+          }
+
+          // Trava de Segurança
+          const chaveUnica = `${f.cpf}_${f.data_venda}_${planoLimpo}`;
+          if (vendasProcessadas.has(chaveUnica)) {
+            totalFiltrados++;
+            return; // É uma duplicata exata, ignora
+          }
+          vendasProcessadas.add(chaveUnica);
+
+          totalPlanosLidos++;
+          const dia = parseInt(f.data_venda.split('-')[2]) - 1;
           let valorFat = Number(f.valor_receita_contratada) || 0;
 
-          // 🚀 REGRA DE OURO: Se for Família, busca na Base de Remuneração
+          // Regra Família
           if (planoNorm.includes('FAMILIA')) {
-            totalFamiliaLidos++;
-            
-            // 1. Tenta achar o nome exato
             if (remunMap[planoLimpo] !== undefined) {
               valorFat = remunMap[planoLimpo];
             } else {
-              // 2. Se não achar exato, tenta por "includes", mas ordenando pelo nome mais longo
               const chavesOrdenadas = Object.keys(remunMap).sort((a, b) => b.length - a.length);
               const chaveEncontrada = chavesOrdenadas.find(k => planoLimpo.includes(k) || k.includes(planoLimpo));
-              
-              if (chaveEncontrada) {
-                valorFat = remunMap[chaveEncontrada];
-              }
+              if (chaveEncontrada) valorFat = remunMap[chaveEncontrada];
             }
           }
 
           const d = novoDiario[consultorObj.id];
 
-          // Regra: Controle
+          // Lógica CONTROLE
           if (planoNorm.includes('CONTROLE')) {
             d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
             d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
           }
           
-          // Regra: Pós / Black / Família
+          // Lógica PÓS / BLACK / FAMÍLIA
           if (planoNorm.includes('BLACK') || planoNorm.includes('POS') || planoNorm.includes('FAMILIA')) {
             d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
             d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
           }
 
-          // Regra: Portabilidade
+          // Portabilidade
           if (modalidade.includes('PORT')) {
             d['PORTABILIDADE'][dia] = (Number(d['PORTABILIDADE'][dia]) || 0) + 1;
           }
         });
 
-        // 5. BUSCA APARELHOS E ACESSÓRIOS (Tabela interacoes)
+        // Busca Aparelhos e Acessórios (Mantida)
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
           .select('data_venda, vendedor, categoria, valor_total')
@@ -1417,7 +1418,6 @@ async function verificarAuth() {
         if (errInt) throw errInt;
 
         let totalProdutosLidos = 0;
-
         interacoes.forEach(i => {
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(i.vendedor));
           if (!consultorObj) return;
@@ -1434,14 +1434,13 @@ async function verificarAuth() {
           }
         });
 
-        // 6. Limpa os valores zerados
+        // Limpa zeros e Salva
         Object.keys(novoDiario).forEach(id => {
           LINHAS_DIARIO.forEach(key => {
             novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
           });
         });
 
-        // 7. Salva no estado e no banco de dados
         m.consultores.forEach(c => {
           c.diario = novoDiario[c.id];
         });
@@ -1449,7 +1448,7 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); 
 
-        alert(`✅ Sincronização Concluída!\n\nPlanos TIM lidos: ${totalPlanosLidos}\nDesses, Famílias: ${totalFamiliaLidos}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}`);
+        alert(`✅ Sincronização Concluída!\n\nPlanos válidos lidos: ${totalPlanosLidos}\nVendas ignoradas (duplicatas/trocas): ${totalFiltrados}\nAparelhos/Acessórios: ${totalProdutosLidos}`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
@@ -1460,7 +1459,6 @@ async function verificarAuth() {
         lucide.createIcons();
       }
     }
-
     window.onload = async () => {
       lucide.createIcons();
       
