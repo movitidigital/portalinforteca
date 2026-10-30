@@ -1318,10 +1318,11 @@ async function verificarAuth() {
         const ultimoDia = new Date(ano, mesNum, 0).getDate();
         const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
 
-        // Função para limpar acentos e maiúsculas (para comparação segura)
+        // Funções de limpeza de texto
         const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim(); // Remove "2.0" do final
 
-        // 🚀 2. BUSCA A BASE DE REMUNERAÇÃO OFICIAL (Para os planos Família)
+        // 🚀 2. BUSCA A BASE DE REMUNERAÇÃO OFICIAL
         const { data: baseRemun, error: errRemun } = await supabaseClient
           .from('financeiro_base_remuneracao')
           .select('nome_plano, valor_referencia')
@@ -1329,9 +1330,10 @@ async function verificarAuth() {
           
         if (errRemun) throw errRemun;
 
+        // Mapa com os nomes limpos (ex: "TIM BLACK FAMILIA VIP")
         const remunMap = {};
         (baseRemun || []).forEach(r => {
-          remunMap[normStr(r.nome_plano)] = Number(r.valor_referencia);
+          remunMap[limparNomePlano(r.nome_plano)] = Number(r.valor_referencia);
         });
 
         // 3. Prepara a estrutura para receber os novos dados
@@ -1353,17 +1355,15 @@ async function verificarAuth() {
         let totalFamiliaLidos = 0;
 
         faturas.forEach(f => {
-          // 🚀 Comparação de consultor ignorando acentos e maiúsculas
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(f.consultor));
-          if (!consultorObj) {
-            // Se o nome do vendedor no banco for diferente da tela de metas, a venda é ignorada.
-            return; 
-          }
+          if (!consultorObj) return; 
 
           totalPlanosLidos++;
-          const dia = parseInt(f.data_venda.split('-')[2]) - 1; // Pega o dia (0-30)
+          const dia = parseInt(f.data_venda.split('-')[2]) - 1;
+          
           const planoOriginal = String(f.plano || '');
           const planoNorm = normStr(planoOriginal);
+          const planoLimpo = limparNomePlano(planoOriginal);
           const modalidade = normStr(f.modalidade);
           
           let valorFat = Number(f.valor_receita_contratada) || 0;
@@ -1371,13 +1371,18 @@ async function verificarAuth() {
           // 🚀 REGRA DE OURO: Se for Família, busca na Base de Remuneração
           if (planoNorm.includes('FAMILIA')) {
             totalFamiliaLidos++;
-            // Tenta achar uma chave na Base que bata com o nome do plano
-            const chaveEncontrada = Object.keys(remunMap).find(k => planoNorm.includes(k) || k.includes(planoNorm));
             
-            if (chaveEncontrada) {
-              valorFat = remunMap[chaveEncontrada]; // Usa o valor oficial
+            // 1. Tenta achar o nome exato
+            if (remunMap[planoLimpo] !== undefined) {
+              valorFat = remunMap[planoLimpo];
             } else {
-              console.warn(`[Metas] Plano Família não encontrado na Base de Remuneração: ${planoOriginal}. Usando valor do Datasys.`);
+              // 2. Se não achar exato, tenta por "includes", mas ordenando pelo nome mais longo
+              const chavesOrdenadas = Object.keys(remunMap).sort((a, b) => b.length - a.length);
+              const chaveEncontrada = chavesOrdenadas.find(k => planoLimpo.includes(k) || k.includes(planoLimpo));
+              
+              if (chaveEncontrada) {
+                valorFat = remunMap[chaveEncontrada];
+              }
             }
           }
 
@@ -1389,7 +1394,7 @@ async function verificarAuth() {
             d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
           }
           
-          // Regra: Pós / Black / Família (Garantindo que Família entre aqui)
+          // Regra: Pós / Black / Família
           if (planoNorm.includes('BLACK') || planoNorm.includes('POS') || planoNorm.includes('FAMILIA')) {
             d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
             d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
@@ -1442,10 +1447,9 @@ async function verificarAuth() {
         });
 
         await salvarEstado();
-        recalcAll(); // Atualiza a tela toda
+        recalcAll(); 
 
-        // 🚀 Relatório de Sucesso
-        alert(`✅ Sincronização Concluída!\n\nPlanos TIM lidos: ${totalPlanosLidos}\nDesses, Famílias: ${totalFamiliaLidos}\n\nAparelhos/Acessórios lidos: ${totalProdutosLidos}`);
+        alert(`✅ Sincronização Concluída!\n\nPlanos TIM lidos: ${totalPlanosLidos}\nDesses, Famílias: ${totalFamiliaLidos}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
@@ -1456,7 +1460,6 @@ async function verificarAuth() {
         lucide.createIcons();
       }
     }
-    
 
     window.onload = async () => {
       lucide.createIcons();
