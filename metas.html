@@ -357,9 +357,17 @@
 
       <!-- ABA 2: LANÇAMENTOS DIÁRIOS -->
       <div id="tab-diario" class="tab-content hidden p-6">
-        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 mb-4">
-          <h2 class="text-sm font-black text-slate-800 uppercase">Lançamentos Diários</h2>
-          <p class="text-xs text-slate-500 mt-1">Preencha os resultados do dia. Você pode digitar "0" para marcar um dia sem vendas. A linha FAT TOTAL TIM calcula automaticamente.</p>
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div>
+            <h2 class="text-sm font-black text-slate-800 uppercase">Lançamentos Diários</h2>
+            <p class="text-xs text-slate-500 mt-1">Preencha os resultados do dia. Você pode digitar "0" para marcar um dia sem vendas. A linha FAT TOTAL TIM calcula automaticamente.</p>
+          </div>
+          <!-- 🚀 NOVO BOTÃO -->
+          <button onclick="sincronizarVendasBanco()" id="btnSincronizarMetas"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wide shadow-sm transition-colors flex items-center gap-2 shrink-0">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            Puxar Vendas do Banco
+          </button>
         </div>
         <div id="gridDiario" class="space-y-6"></div>
       </div>
@@ -1280,6 +1288,132 @@ async function verificarAuth() {
       window.location.href = 'index.html';
     }
 
+    /* ==========================================================
+       SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO)
+       ========================================================== */
+    async function sincronizarVendasBanco() {
+      const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
+      if (!confirmar) return;
+
+      const btn = document.getElementById('btnSincronizarMetas');
+      const htmlOriginal = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Sincronizando...';
+      lucide.createIcons();
+
+      try {
+        const m = mesAtivo();
+        const nomeMesStr = m.parametros.mes; // Ex: "OUTUBRO / 2026"
+
+        // 1. Descobre o primeiro e último dia do mês selecionado
+        const MESES_MAP = { 'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12 };
+        const match = nomeMesStr.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
+        if (!match) throw new Error("Formato de mês inválido. Use Ex: OUTUBRO / 2026");
+
+        const mesNome = match[1].toUpperCase();
+        const ano = parseInt(match[2]);
+        const mesNum = MESES_MAP[mesNome];
+        
+        const dtInicio = `${ano}-${String(mesNum).padStart(2, '0')}-01`;
+        const ultimoDia = new Date(ano, mesNum, 0).getDate();
+        const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+
+        // 2. Prepara a estrutura para receber os novos dados
+        const novoDiario = {};
+        m.consultores.forEach(c => {
+          novoDiario[c.id] = criarDiarioZerado();
+        });
+
+        // 3. BUSCA PLANOS TIM (Tabela clientes_faturas)
+        const { data: faturas, error: errFat } = await supabaseClient
+          .from('clientes_faturas')
+          .select('data_venda, consultor, plano, modalidade, valor_receita_contratada')
+          .gte('data_venda', dtInicio)
+          .lte('data_venda', dtFim);
+
+        if (errFat) throw errFat;
+
+        faturas.forEach(f => {
+          const consultorObj = m.consultores.find(c => c.nome.toUpperCase().trim() === String(f.consultor).toUpperCase().trim());
+          if (!consultorObj) return; // Se o vendedor não estiver na lista de metas, ignora
+
+          const dia = parseInt(f.data_venda.split('-')[2]) - 1; // Pega o dia (0-30)
+          const plano = String(f.plano || '').toUpperCase();
+          const modalidade = String(f.modalidade || '').toUpperCase();
+          const valorFat = Number(f.valor_receita_contratada) || 0;
+
+          const d = novoDiario[consultorObj.id];
+
+          // Regra: Controle
+          if (plano.includes('CONTROLE')) {
+            d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
+            d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
+          }
+          
+          // Regra: Pós / Black
+          if (plano.includes('BLACK') || plano.includes('PÓS') || plano.includes('POS')) {
+            d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
+            d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
+          }
+
+          // Regra: Portabilidade
+          if (modalidade.includes('PORT')) {
+            d['PORTABILIDADE'][dia] = (Number(d['PORTABILIDADE'][dia]) || 0) + 1;
+          }
+        });
+
+        // 4. BUSCA APARELHOS E ACESSÓRIOS (Tabela interacoes)
+        const { data: interacoes, error: errInt } = await supabaseClient
+          .from('interacoes')
+          .select('data_venda, vendedor, categoria, valor_total')
+          .gte('data_venda', dtInicio)
+          .lte('data_venda', dtFim)
+          .in('categoria', ['APARELHO', 'ACESSORIO']);
+
+        if (errInt) throw errInt;
+
+        interacoes.forEach(i => {
+          const consultorObj = m.consultores.find(c => c.nome.toUpperCase().trim() === String(i.vendedor).toUpperCase().trim());
+          if (!consultorObj) return;
+
+          const dia = parseInt(i.data_venda.split('-')[2]) - 1;
+          const valor = Number(i.valor_total) || 0;
+          const d = novoDiario[consultorObj.id];
+
+          if (i.categoria === 'APARELHO') {
+            d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valor;
+          } else if (i.categoria === 'ACESSORIO') {
+            d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valor;
+          }
+        });
+
+        // 5. Limpa os valores zerados (deixa vazio para não poluir a tela)
+        Object.keys(novoDiario).forEach(id => {
+          LINHAS_DIARIO.forEach(key => {
+            novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
+          });
+        });
+
+        // 6. Salva no estado e no banco de dados
+        m.consultores.forEach(c => {
+          c.diario = novoDiario[c.id];
+        });
+
+        await salvarEstado();
+        recalcAll(); // Atualiza a tela toda (diário, dashboard, etc.)
+
+        alert("✅ Vendas sincronizadas com sucesso!");
+
+      } catch (err) {
+        console.error('[Sincronização]', err);
+        alert("❌ Erro ao sincronizar: " + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = htmlOriginal;
+        lucide.createIcons();
+      }
+    }
+    
 
     window.onload = async () => {
       lucide.createIcons();
