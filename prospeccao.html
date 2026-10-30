@@ -2992,19 +2992,17 @@
         
         if (!cpfCnpjRaw) { 
             ignorados.semCpf++; 
-            listaIgnorados.push(`${nome} - ${produto} (Sem CPF)`);
+            listaIgnorados.push(`${nome} - ${produto} (Sem Documento)`);
             continue; 
         }
-        if (cpfCnpjRaw.length === 14) { 
-            ignorados.cnpj++; 
-            listaIgnorados.push(`${nome} - ${produto} (CNPJ)`);
-            continue; 
-        }
-        if (cpfCnpjRaw.length !== 11) { 
+        
+        // 🚀 ALTERADO: Aceita CPF (11) ou CNPJ (14). O bloqueio do CNPJ foi removido.
+        if (cpfCnpjRaw.length !== 11 && cpfCnpjRaw.length !== 14) { 
             ignorados.semCpf++; 
-            listaIgnorados.push(`${nome} - ${produto} (CPF Inválido: ${cpfCnpjRaw})`);
+            listaIgnorados.push(`${nome} - ${produto} (Doc Inválido: ${cpfCnpjRaw})`);
             continue; 
         }
+        
         if (!nome || /^consumidor$/i.test(nome)) { 
             ignorados.semNome++; 
             listaIgnorados.push(`[Sem Nome] - ${produto}`);
