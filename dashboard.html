@@ -3617,10 +3617,18 @@ function linhaContratoHTML(c) {
       <td class="px-4 py-3 font-mono text-[10px] text-slate-500">${escapeHTML(normalizarCPF(c.cpf))}</td>
       <td class="px-4 py-3 font-bold text-slate-800 uppercase">${escapeHTML(capitalizar(c.nome) || '—')}</td>
       <td class="px-4 py-3 text-center">
-        <button onclick="abrirModalSaneamento(${c.id})"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter">
-          Verificação
-        </button>
+        <div class="flex items-center justify-center gap-2">
+          <button onclick="abrirModalEditarCliente('${c.id}')"
+            title="Editar dados do cliente"
+            class="bg-slate-100 hover:bg-indigo-100 text-indigo-600 p-2 rounded-lg transition-colors">
+            <i data-lucide="edit-3" class="w-4 h-4"></i>
+          </button>
+          
+          <button onclick="abrirModalSaneamento(${c.id})"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+            Verificação
+          </button>
+        </div>
       </td>
     </tr>
   `;
@@ -6717,7 +6725,11 @@ document.addEventListener('keydown', (e) => {
    EDITAR CLIENTE (Gestão de Base Geral)
    ========================================================== */
 function abrirModalEditarCliente(id) {
-  const c = (state.clientesBusca || []).find(x => String(x.id) === String(id));
+  // 🚀 Busca o cliente em QUALQUER lista que ele possa estar (Clientes, Gestão Thales, Boas-Vindas, etc)
+  const c = (state.clientesBusca || []).find(x => String(x.id) === String(id))
+         || (state.contratos || []).find(x => String(x.id) === String(id))
+         || (state.boasVindas || []).find(x => String(x.id) === String(id))
+         || (state.clientes || []).find(x => String(x.id) === String(id));
   
   if (!c) {
     alert('Erro: Cliente não encontrado na memória. Tente buscar novamente.');
@@ -6808,8 +6820,13 @@ async function salvarEdicaoCliente() {
 
     fecharModalEditarCliente();
     
-    // Recarrega a busca para mostrar os dados atualizados na tela
-    await buscarClientes(); 
+    // 🚀 Recarrega a tela correta dependendo de onde o usuário estava
+    if (!document.getElementById('view-gestao').classList.contains('hidden')) {
+      await carregarGestao(); // Atualiza a tabela do Thales e Boas-Vindas
+    } 
+    if (!document.getElementById('view-clientes').classList.contains('hidden')) {
+      await buscarClientes();
+    }
     
     // Mostra um alerta de sucesso rápido
     mostrarToastCopy('✅ Cliente atualizado com sucesso!');
