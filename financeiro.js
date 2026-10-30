@@ -270,7 +270,6 @@ async function processarArquivoTim(file) {
       return parseFloat(s) || 0;
     };
 
-    // 🚀 BUSCA DE COLUNAS INTELIGENTE (ignora acentos, maiúsculas e espaços)
     const get = (l, ...keys) => {
       for (const k of keys) {
         if (l[k] != null && String(l[k]).trim() !== '') return l[k];
@@ -286,42 +285,39 @@ async function processarArquivoTim(file) {
     };
 
     const apenasNumeros = (v) => String(v || '').replace(/\D/g, '');
-    
     const limparTelefone = (v) => {
         let t = apenasNumeros(v);
-        if (t.startsWith('55') && t.length > 10) t = t.substring(2); // Remove o 55 do início
+        if (t.startsWith('55') && t.length > 10) t = t.substring(2);
         return t;
     };
 
-    const payload = linhas
-      .map(l => {
-        let gsmRaw = get(l, 'gsm', 'GSM', 'telefone', 'Telefone', 'numero_linha', 'linha', 'numero');
-        let cpfRaw = get(l, 'cpf_cnpjcliente', 'CPF', 'cpf', 'cpf_cnpj', 'documento', 'CPF/CNPJ');
+    // 🚀 O PULO DO GATO ESTÁ AQUI: Ler a coluna 'cliente' como GSM e não filtrar nada!
+    const payload = linhas.map(l => {
+        let gsmRaw = get(l, 'cliente', 'GSM', 'gsm', 'Telefone', 'telefone');
+        let gsm = limparTelefone(gsmRaw);
+        // Se não for um telefone válido (10 ou 11 digitos), anula para não sujar a base
+        if (gsm.length < 10 || gsm.length > 11) gsm = ''; 
+
+        let cpfRaw = get(l, 'cpf_cnpjcliente', 'CPF', 'cpf');
+        let cpf = apenasNumeros(cpfRaw);
+        if (cpf.length !== 11 && cpf.length !== 14) cpf = '';
 
         return {
-          gsm: limparTelefone(gsmRaw),
-          cpf: apenasNumeros(cpfRaw),
-          plano: String(get(l, 'plano', 'Plano', 'nome_plano', 'oferta') || '').trim(),
-          dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação', 'data_venda', 'data')),
-          valor_pago: parseMoney(get(l, 'valorpagar', 'ValorPagar', 'valor_pago', 'valor_pagar', 'vl_pago', 'comissao', 'valor_comissao', 'valor')),
-          motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao', 'motivo', 'glosa') || 'PAGO').trim()
+          gsm,
+          cpf,
+          plano: String(get(l, 'plano', 'Plano') || '').trim(),
+          dt_ativacao: convertDate(get(l, 'dt_ativacao', 'Data Ativação', 'data_venda')),
+          valor_pago: parseMoney(get(l, 'valorpagar', 'ValorPagar', 'valor_pago', 'valor')),
+          motivo_glosa: String(get(l, 'desc_tipocomissao', 'tipocomissao') || 'PAGO').trim()
         };
-      })
-      .filter(l => {
-          const planoMai = (l.plano || '').toUpperCase();
-          const motivoMai = (l.motivo_glosa || '').toUpperCase();
+    }).filter(l => {
+        // Mantém a linha se tiver algum valor ou se for um bônus agregado (sem telefone)
+        if (l.valor_pago !== 0) return true;
+        if (l.gsm || l.cpf) return true;
+        return false;
+    });
 
-          // Remove planos inválidos
-          if (planoMai.includes('PRE TOP') || planoMai.includes('PRÉ-PAGO') || planoMai.includes('PRE-PAGO')) return false;
-          if (motivoMai.includes('SALDO NEGATIVO')) return false;
-
-          // Só mantém se tiver GSM ou CPF para poder conciliar
-          if (!l.gsm && !l.cpf) return false;
-
-          return true;
-      });
-
-    if (!payload.length) throw new Error('Nenhuma linha válida encontrada (verifique se a planilha tem GSM ou CPF).');
+    if (!payload.length) throw new Error('Nenhuma linha válida encontrada.');
 
     const mes = document.getElementById('concMes').value;
     finState.conciliacao.mes = mes;
@@ -342,24 +338,18 @@ async function processarArquivoTim(file) {
 
     const { data: detalhes } = await supabaseClient
       .from('financeiro_conciliacao_tim')
-      .select('id, tim_gsm, tim_valor_pago, tim_plano_oferta, tim_motivo_glosa, status_conciliacao, interacao_id')
+      .select('id, tim_gsm, tim_valor_pago, tim_plano_oferta, tim_motivo_glosa, status_conciliacao, interacao_id, vendedor')
       .eq('lote_importacao_id', rpc.lote_id)
       .order('status_conciliacao');
 
-    const ids = [...new Set((detalhes || []).filter(d => d.interacao_id).map(d => d.interacao_id))];
-    const mapaVend = {};
-    if (ids.length) {
-      const { data: inter } = await supabaseClient.from('interacoes').select('id, vendedor').in('id', ids);
-      (inter || []).forEach(i => { mapaVend[i.id] = i.vendedor; });
-    }
-
+    // 🚀 Atualiza o estado lendo direto a coluna 'vendedor' da tabela
     finState.conciliacao.linhas = (detalhes || []).map(d => {
       let tag = 'OK';
       if (d.status_conciliacao === 'GLOSADO' || d.status_conciliacao === 'NAO_ENCONTRADO_SISTEMA') tag = 'RETIDO';
       if (d.status_conciliacao === 'DIVERGENCIA_VALOR') tag = 'ESTORNO';
       return {
         id: d.id,
-        consultor: d.interacao_id ? (mapaVend[d.interacao_id] || '—') : 'Não Encontrado',
+        consultor: d.vendedor || '—',
         gsm: d.tim_gsm || '—',
         plano: d.tim_plano_oferta || '—',
         pago: parseFloat(d.tim_valor_pago || 0),
