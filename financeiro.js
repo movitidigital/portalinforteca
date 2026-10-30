@@ -61,9 +61,15 @@ function invalidarCachePoliticas() {
 }
 
 function resolverTier(metaInfo) {
-  if (metaInfo?.bateuLoja)    return 'META_LOJA';
-  if (metaInfo?.bateuPessoal) return 'META_PESSOAL';
-  return 'ATIVOU_GANHOU';
+  // 1º: Se NÃO bateu a meta pessoal, trava no fator mais baixo (ex: Ativou Ganhou)
+  // Mesmo que a loja inteira tenha batido a meta, ele não recebe o fator maior.
+  if (!metaInfo?.bateuPessoal) return 'ATIVOU_GANHOU';
+
+  // 2º: Se bateu a pessoal E a loja bateu, ele ganha o fator máximo
+  if (metaInfo?.bateuLoja) return 'META_LOJA';
+
+  // 3º: Se bateu só a meta pessoal, fica no fator intermediário
+  return 'META_PESSOAL';
 }
 
 function resolverFator(mapaPoliticas, categoria, tier) {
