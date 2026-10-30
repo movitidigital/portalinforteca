@@ -1396,7 +1396,6 @@ async function verificarAuth() {
         });
 
         // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
-        // 🚀 Agora buscamos também o dados_originais e removemos o filtro de categoria
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
           .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais')
@@ -1406,6 +1405,7 @@ async function verificarAuth() {
         if (errInt) throw errInt;
 
         let totalProdutosLidos = 0;
+        
         interacoes.forEach(i => {
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(i.vendedor));
           if (!consultorObj) return;
@@ -1414,16 +1414,34 @@ async function verificarAuth() {
           const mod = String(i.modalidade || '').toUpperCase();
           const prod = String(i.produto || '').toUpperCase();
 
-          // Identificação robusta
-          const isApar = cat === 'APARELHO' || 
-                         mod.includes('AP') || 
-                         prod.includes('CELULAR') || prod.includes('MOTOROLA') || 
-                         prod.includes('SAMSUNG') || prod.includes('XIAOMI') || 
-                         prod.includes('IPHONE') || prod.includes('SMARTPHONE');
+          // 🚀 1. DEFINIÇÃO ESTRITA DE ACESSÓRIO (Prioridade Máxima)
+          let isAcessorio = cat === 'ACESSORIO' || 
+                            mod.includes('ACESSORIO') || 
+                            prod.includes('PELICULA') || prod.includes('FILME') ||
+                            prod.includes('CAPA') || prod.includes('CASE') ||
+                            prod.includes('FONE') || prod.includes('HEADSET') ||
+                            prod.includes('CARREGADOR') || prod.includes('CABO') || prod.includes('ADAPTADOR');
 
-          const isAcessorio = cat === 'ACESSORIO' || 
-                              mod.includes('ACESSORIO') || 
-                              prod.includes('PELICULA') || prod.includes('CAPINHA');
+          // 🚀 2. DEFINIÇÃO ESTRITA DE APARELHO
+          let isApar = false;
+          if (!isAcessorio) { // Se não for acessório, testa se é aparelho
+            isApar = cat === 'APARELHO' || 
+                     mod.includes('AP +') || 
+                     mod.includes('APARELHO') || 
+                     mod.includes('TROCA DE APARELHO') ||
+                     prod.includes('CELULAR') || 
+                     prod.includes('MOTOROLA') || 
+                     prod.includes('SAMSUNG') || 
+                     prod.includes('XIAOMI') || 
+                     prod.includes('IPHONE') || 
+                     prod.includes('SMARTPHONE');
+            
+            // 🚀 Pente-fino: Se o produto tiver "SAMSUNG" mas for "PELICULA PARA SAMSUNG", desclassifica como aparelho.
+            if (prod.includes('PELICULA') || prod.includes('CAPA')) {
+              isApar = false;
+              isAcessorio = true;
+            }
+          }
 
           if (isApar || isAcessorio) {
             totalProdutosLidos++;
@@ -1431,11 +1449,11 @@ async function verificarAuth() {
             const d = novoDiario[consultorObj.id];
 
             if (isApar) {
-              // 🚀 Puxa o valor correto de dentro do JSON para aparelhos
+              // 🚀 Aparelhos: Puxa o valor do JSON ('Valor Plano' que é o valor da venda do aparelho no Datasys)
               let valorApar = Number(i.dados_originais?.['Valor Plano']) || Number(i.valor_total) || 0;
               d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
             } else if (isAcessorio) {
-              // Acessório continua usando o valor_total normal
+              // 🚀 Acessórios: Usa o valor_total (que é o valor real da venda do acessório)
               const valorAce = Number(i.valor_total) || 0;
               d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
             }
@@ -1456,7 +1474,7 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); 
 
-        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios: ${totalProdutosLidos}`);
+        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
