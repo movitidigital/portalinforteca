@@ -2979,7 +2979,7 @@
     function mapearGestaoClick(linhas) {
       const registros = [];
       const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
-      const listaIgnorados = []; // 🚀 NOVO: Para avisar quem foi ignorado
+      const listaIgnorados = []; 
 
       if (linhas.length > 0) {
         console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
@@ -2988,19 +2988,11 @@
         const nome = String(findCol(row, 'Cliente') || '').trim();
         const produto = String(findCol(row, 'Produto') || '').trim();
         
-        const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
+        let cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
         
-        if (!cpfCnpjRaw) { 
-            ignorados.semCpf++; 
-            listaIgnorados.push(`${nome} - ${produto} (Sem Documento)`);
-            continue; 
-        }
-        
-        // 🚀 ALTERADO: Aceita CPF (11) ou CNPJ (14). O bloqueio do CNPJ foi removido.
-        if (cpfCnpjRaw.length !== 11 && cpfCnpjRaw.length !== 14) { 
-            ignorados.semCpf++; 
-            listaIgnorados.push(`${nome} - ${produto} (Doc Inválido: ${cpfCnpjRaw})`);
-            continue; 
+        // 🚀 Se não tiver CPF ou se for inválido, gera um CPF temporário para não perder a venda
+        if (!cpfCnpjRaw || (cpfCnpjRaw.length !== 11 && cpfCnpjRaw.length !== 14)) {
+            cpfCnpjRaw = `000000000${String(Math.floor(Math.random() * 99)).padStart(2, '0')}`; 
         }
         
         if (!nome || /^consumidor$/i.test(nome)) { 
@@ -3033,7 +3025,6 @@
         });
       }
       
-      // 🚀 Salva a lista no estado global para mostrar no final da importação
       window._ultimosIgnorados = listaIgnorados;
 
       return { registros, ignorados };
