@@ -513,7 +513,7 @@ async function carregarVendasNaoPagas() {
 
     const fmt = v => v == null ? '—' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
     
-    // 🆕 ADICIONADO O CONTADOR DE PENDENTES
+    // Contadores
     const totalPago = data.filter(d => d.status_pagamento === 'PAGO').length;
     const totalNaoPago = data.filter(d => d.status_pagamento === 'NAO_PAGO').length;
     const totalPendente = data.filter(d => d.status_pagamento === 'PENDENTE').length; 
@@ -526,7 +526,7 @@ async function carregarVendasNaoPagas() {
         <span class="font-black text-slate-700">${data.length} linhas vendidas</span>
         <span class="text-emerald-700 font-bold">✅ ${totalPago} pagas</span>
         ${totalNaoPago > 0 ? `<span class="text-red-700 font-bold">❌ ${totalNaoPago} não pagas</span>` : ''}
-        ${totalPendente > 0 ? `<span class="text-slate-600 font-bold">⏳ ${totalPendente} pendentes</span>` : ''} <!-- 🆕 -->
+        ${totalPendente > 0 ? `<span class="text-slate-600 font-bold">⏳ ${totalPendente} pendentes</span>` : ''}
         <span class="text-orange-700 font-bold">⚠️ ${totalGlosado} glosadas</span>
         <span class="text-blue-700 font-bold">↩️ ${totalEstornado} estornadas</span>
         <span class="ml-auto font-black text-slate-900">Total TIM: R$ ${fmt(totalRecebidoGeral)}</span>
@@ -542,7 +542,6 @@ async function carregarVendasNaoPagas() {
         'PENDENTE':   '<span class="px-2 py-1 rounded text-xs font-black bg-slate-100 text-slate-600">⏳ PENDENTE</span>'
       }[v.status_pagamento] || '—';
 
-      // 🆕 AJUSTE NA COR DA BORDA PARA O PENDENTE FICAR CINZA
       const cardBorder = v.status_pagamento === 'NAO_PAGO' ? 'border-l-red-500 bg-red-50/30'
                        : v.status_pagamento === 'GLOSADO'  ? 'border-l-orange-500 bg-orange-50/30'
                        : v.status_pagamento === 'ESTORNADO' ? 'border-l-blue-500 bg-blue-50/30'
@@ -566,8 +565,13 @@ async function carregarVendasNaoPagas() {
               </div>`;
           }).join('');
 
+      // 🚀 AJUSTE: Telefone provisório clicável e com efeito hover
       const provInfo = v.telefone_provisorio
-        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5">⚡ prov: ${v.telefone_provisorio}</div>`
+        ? `<div class="font-mono text-[10px] text-amber-600 mt-0.5 flex items-center gap-1 cursor-pointer hover:underline hover:text-amber-700 transition-colors w-fit" 
+               onclick="copiarTexto('${v.telefone_provisorio}', this)" 
+               title="Clique para copiar o provisório">
+             ⚡ prov: ${v.telefone_provisorio}
+           </div>`
         : '';
 
       return `
@@ -576,7 +580,14 @@ async function carregarVendasNaoPagas() {
             <div class="flex-1 min-w-0">
               <div class="font-bold text-sm text-slate-800 truncate">${v.nome || '—'}</div>
               <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                <span class="font-mono text-xs text-slate-500">${v.telefone || '—'}</span>
+                
+                <!-- 🚀 AJUSTE: Telefone principal clicável e com efeito hover -->
+                <span class="font-mono text-xs text-slate-500 flex items-center gap-1 cursor-pointer hover:text-[#0e8890] hover:underline transition-colors" 
+                      onclick="copiarTexto('${v.telefone}', this)" 
+                      title="Clique para copiar o telefone">
+                  ${v.telefone || '—'}
+                </span>
+
                 <span class="text-xs text-slate-400">${v.plano || '—'}</span>
                 <span class="text-[10px] font-bold text-slate-500 uppercase">${v.consultor || '—'}</span>
               </div>
