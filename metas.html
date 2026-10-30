@@ -1320,6 +1320,7 @@ async function verificarAuth() {
         const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
         const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim();
 
+        // 1. BASE DE REMUNERAÇÃO (Família)
         const { data: baseRemun } = await supabaseClient
           .from('financeiro_base_remuneracao')
           .select('nome_plano, valor_referencia')
@@ -1335,6 +1336,7 @@ async function verificarAuth() {
           novoDiario[c.id] = criarDiarioZerado();
         });
 
+        // 2. VENDAS DE PLANOS (clientes_faturas)
         const { data: faturas, error: errFat } = await supabaseClient
           .from('clientes_faturas')
           .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
@@ -1355,18 +1357,17 @@ async function verificarAuth() {
           const planoLimpo = limparNomePlano(planoOriginal);
           const modalidade = normStr(f.modalidade);
           
-          // 🚀 FILTRO CORRETO: Ignora apenas Trocas e E-SIM
+          // Ignora Trocas e E-SIM
           if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
             totalTrocasIgnoradas++;
             return;
           }
 
-          // 🚀 TRAVA DE DUPLICIDADE REMOVIDA (Agora conta todas as vendas reais)
           totalPlanosLidos++;
-          
           const dia = parseInt(f.data_venda.split('-')[2]) - 1;
           let valorFat = Number(f.valor_receita_contratada) || 0;
 
+          // Regra Família
           if (planoNorm.includes('FAMILIA')) {
             if (remunMap[planoLimpo] !== undefined) {
               valorFat = remunMap[planoLimpo];
@@ -1394,13 +1395,13 @@ async function verificarAuth() {
           }
         });
 
-        // Busca Aparelhos e Acessórios
+        // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
+        // 🚀 Agora buscamos também o dados_originais e removemos o filtro de categoria
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
-          .select('data_venda, vendedor, categoria, valor_total')
+          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais')
           .gte('data_venda', dtInicio)
-          .lte('data_venda', dtFim)
-          .in('categoria', ['APARELHO', 'ACESSORIO']);
+          .lte('data_venda', dtFim);
 
         if (errInt) throw errInt;
 
@@ -1409,15 +1410,35 @@ async function verificarAuth() {
           const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(i.vendedor));
           if (!consultorObj) return;
 
-          totalProdutosLidos++;
-          const dia = parseInt(i.data_venda.split('-')[2]) - 1;
-          const valor = Number(i.valor_total) || 0;
-          const d = novoDiario[consultorObj.id];
+          const cat = String(i.categoria || '').toUpperCase();
+          const mod = String(i.modalidade || '').toUpperCase();
+          const prod = String(i.produto || '').toUpperCase();
 
-          if (i.categoria === 'APARELHO') {
-            d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valor;
-          } else if (i.categoria === 'ACESSORIO') {
-            d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valor;
+          // Identificação robusta
+          const isApar = cat === 'APARELHO' || 
+                         mod.includes('AP') || 
+                         prod.includes('CELULAR') || prod.includes('MOTOROLA') || 
+                         prod.includes('SAMSUNG') || prod.includes('XIAOMI') || 
+                         prod.includes('IPHONE') || prod.includes('SMARTPHONE');
+
+          const isAcessorio = cat === 'ACESSORIO' || 
+                              mod.includes('ACESSORIO') || 
+                              prod.includes('PELICULA') || prod.includes('CAPINHA');
+
+          if (isApar || isAcessorio) {
+            totalProdutosLidos++;
+            const dia = parseInt(i.data_venda.split('-')[2]) - 1;
+            const d = novoDiario[consultorObj.id];
+
+            if (isApar) {
+              // 🚀 Puxa o valor correto de dentro do JSON para aparelhos
+              let valorApar = Number(i.dados_originais?.['Valor Plano']) || Number(i.valor_total) || 0;
+              d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
+            } else if (isAcessorio) {
+              // Acessório continua usando o valor_total normal
+              const valorAce = Number(i.valor_total) || 0;
+              d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
+            }
           }
         });
 
@@ -1435,7 +1456,7 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); 
 
-        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas de Aparelho ignoradas: ${totalTrocasIgnoradas}`);
+        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios: ${totalProdutosLidos}`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
