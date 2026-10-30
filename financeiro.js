@@ -89,6 +89,20 @@ function fmtMesExtenso(iso) {
   const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   return `${meses[+m - 1]} / ${y}`;
 }
+function calcularMesPagamento(iso) {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  let mes = parseInt(m) + 2; // Adiciona 2 meses (M+2)
+  let ano = parseInt(y);
+  
+  if (mes > 12) {
+    mes -= 12;
+    ano += 1;
+  }
+  
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  return `${meses[mes - 1]} / ${ano}`;
+}
 
 function formatarMesMeta(competencia) {
   const [y, m] = competencia.split('-');
@@ -965,7 +979,12 @@ async function renderizarEspelho() {
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
           <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
-          <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(e.mes_competencia_venda)}</p>
+          <p class="text-sm opacity-90 mt-1 flex items-center gap-2 flex-wrap">
+            <span>Competência: ${fmtMes(e.mes_competencia_venda)}</span>
+            <span class="bg-white/20 border border-white/30 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shadow-sm">
+              Pagamento em: ${calcularMesPagamento(e.mes_competencia_venda)}
+            </span>
+          </p>
           <p class="text-[10px] uppercase font-bold mt-1 opacity-70">${e.status_espelho || 'RASCUNHO'}</p>
         </div>
         
@@ -1289,7 +1308,12 @@ async function renderizarPrevisao() {
             <p class="text-[10px] font-black uppercase tracking-widest opacity-70">Espelho de Comissão</p>
           </div>
           <h2 class="text-2xl font-black mt-1">${vendedor}</h2>
-          <p class="text-sm opacity-90 mt-1">Competência: ${fmtMes(competencia + '-01')}</p>
+          <p class="text-sm opacity-90 mt-1 flex items-center gap-2 flex-wrap">
+            <span>Competência: ${fmtMes(competencia + '-01')}</span>
+            <span class="bg-amber-400 text-amber-900 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+              Pagamento em: ${calcularMesPagamento(competencia + '-01')}
+            </span>
+          </p>
         </div>
       </div>
     </div>
@@ -2436,7 +2460,11 @@ async function exportarEspelhoPdf() {
           <td style="text-align:right; vertical-align:middle;">
             <div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase;">Espelho de Comissão</div>
             <div style="font-size:20px; font-weight:900; color:#000033; margin-top:4px;">${vendedor}</div>
-            <div style="font-size:11px; color:#64748b; margin-top:3px;">Competência: <strong>${competencia}</strong></div>
+            <div style="font-size:11px; color:#64748b; margin-top:3px;">
+              Competência: <strong>${competencia}</strong> 
+              &nbsp;|&nbsp; 
+              Pagamento previsto: <strong style="color:#0e8890;">${calcularMesPagamento(e.mes_competencia_venda)}</strong>
+            </div>
           </td>
         </tr>
       </table>
