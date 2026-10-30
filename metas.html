@@ -1396,7 +1396,6 @@ async function verificarAuth() {
         });
 
         // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
-        // 🚀 Adicionado o campo 'imei' no select
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
           .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei')
@@ -1421,18 +1420,22 @@ async function verificarAuth() {
           // 🚀 1. DEFINIÇÃO ESTRITA DE ACESSÓRIO
           let isAcessorio = cat === 'ACESSORIO' || 
                             mod.includes('ACESSORIO') || 
+                            mod.includes('VENDA GESTAO CLICK') || // 👈 Se é do GC, puxa como acessório
                             prod.includes('PELICULA') || 
                             prod.includes('FILME') ||
                             prod.includes('CAPA') || 
                             prod.includes('CASE') ||
                             prod.includes('FONE') || 
+                            prod.includes('HEADPHONE') || // 👈 Novo
+                            prod.includes('EARBUD') ||    // 👈 Novo
+                            prod.includes('AUDIO') ||     // 👈 Novo
                             prod.includes('HEADSET') ||
                             prod.includes('CARREGADOR') || 
                             prod.includes('CABO') || 
                             prod.includes('ADAPTADOR') ||
-                            prod.includes('SMARTBAND') || // Bloqueio explícito
-                            prod.includes('SMARTWATCH') || // Bloqueio explícito
-                            prod.includes('RELOGIO'); // Bloqueio explícito
+                            prod.includes('SMARTBAND') || 
+                            prod.includes('SMARTWATCH') || 
+                            prod.includes('RELOGIO');
 
           // 🚀 2. DEFINIÇÃO ESTRITA DE SERVIÇO
           let isServico = mod.includes('SERVICO') || 
@@ -1459,12 +1462,12 @@ async function verificarAuth() {
                      prod.includes('SMARTPHONE');
             
             // Pente-fino: Se o produto tiver palavras de acessório, desclassifica como aparelho
-            if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE')) {
+            if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
               isApar = false;
               isAcessorio = true;
             }
           } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
-            // 🚀 Se veio como APARELHO mas não tem IMEI (ex: Smartband), joga para acessório
+            // Se veio como APARELHO mas não tem IMEI (ex: Smartband), joga para acessório
             isAcessorio = true;
           }
 
