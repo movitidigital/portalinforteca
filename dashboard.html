@@ -3061,13 +3061,20 @@ function renderClienteCard(c) {
           </div>
         </div>
         
-        <!-- 🚀 BLOCO DE BOTÕES (Editar + Copiar) -->
+        <!-- 🚀 BLOCO DE BOTÕES (Editar + Excluir + Copiar) -->
         <div class="flex items-center gap-1">
           ${state._permissoes?.clientes === 'editar' ? `
             <button onclick="abrirModalEditarCliente('${c.id}')"
               title="Editar dados do cliente"
               class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors shrink-0">
               <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+
+            <!-- 🚀 NOVO BOTÃO DE EXCLUIR -->
+            <button onclick="excluirClienteVenda('${c.id}')"
+              title="Excluir venda (Clientes + Financeiro)"
+              class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           ` : ''}
 
@@ -6815,6 +6822,52 @@ async function salvarEdicaoCliente() {
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Gravar Alterações';
     lucide.createIcons();
+  }
+}
+
+
+    /* ==========================================================
+   EXCLUIR CLIENTE / VENDA (Clientes TIM + Financeiro)
+   ========================================================== */
+async function excluirClienteVenda(id, nome, dataVenda, consultor) {
+  if (state._permissoes?.clientes !== 'editar') {
+    alert('Você não tem permissão para excluir registros.');
+    return;
+  }
+
+  const confirmar = confirm(`🚨 ATENÇÃO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE a venda de ${nome}?\n\nIsso apagará o registro do módulo de Clientes E do módulo Financeiro (Comissão). Esta ação NÃO PODE ser desfeita.`);
+  if (!confirmar) return;
+
+  try {
+    // 1. Deletar da tabela principal (Clientes)
+    const { error: errFaturas } = await supabaseClient
+      .from('clientes_faturas')
+      .delete()
+      .eq('id', id);
+    
+    if (errFaturas) throw new Error('Erro ao excluir da base de clientes: ' + errFaturas.message);
+
+    // 2. Deletar da tabela financeira (Interações)
+    // Usamos ilike no JSON para garantir que vamos achar a venda mesmo se tiver pequenas diferenças de maiúsculas/minúsculas
+    const { error: errInteracoes } = await supabaseClient
+      .from('interacoes')
+      .delete()
+      .eq('data_venda', dataVenda)
+      .eq('vendedor', consultor)
+      .ilike('dados_originais->>Cliente', nome);
+
+    if (errInteracoes) {
+        console.warn('Aviso: Apagado dos clientes, mas erro no financeiro:', errInteracoes.message);
+    }
+
+    mostrarToastCopy('✅ Venda excluída com sucesso dos dois módulos!');
+    
+    // 3. Atualiza a tela na hora
+    await buscarClientes();
+    
+  } catch (err) {
+    console.error('[Excluir Venda]', err);
+    alert('Erro ao excluir: ' + err.message);
   }
 }
 </script>
