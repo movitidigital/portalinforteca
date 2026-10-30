@@ -3020,7 +3020,7 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    async function processarImportacao() {
+async function processarImportacao() {
       const arquivo = state.arquivoSelecionado;
       const tipo = state.tipoImportacao;
       if (!arquivo || !tipo) return;
@@ -3103,14 +3103,71 @@
         const interacoes = interacoesTemp.filter(i => cpfParaId[i._cpf])
           .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
 
-        importLog(`📝 Inserindo ${interacoes.length} interações...`);
+        // ==========================================================
+        // 🚀 NOVO: CHECAGEM DE DUPLICATAS (NÃO DUPLICA O QUE JÁ EXISTE)
+        // ==========================================================
+        importLog(`🔎 Verificando duplicatas no banco...`);
+        
+        const idsClientes = Object.values(cpfParaId);
+        const datas = registros.map(r => r.dataVenda).sort();
+        const dtInicio = datas[0];
+        const dtFim = datas[datas.length - 1];
+
+        let existentesInt = [];
+        if (idsClientes.length > 0) {
+          const { data: intsBanco, error: errInts } = await supabaseClient
+            .from('interacoes')
+            .select('id, cliente_id, data_venda, produto, valor_total, dados_originais')
+            .gte('data_venda', dtInicio)
+            .lte('data_venda', dtFim)
+            .in('cliente_id', idsClientes);
+            
+          if (!errInts && intsBanco) existentesInt = intsBanco;
+        }
+
+        // Gera as "impressões digitais" do que já está no banco
+        const chavesExistentes = new Set();
+        existentesInt.forEach(i => {
+          const idOrig = i.dados_originais?.['Nº da venda'] || i.dados_originais?.['Pedido'] || i.dados_originais?.['id Ativação'];
+          const chave = idOrig ? `ID_${idOrig}` : `${i.cliente_id}_${i.data_venda}_${String(i.produto).toUpperCase()}_${i.valor_total}`;
+          chavesExistentes.add(chave);
+        });
+
+        const interacoesUnicas = [];
+        const chavesPlanilha = new Set(); 
+        let duplicadasIgnoradas = 0;
+
+        // Filtra a lista da planilha
+        interacoes.forEach(i => {
+          const idOrig = i.dados_originais?.['Nº da venda'] || i.dados_originais?.['Pedido'] || i.dados_originais?.['id Ativação'];
+          const chave = idOrig ? `ID_${idOrig}` : `${i.cliente_id}_${i.data_venda}_${String(i.produto).toUpperCase()}_${i.valor_total}`;
+
+          // Se já existe no banco ou se já foi adicionada nesta mesma planilha
+          if (chavesExistentes.has(chave) || chavesPlanilha.has(chave)) {
+            duplicadasIgnoradas++;
+          } else {
+            chavesPlanilha.add(chave);
+            interacoesUnicas.push(i);
+          }
+        });
+
+        importLog(`✅ ${interacoesUnicas.length} vendas novas encontradas · ⏭️ ${duplicadasIgnoradas} duplicadas ignoradas`, 'success');
+
+        // INSERE APENAS O QUE É NOVO
+        importLog(`📝 Salvando ${interacoesUnicas.length} novas interações...`);
         let inseridas = 0;
-        for (let i = 0; i < interacoes.length; i += TAM) {
-          const lote = interacoes.slice(i, i + TAM);
+        for (let i = 0; i < interacoesUnicas.length; i += TAM) {
+          const lote = interacoesUnicas.slice(i, i + TAM);
           const { error } = await supabaseClient.from('interacoes').insert(lote);
           if (!error) inseridas += lote.length;
         }
-        importLog(`✅ ${inseridas} interações`, 'success');
+        
+        if (inseridas > 0) {
+          importLog(`✅ ${inseridas} interações inseridas com sucesso`, 'success');
+        } else {
+          importLog(`ℹ️ Nenhuma interação nova para inserir (todas já existiam)`, 'info');
+        }
+        // ==========================================================
 
         // Marca RETORNOU
         const ids = Object.values(cpfParaId);
@@ -3141,7 +3198,7 @@
         }
 
         importLog(`🎉 Concluído!`, 'success');
-        showToast(`${inseridas} interações importadas`, 'success');
+        showToast(`${inseridas} interações novas importadas`, 'success');
         setTimeout(() => { fecharImportacao(); recarregarTudo(); }, 2000);
       } catch (err) {
         console.error('[Import]', err);
