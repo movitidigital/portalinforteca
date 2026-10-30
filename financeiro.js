@@ -991,15 +991,29 @@ async function renderizarEspelho() {
         <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_servicos)}</p>
         <p class="text-[10px] text-slate-400 mt-1">${servicos.length} itens</p>
       </div>
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
-        <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">
-          ${acessorios.length > 0 
-            ? `Base R$ ${fmt(baseAcessorios)} × ${(fatorAcessorios * 100).toFixed(2)}%` 
-            : `0 itens`}
-        </p>
-      </div>
+      ${(() => {
+        const [anoAtual, mesAtual] = e.mes_competencia_venda.substring(0, 7).split('-');
+        let proxMes = parseInt(mesAtual) + 1;
+        let proxAno = parseInt(anoAtual);
+        if (proxMes > 12) { proxMes = 1; proxAno++; }
+        const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const nomeMesAviso = `${nomesMeses[proxMes - 1]}/${proxAno}`;
+        
+        const dataInicioProxMes = new Date(proxAno, proxMes - 1, 1);
+        const hoje = new Date();
+        const mostrarAviso = acessorios.length === 0 && hoje < dataInicioProxMes;
+
+        return `
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
+          <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_acessorios)}</p>
+          <p class="text-[10px] mt-1 ${mostrarAviso ? 'text-amber-600 font-bold' : 'text-slate-400'}">
+            ${acessorios.length > 0 
+              ? `Base R$ ${fmt(baseAcessorios)} × ${(fatorAcessorios * 100).toFixed(2)}%` 
+              : (mostrarAviso ? `Aguardando vendas de ${nomeMesAviso}` : `0 itens`)}
+          </p>
+        </div>`;
+      })()}
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(e.total_comissao_aparelhos)}</p>
@@ -1298,13 +1312,29 @@ async function renderizarPrevisao() {
         <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoServicos)}</p>
         <p class="text-[10px] text-slate-400 mt-1">${p.qtd_servicos} itens</p>
       </div>
-      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
-        <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAcessorios)}</p>
-        <p class="text-[10px] text-slate-400 mt-1">
-          ${valorAcessoriosVendidos > 0 ? `Base R$ ${fmt(valorAcessoriosVendidos)} × ${(fatorAcessorio * 100).toFixed(2)}%` : `${p.qtd_acessorios || 0} itens`}
-        </p>
-      </div>
+      ${(() => {
+        const [anoAtual, mesAtual] = competencia.split('-');
+        let proxMes = parseInt(mesAtual) + 1;
+        let proxAno = parseInt(anoAtual);
+        if (proxMes > 12) { proxMes = 1; proxAno++; }
+        const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const nomeMesAviso = `${nomesMeses[proxMes - 1]}/${proxAno}`;
+        
+        const dataInicioProxMes = new Date(proxAno, proxMes - 1, 1);
+        const hoje = new Date();
+        const mostrarAviso = valorAcessoriosVendidos === 0 && hoje < dataInicioProxMes;
+
+        return `
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acessórios</p>
+          <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAcessorios)}</p>
+          <p class="text-[10px] mt-1 ${mostrarAviso ? 'text-amber-600 font-bold' : 'text-slate-400'}">
+            ${valorAcessoriosVendidos > 0 
+              ? `Base R$ ${fmt(valorAcessoriosVendidos)} × ${(fatorAcessorio * 100).toFixed(2)}%` 
+              : (mostrarAviso ? `Aguardando vendas de ${nomeMesAviso}` : `${p.qtd_acessorios || 0} itens`)}
+          </p>
+        </div>`;
+      })()}
       <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Aparelhos</p>
         <p class="text-xl font-black text-slate-800">R$ ${fmt(comissaoAparelhos)}</p>
