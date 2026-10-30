@@ -2982,21 +2982,28 @@ async function buscarClientes() {
         if (imeis.length > 0) {
           const { data: vendasApar } = await supabaseClient
             .from('interacoes')
-            .select('imei, valor_total, categoria, modalidade, produto')
+            .select('imei, valor_total, categoria, modalidade, produto, dados_originais') // 👈 Adicionado dados_originais
             .in('imei', imeis);
-            // 🚀 Removido o .eq('categoria', 'APARELHO')
 
           if (vendasApar) {
             const mapaApar = {};
             vendasApar.forEach(v => {
-              // 🚀 Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
+              // Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
               const isApar = v.categoria === 'APARELHO' || 
                              String(v.modalidade || '').toUpperCase().includes('AP') || 
                              String(v.produto || '').toUpperCase().includes('CELULAR');
 
               if (isApar) {
+                // 🚀 Puxa o valor correto de dentro do JSON do Datasys
+                let valorApar = Number(v.dados_originais?.['Valor Plano']) || 0;
+                
+                // Se por algum motivo o JSON não tiver o valor, usa o valor_total
+                if (valorApar === 0) {
+                  valorApar = Number(v.valor_total) || 0;
+                }
+
                 if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-                mapaApar[v.imei] += Number(v.valor_total) || 0;
+                mapaApar[v.imei] += valorApar;
               }
             });
             
@@ -3534,21 +3541,28 @@ async function carregarContratosThales() {
     if (imeis.length > 0) {
       const { data: vendasApar } = await supabaseClient
         .from('interacoes')
-        .select('imei, valor_total, categoria, modalidade, produto')
+        .select('imei, valor_total, categoria, modalidade, produto, dados_originais') // 👈 Adicionado dados_originais
         .in('imei', imeis);
-        // 🚀 REMOVIDO O .eq('categoria', 'APARELHO') DAQUI!
 
       if (vendasApar) {
         const mapaApar = {};
         vendasApar.forEach(v => {
-          // 🚀 Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
+          // Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
           const isApar = v.categoria === 'APARELHO' || 
                          String(v.modalidade || '').toUpperCase().includes('AP') || 
                          String(v.produto || '').toUpperCase().includes('CELULAR');
 
           if (isApar) {
+            // 🚀 Puxa o valor correto de dentro do JSON do Datasys
+            let valorApar = Number(v.dados_originais?.['Valor Plano']) || 0;
+            
+            // Se por algum motivo o JSON não tiver o valor, usa o valor_total
+            if (valorApar === 0) {
+              valorApar = Number(v.valor_total) || 0;
+            }
+
             if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-            mapaApar[v.imei] += Number(v.valor_total) || 0;
+            mapaApar[v.imei] += valorApar;
           }
         });
         
