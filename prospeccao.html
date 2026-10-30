@@ -3124,7 +3124,7 @@
           .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
 
         // ==========================================================
-        // 🚀 CHECAGEM DE DUPLICATAS CORRIGIDA (Previne perda de itens no mesmo pedido)
+        // 🚀 CHECAGEM DE DUPLICATAS BLINDADA (Sistema de Contagem)
         // ==========================================================
         importLog(`🔎 Verificando duplicatas no banco...`);
         
@@ -3145,38 +3145,48 @@
           if (!errInts && intsBanco) existentesInt = intsBanco;
         }
 
-        // 🚀 Função que cria a chave única considerando o ID do Pedido + Produto + Valor
         const gerarChaveVenda = (venda) => {
           const idOrig = venda.dados_originais?.['Nº da venda'] || venda.dados_originais?.['Pedido'] || venda.dados_originais?.['id Ativação'];
-          
           if (idOrig) {
-            // Se tem número de venda, junta com o produto e o valor para não perder itens do mesmo pedido
             return `ID_${idOrig}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
           }
-          
-          // Se não tiver ID, usa CPF + Data + Produto + Valor
           return `${venda.cliente_id}_${venda.data_venda}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
         };
 
-        const chavesExistentes = new Set();
+        // 1. Conta quantos itens idênticos existem no banco
+        const contagemBanco = {};
         existentesInt.forEach(i => {
-          chavesExistentes.add(gerarChaveVenda(i));
+          const chave = gerarChaveVenda(i);
+          contagemBanco[chave] = (contagemBanco[chave] || 0) + 1;
+        });
+
+        // 2. Agrupa os itens da planilha por chave
+        const planilhaPorChave = {};
+        interacoes.forEach(i => {
+          const chave = gerarChaveVenda(i);
+          if (!planilhaPorChave[chave]) planilhaPorChave[chave] = [];
+          planilhaPorChave[chave].push(i);
         });
 
         const interacoesUnicas = [];
-        const chavesPlanilha = new Set(); 
         let duplicadasIgnoradas = 0;
 
-        // Filtra a lista da planilha
-        interacoes.forEach(i => {
-          const chave = gerarChaveVenda(i);
+        // 3. Compara as quantidades e insere a diferença exata
+        Object.keys(planilhaPorChave).forEach(chave => {
+          const rowsPlanilha = planilhaPorChave[chave];
+          const qtdBanco = contagemBanco[chave] || 0;
+          const qtdPlanilha = rowsPlanilha.length;
 
-          // Se já existe no banco ou se já foi adicionada nesta mesma planilha
-          if (chavesExistentes.has(chave) || chavesPlanilha.has(chave)) {
-            duplicadasIgnoradas++;
+          if (qtdPlanilha > qtdBanco) {
+            // Faltam itens no banco. Insere a diferença.
+            const diferenca = qtdPlanilha - qtdBanco;
+            for (let i = 0; i < diferenca; i++) {
+              interacoesUnicas.push(rowsPlanilha[i]);
+            }
+            duplicadasIgnoradas += qtdBanco;
           } else {
-            chavesPlanilha.add(chave);
-            interacoesUnicas.push(i);
+            // O banco já tem tudo (ou mais) que a planilha. Ignora.
+            duplicadasIgnoradas += qtdPlanilha;
           }
         });
 
@@ -3229,7 +3239,6 @@
         importLog(`🎉 Concluído!`, 'success');
         showToast(`${inseridas} interações novas importadas`, 'success');
         
-        // 🚀 NOVO: Avisar sobre itens ignorados na tela
         if (window._ultimosIgnorados && window._ultimosIgnorados.length > 0) {
             console.warn("⚠️ ITENS IGNORADOS NA IMPORTAÇÃO:\n", window._ultimosIgnorados.join('\n'));
             setTimeout(() => {
