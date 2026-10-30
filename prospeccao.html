@@ -3124,7 +3124,7 @@
           .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
 
         // ==========================================================
-        // 🚀 CHECAGEM DE DUPLICATAS (NÃO DUPLICA O QUE JÁ EXISTE)
+        // 🚀 CHECAGEM DE DUPLICATAS CORRIGIDA (Previne perda de itens no mesmo pedido)
         // ==========================================================
         importLog(`🔎 Verificando duplicatas no banco...`);
         
@@ -3145,12 +3145,22 @@
           if (!errInts && intsBanco) existentesInt = intsBanco;
         }
 
-        // Gera as "impressões digitais" do que já está no banco
+        // 🚀 Função que cria a chave única considerando o ID do Pedido + Produto + Valor
+        const gerarChaveVenda = (venda) => {
+          const idOrig = venda.dados_originais?.['Nº da venda'] || venda.dados_originais?.['Pedido'] || venda.dados_originais?.['id Ativação'];
+          
+          if (idOrig) {
+            // Se tem número de venda, junta com o produto e o valor para não perder itens do mesmo pedido
+            return `ID_${idOrig}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
+          }
+          
+          // Se não tiver ID, usa CPF + Data + Produto + Valor
+          return `${venda.cliente_id}_${venda.data_venda}_${String(venda.produto).toUpperCase()}_${venda.valor_total}`;
+        };
+
         const chavesExistentes = new Set();
         existentesInt.forEach(i => {
-          const idOrig = i.dados_originais?.['Nº da venda'] || i.dados_originais?.['Pedido'] || i.dados_originais?.['id Ativação'];
-          const chave = idOrig ? `ID_${idOrig}` : `${i.cliente_id}_${i.data_venda}_${String(i.produto).toUpperCase()}_${i.valor_total}`;
-          chavesExistentes.add(chave);
+          chavesExistentes.add(gerarChaveVenda(i));
         });
 
         const interacoesUnicas = [];
@@ -3159,8 +3169,7 @@
 
         // Filtra a lista da planilha
         interacoes.forEach(i => {
-          const idOrig = i.dados_originais?.['Nº da venda'] || i.dados_originais?.['Pedido'] || i.dados_originais?.['id Ativação'];
-          const chave = idOrig ? `ID_${idOrig}` : `${i.cliente_id}_${i.data_venda}_${String(i.produto).toUpperCase()}_${i.valor_total}`;
+          const chave = gerarChaveVenda(i);
 
           // Se já existe no banco ou se já foi adicionada nesta mesma planilha
           if (chavesExistentes.has(chave) || chavesPlanilha.has(chave)) {
