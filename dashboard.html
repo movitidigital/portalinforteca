@@ -2921,7 +2921,7 @@ function limparDataExata() {
       _buscaClientesTimer = setTimeout(buscarClientes, 350);
     }
 
-    async function buscarClientes() {
+async function buscarClientes() {
       const termo = $('inputBuscaClientes').value.trim();
       const contador = $('clientesContador');
       const resultados = $('clientesResultados');
@@ -2982,16 +2982,24 @@ function limparDataExata() {
         if (imeis.length > 0) {
           const { data: vendasApar } = await supabaseClient
             .from('interacoes')
-            .select('imei, valor_total')
-            .in('imei', imeis)
-            .eq('categoria', 'APARELHO');
-          
+            .select('imei, valor_total, categoria, modalidade, produto')
+            .in('imei', imeis);
+            // 🚀 Removido o .eq('categoria', 'APARELHO')
+
           if (vendasApar) {
             const mapaApar = {};
             vendasApar.forEach(v => {
-              if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-              mapaApar[v.imei] += Number(v.valor_total) || 0;
+              // 🚀 Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
+              const isApar = v.categoria === 'APARELHO' || 
+                             String(v.modalidade || '').toUpperCase().includes('AP') || 
+                             String(v.produto || '').toUpperCase().includes('CELULAR');
+
+              if (isApar) {
+                if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
+                mapaApar[v.imei] += Number(v.valor_total) || 0;
+              }
             });
+            
             // Anexa o valor do aparelho ao objeto do cliente
             encontrados.forEach(c => {
               if (c.imei && mapaApar[c.imei]) {
@@ -3526,16 +3534,24 @@ async function carregarContratosThales() {
     if (imeis.length > 0) {
       const { data: vendasApar } = await supabaseClient
         .from('interacoes')
-        .select('imei, valor_total')
-        .in('imei', imeis)
-        .eq('categoria', 'APARELHO');
-      
+        .select('imei, valor_total, categoria, modalidade, produto')
+        .in('imei', imeis);
+        // 🚀 REMOVIDO O .eq('categoria', 'APARELHO') DAQUI!
+
       if (vendasApar) {
         const mapaApar = {};
         vendasApar.forEach(v => {
-          if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-          mapaApar[v.imei] += Number(v.valor_total) || 0;
+          // 🚀 Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
+          const isApar = v.categoria === 'APARELHO' || 
+                         String(v.modalidade || '').toUpperCase().includes('AP') || 
+                         String(v.produto || '').toUpperCase().includes('CELULAR');
+
+          if (isApar) {
+            if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
+            mapaApar[v.imei] += Number(v.valor_total) || 0;
+          }
         });
+        
         state.contratos.forEach(c => {
           if (c.imei && mapaApar[c.imei]) {
             c.valor_aparelho = mapaApar[c.imei];
