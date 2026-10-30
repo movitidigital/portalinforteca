@@ -1563,8 +1563,7 @@
 
           <div>
             <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">CPF</label>
-            <input type="text" id="editCpf" maxlength="11" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">
-          </div>
+<input type="text" id="editCpf" maxlength="18" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#0e8890]">          </div>
           <div>
             <label class="text-[10px] font-black text-slate-500 uppercase mb-1 block">Data Nasc.</label>
             <input type="date" id="editNascimento" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#0e8890]">
@@ -1984,15 +1983,23 @@
     /* ==========================================================
        HELPERS
        ========================================================== */
-    const $ = (id) => document.getElementById(id);
+    const $ = (id) => document.getElementById(id);  
 
     const escapeHTML = (s) => String(s || '').replace(/[&<>"']/g,
       m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-    const normalizarCPF = (v) => String(v || '').replace(/\D/g, '').padStart(11, '0');
+    const normalizarCPF = (v) => String(v || '').replace(/\D/g, ''); // 🚀 Removido padStart(11,'0')
     const normalizarTelefone = (v) => String(v || '').replace(/\D/g, '');
     const capitalizar = (s) => String(s || '').toLowerCase()
       .split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    // 🚀 NOVO: Formata CPF ou CNPJ dependendo do tamanho
+    const formatarDoc = (doc) => {
+      const d = String(doc || '').replace(/\D/g, '');
+      if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+      if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      return d; 
+    };
 
     function parseBR(str) {
       if (!str) return null;
@@ -2588,7 +2595,7 @@ function filtrar() {
     function linhaHTML(c) {
       const telefone = normalizarTelefone(c.telefone);
       const ehDebito = String(c.debito_automatico || '').toUpperCase() === 'SIM';
-      const cpfFmt = normalizarCPF(c.cpf);
+      const cpfFmt = formatarDoc(c.cpf);
       const prio = prioridadeInfo(c);
 
       const prioBadge = prio.tier > 0 ? `
@@ -3038,7 +3045,7 @@ async function buscarClientes() {
     }
 
 function renderClienteCard(c) {
-  const cpfFmt = normalizarCPF(c.cpf);
+    const cpfFmt = formatarDoc(c.cpf);
   const telefone = normalizarTelefone(c.telefone);
   const telFormatado = telefone.length === 11
     ? `(${telefone.slice(0,2)}) ${telefone.slice(2,7)}-${telefone.slice(7)}`
@@ -6853,7 +6860,7 @@ function abrirModalEditarCliente(id) {
 
   $('editClienteId').value = c.id;
   $('editNome').value = c.nome || '';
-  $('editCpf').value = c.cpf || '';
+  $('editCpf').value = formatarDoc(c.cpf);
   $('editNascimento').value = c.data_nascimento || '';
   $('editDataVenda').value = c.data_venda || '';
   $('editTelefone').value = c.telefone || '';
