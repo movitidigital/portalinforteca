@@ -888,6 +888,10 @@ async function renderizarEspelho() {
     servicosAgrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
+  // 🚀 Cálculo do total de QTD para o espelho oficial
+  let totalQtdServicos = 0;
+  Object.values(servicosAgrupados).forEach(d => { totalQtdServicos += d.qtd; });
+
   let gamificacaoHTML = '';
   if (meta) {
     const pct = Math.min(100, meta.pctFat);
@@ -1069,7 +1073,9 @@ async function renderizarEspelho() {
           <tbody>${linhasServicos}</tbody>
           <tfoot class="bg-slate-50 border-t-2 border-slate-200">
             <tr>
-              <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
+              <td class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Total</td>
+              <td class="px-4 py-3 text-center text-sm font-black text-slate-800">${totalQtdServicos}</td>
+              <td colspan="3" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
               <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(e.total_comissao_servicos)}</td>
             </tr>
           </tfoot>
@@ -1174,6 +1180,9 @@ async function renderizarPrevisao() {
     : 0;
 
   const totalFinalP = totalGeralComExtras + aceleradorPortP;
+
+  // 🚀 Cálculo do total de QTD para a prévia
+  const totalQtdServicosP = (p.itens_servicos || []).reduce((acc, it) => acc + Number(it.qtd || 0), 0);
 
   let gamificacaoHTML = '';
   if (meta) {
@@ -1394,7 +1403,9 @@ async function renderizarPrevisao() {
           <tbody>${linhasServicos}</tbody>
           <tfoot class="bg-slate-50 border-t-2 border-slate-200">
             <tr>
-              <td colspan="5" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
+              <td class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Total</td>
+              <td class="px-4 py-3 text-center text-sm font-black text-slate-800">${totalQtdServicosP}</td>
+              <td colspan="3" class="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase">Subtotal Serviços</td>
               <td class="px-4 py-3 text-right font-black text-slate-800">R$ ${fmt(comissaoServicos)}</td>
             </tr>
           </tfoot>
@@ -2356,6 +2367,9 @@ async function exportarEspelhoPdf() {
     agrupados[i.tipo_item].total += Number(i.valor_comissao_final) || 0;
   });
 
+  // 🚀 Cálculo do total de QTD para o PDF
+  const totalQtdServicosPdf = Object.values(agrupados).reduce((sum, item) => sum + item.qtd, 0);
+
   const linhasServicos = Object.entries(agrupados)
     .sort(([,a], [,b]) => b.total - a.total)
     .map(([nome, d]) => `
@@ -2421,7 +2435,6 @@ async function exportarEspelhoPdf() {
     };
     const c = cores[estadoPdf];
 
-    // 🚀 AJUSTE DO TEXTO NO PDF (PASSADO)
     let msgPdf = '';
     if (estadoPdf === 'LIBERADO') {
       msgPdf = `Acelerador de 15% aplicado sobre R$ ${fmt(e.total_comissao_servicos)}`;
@@ -2507,7 +2520,9 @@ async function exportarEspelhoPdf() {
         <tbody>${linhasServicos}</tbody>
         <tfoot>
           <tr>
-            <td colspan="5" style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;border-top:2px solid #e2e8f0;">Subtotal Serviços</td>
+            <td style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;border-top:2px solid #e2e8f0;text-transform:uppercase;">Total</td>
+            <td style="padding:9px;text-align:center;font-size:12px;font-weight:900;color:#0f172a;border-top:2px solid #e2e8f0;">${totalQtdServicosPdf}</td>
+            <td colspan="3" style="padding:9px;text-align:right;font-size:10px;font-weight:900;color:#475569;border-top:2px solid #e2e8f0;text-transform:uppercase;">Subtotal Serviços</td>
             <td style="padding:9px;text-align:right;font-size:13px;font-weight:900;color:#0f172a;border-top:2px solid #e2e8f0;">R$ ${fmt(e.total_comissao_servicos)}</td>
           </tr>
         </tfoot>
