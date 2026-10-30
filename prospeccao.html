@@ -2979,24 +2979,52 @@
     function mapearGestaoClick(linhas) {
       const registros = [];
       const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
+      const listaIgnorados = []; // 🚀 NOVO: Para avisar quem foi ignorado
+
       if (linhas.length > 0) {
         console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
       }
       for (const row of linhas) {
-        const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
-        if (!cpfCnpjRaw) { ignorados.semCpf++; continue; }
-        if (cpfCnpjRaw.length === 14) { ignorados.cnpj++; continue; }
-        if (cpfCnpjRaw.length !== 11) { ignorados.semCpf++; continue; }
         const nome = String(findCol(row, 'Cliente') || '').trim();
-        if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+        const produto = String(findCol(row, 'Produto') || '').trim();
+        
+        const cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
+        
+        if (!cpfCnpjRaw) { 
+            ignorados.semCpf++; 
+            listaIgnorados.push(`${nome} - ${produto} (Sem CPF)`);
+            continue; 
+        }
+        if (cpfCnpjRaw.length === 14) { 
+            ignorados.cnpj++; 
+            listaIgnorados.push(`${nome} - ${produto} (CNPJ)`);
+            continue; 
+        }
+        if (cpfCnpjRaw.length !== 11) { 
+            ignorados.semCpf++; 
+            listaIgnorados.push(`${nome} - ${produto} (CPF Inválido: ${cpfCnpjRaw})`);
+            continue; 
+        }
+        if (!nome || /^consumidor$/i.test(nome)) { 
+            ignorados.semNome++; 
+            listaIgnorados.push(`[Sem Nome] - ${produto}`);
+            continue; 
+        }
+        
         const dataVendaISO = parseDataISO(findCol(row, 'Data'));
-        if (!dataVendaISO) { ignorados.semData++; continue; }
+        if (!dataVendaISO) { 
+            ignorados.semData++; 
+            listaIgnorados.push(`${nome} - ${produto} (Data Inválida)`);
+            continue; 
+        }
+        
         const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
         const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
-        const produto = String(findCol(row, 'Produto') || '').trim();
         const vendedor = String(findCol(row, 'Vendedor') || '').trim();
         const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
+        
         if (!produto) continue;
+
         registros.push({
           cpf: cpfCnpjRaw, nome: capitalizar(nome),
           telefone: celular || tel, dataVenda: dataVendaISO,
@@ -3006,6 +3034,10 @@
           valorTotal: valorTotal || 0, dadosOriginais: row,
         });
       }
+      
+      // 🚀 Salva a lista no estado global para mostrar no final da importação
+      window._ultimosIgnorados = listaIgnorados;
+
       return { registros, ignorados };
     }
 
@@ -3020,7 +3052,7 @@
       box.scrollTop = box.scrollHeight;
     }
 
-async function processarImportacao() {
+    async function processarImportacao() {
       const arquivo = state.arquivoSelecionado;
       const tipo = state.tipoImportacao;
       if (!arquivo || !tipo) return;
@@ -3104,7 +3136,7 @@ async function processarImportacao() {
           .map(({ _cpf, ...r }) => ({ ...r, cliente_id: cpfParaId[_cpf] }));
 
         // ==========================================================
-        // 🚀 NOVO: CHECAGEM DE DUPLICATAS (NÃO DUPLICA O QUE JÁ EXISTE)
+        // 🚀 CHECAGEM DE DUPLICATAS (NÃO DUPLICA O QUE JÁ EXISTE)
         // ==========================================================
         importLog(`🔎 Verificando duplicatas no banco...`);
         
@@ -3199,6 +3231,15 @@ async function processarImportacao() {
 
         importLog(`🎉 Concluído!`, 'success');
         showToast(`${inseridas} interações novas importadas`, 'success');
+        
+        // 🚀 NOVO: Avisar sobre itens ignorados na tela
+        if (window._ultimosIgnorados && window._ultimosIgnorados.length > 0) {
+            console.warn("⚠️ ITENS IGNORADOS NA IMPORTAÇÃO:\n", window._ultimosIgnorados.join('\n'));
+            setTimeout(() => {
+                alert(`⚠️ ATENÇÃO!\n\n${window._ultimosIgnorados.length} venda(s) foram ignoradas por falta de CPF, CNPJ ou dados inválidos.\n\nAbra o Console (F12) para ver a lista exata de quem ficou de fora e corrija no Gestão Click.`);
+            }, 500);
+        }
+
         setTimeout(() => { fecharImportacao(); recarregarTudo(); }, 2000);
       } catch (err) {
         console.error('[Import]', err);
