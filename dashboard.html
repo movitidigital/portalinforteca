@@ -3580,7 +3580,7 @@ function linhaContratoHTML(c) {
   const isPort = String(c.modalidade || '').toUpperCase().includes('PORT');
   const plano = String(c.plano || '').trim();
 
-  // 👇 NOVO — valor da receita contratada
+  // 👇 Valor da receita contratada
   const valorNum = c.valor_receita_contratada != null ? Number(c.valor_receita_contratada) : null;
   const valorTxt = valorNum != null ? fmtMoeda(valorNum) : null;
 
@@ -3603,7 +3603,7 @@ function linhaContratoHTML(c) {
         <span class="inline-block text-[11px] font-bold text-[#E60000] uppercase leading-tight">${escapeHTML(plano || '—')}</span>
       </td>
 
-      <!-- 👇 NOVO — Valor da receita contratada -->
+      <!-- 👇 Valor da receita contratada -->
       <td class="px-4 py-3 text-right whitespace-nowrap">
         ${valorTxt
           ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-[11px]">
@@ -3618,12 +3618,21 @@ function linhaContratoHTML(c) {
       <td class="px-4 py-3 font-bold text-slate-800 uppercase">${escapeHTML(capitalizar(c.nome) || '—')}</td>
       <td class="px-4 py-3 text-center">
         <div class="flex items-center justify-center gap-2">
+          <!-- BOTÃO EDITAR -->
           <button onclick="abrirModalEditarCliente('${c.id}')"
             title="Editar dados do cliente"
             class="bg-slate-100 hover:bg-indigo-100 text-indigo-600 p-2 rounded-lg transition-colors">
             <i data-lucide="edit-3" class="w-4 h-4"></i>
           </button>
           
+          <!-- BOTÃO EXCLUIR -->
+          <button onclick="excluirClienteVenda('${c.id}')"
+            title="Excluir venda (Clientes + Financeiro)"
+            class="bg-slate-100 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+
+          <!-- BOTÃO VERIFICAÇÃO -->
           <button onclick="abrirModalSaneamento(${c.id})"
             class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-tighter">
             Verificação
@@ -6846,13 +6855,29 @@ async function salvarEdicaoCliente() {
     /* ==========================================================
    EXCLUIR CLIENTE / VENDA (Clientes TIM + Financeiro)
    ========================================================== */
-async function excluirClienteVenda(id, nome, dataVenda, consultor) {
+async function excluirClienteVenda(id) {
   if (state._permissoes?.clientes !== 'editar') {
     alert('Você não tem permissão para excluir registros.');
     return;
   }
 
-  const confirmar = confirm(`🚨 ATENÇÃO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE a venda de ${nome}?\n\nIsso apagará o registro do módulo de Clientes E do módulo Financeiro (Comissão). Esta ação NÃO PODE ser desfeita.`);
+  // 🚀 Busca o cliente em QUALQUER lista do sistema (Clientes, Gestão, etc.)
+  const c = (state.clientesBusca || []).find(x => String(x.id) === String(id))
+         || (state.contratos || []).find(x => String(x.id) === String(id))
+         || (state.boasVindas || []).find(x => String(x.id) === String(id))
+         || (state.clientes || []).find(x => String(x.id) === String(id));
+
+  if (!c) {
+    alert('Erro: Cliente não encontrado na memória. Recarregue a página e tente novamente.');
+    return;
+  }
+
+  // Pega os dados do cliente encontrado
+  const nome = c.nome;
+  const dataVenda = c.data_venda;
+  const consultor = c.consultor;
+
+  const confirmar = confirm(`🚨 ATENÇÃO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE a venda de ${capitalizar(nome)}?\n\nIsso apagará o registro do módulo de Clientes E do módulo Financeiro (Comissão). Esta ação NÃO PODE ser desfeita.`);
   if (!confirmar) return;
 
   try {
@@ -6879,8 +6904,13 @@ async function excluirClienteVenda(id, nome, dataVenda, consultor) {
 
     mostrarToastCopy('✅ Venda excluída com sucesso dos dois módulos!');
     
-    // 3. Atualiza a tela na hora
-    await buscarClientes();
+    // 3. Atualiza a tela correta dependendo de onde o usuário estava
+    if (!document.getElementById('view-gestao').classList.contains('hidden')) {
+      await carregarGestao(); // Atualiza a tabela do Thales
+    } 
+    if (!document.getElementById('view-clientes').classList.contains('hidden')) {
+      await buscarClientes(); // Atualiza a busca de clientes
+    }
     
   } catch (err) {
     console.error('[Excluir Venda]', err);
