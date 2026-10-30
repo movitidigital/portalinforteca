@@ -2647,28 +2647,35 @@ async function cancelarVenda(id, nomeCliente, event) {
     return;
   }
 
-  // 🛡️ PROTEÇÃO: Verifica se o ID é um UUID válido (tem 36 caracteres)
-  if (id.length < 30) {
-    alert(`⚠️ Erro de Integração:\n\nO sistema recebeu o ID "${id}", mas a tabela de vendas usa um código UUID longo.\n\nPrecisamos ajustar a RPC "listar_vendas_consolidadas" no banco para enviar o ID correto.`);
-    return;
-  }
-
   if (!confirm(`⚠️ Deseja realmente cancelar a venda de ${nomeCliente}?\n\nEla será mantida no histórico, mas não pagará comissão.`)) {
     return;
   }
 
   try {
-    const { error } = await supabaseClient
-      .from('interacoes')
-      .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
-      .eq('id', id);
+    // 🛡️ Verifica se o ID é um UUID (Acessórios) ou Numérico (Planos)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-    if (error) throw error;
+    if (isUUID) {
+      // É um Acessório/Serviço (tabela interacoes)
+      const { error } = await supabaseClient
+        .from('interacoes')
+        .update({ conciliacao_status: 'CANCELADO_CLIENTE' })
+        .eq('id', id);
+      if (error) throw error;
+    } else {
+      // É um Plano (tabela clientes_faturas)
+      const { error } = await supabaseClient
+        .from('clientes_faturas')
+        .update({ status_thales: 'CANCELADO' }) // Marca como cancelado no sistema
+        .eq('id', id);
+      if (error) throw error;
+    }
 
     if (typeof mostrarToastCopy === 'function') {
       mostrarToastCopy('Venda cancelada com sucesso!');
     }
 
+    // Atualiza a interface visualmente
     if (event && event.target) {
       const btn = event.target.closest('button');
       const card = btn.closest('div.border');
