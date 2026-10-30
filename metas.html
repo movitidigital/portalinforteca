@@ -1287,7 +1287,6 @@ async function verificarAuth() {
       await supabaseClient.auth.signOut();
       window.location.href = 'index.html';
     }
-
     /* ==========================================================
        SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO DEFINITIVA)
        ========================================================== */
@@ -1336,7 +1335,10 @@ async function verificarAuth() {
           novoDiario[c.id] = criarDiarioZerado();
         });
 
+        let logAcessorios = {};
+
         // 2. VENDAS DE PLANOS (clientes_faturas)
+        // ... (código de planos mantido igual) ...
         const { data: faturas, error: errFat } = await supabaseClient
           .from('clientes_faturas')
           .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
@@ -1349,7 +1351,8 @@ async function verificarAuth() {
         let totalTrocasIgnoradas = 0;
 
         faturas.forEach(f => {
-          const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(f.consultor));
+          // 🚀 Correção de Nome: Busca se um nome contém o outro
+          const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(f.consultor)) || normStr(f.consultor).includes(normStr(c.nome)));
           if (!consultorObj) return; 
 
           const planoOriginal = String(f.plano || '');
@@ -1357,7 +1360,6 @@ async function verificarAuth() {
           const planoLimpo = limparNomePlano(planoOriginal);
           const modalidade = normStr(f.modalidade);
           
-          // Ignora Trocas e E-SIM
           if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
             totalTrocasIgnoradas++;
             return;
@@ -1367,7 +1369,6 @@ async function verificarAuth() {
           const dia = parseInt(f.data_venda.split('-')[2]) - 1;
           let valorFat = Number(f.valor_receita_contratada) || 0;
 
-          // Regra Família
           if (planoNorm.includes('FAMILIA')) {
             if (remunMap[planoLimpo] !== undefined) {
               valorFat = remunMap[planoLimpo];
@@ -1398,7 +1399,7 @@ async function verificarAuth() {
         // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
-          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei')
+          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte')
           .gte('data_venda', dtInicio)
           .lte('data_venda', dtFim);
 
@@ -1407,68 +1408,54 @@ async function verificarAuth() {
         let totalProdutosLidos = 0;
         
         interacoes.forEach(i => {
-          const consultorObj = m.consultores.find(c => normStr(c.nome) === normStr(i.vendedor));
+          // 🚀 Correção de Nome: Busca se um nome contém o outro
+          const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(i.vendedor)) || normStr(i.vendedor).includes(normStr(c.nome)));
           if (!consultorObj) return;
 
           const cat = String(i.categoria || '').toUpperCase();
           const mod = String(i.modalidade || '').toUpperCase();
           const prod = String(i.produto || '').toUpperCase();
+          const fonte = String(i.tipo_fonte || '').toUpperCase();
           
-          // 🚀 A REGRA DE OURO: Tem IMEI?
+          const isGestaoClick = fonte === 'GESTAO_CLICK' || mod.includes('VENDA GESTAO CLICK');
           const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
 
-          // 🚀 1. DEFINIÇÃO ESTRITA DE ACESSÓRIO
-          let isAcessorio = cat === 'ACESSORIO' || 
-                            mod.includes('ACESSORIO') || 
-                            mod.includes('VENDA GESTAO CLICK') || // 👈 Se é do GC, puxa como acessório
-                            prod.includes('PELICULA') || 
-                            prod.includes('FILME') ||
-                            prod.includes('CAPA') || 
-                            prod.includes('CASE') ||
-                            prod.includes('FONE') || 
-                            prod.includes('HEADPHONE') || // 👈 Novo
-                            prod.includes('EARBUD') ||    // 👈 Novo
-                            prod.includes('AUDIO') ||     // 👈 Novo
-                            prod.includes('HEADSET') ||
-                            prod.includes('CARREGADOR') || 
-                            prod.includes('CABO') || 
-                            prod.includes('ADAPTADOR') ||
-                            prod.includes('SMARTBAND') || 
-                            prod.includes('SMARTWATCH') || 
-                            prod.includes('RELOGIO');
-
-          // 🚀 2. DEFINIÇÃO ESTRITA DE SERVIÇO
-          let isServico = mod.includes('SERVICO') || 
-                          prod.includes('FORMAT') || 
-                          prod.includes('MANUT') || 
-                          prod.includes('LIMPEZA') ||
-                          prod.includes('CONSERTO') ||
-                          prod.includes('INSTALA');
-
-          // 🚀 3. DEFINIÇÃO ESTRITA DE APARELHO
           let isApar = false;
-          
-          // Só é aparelho se NÃO for acessório, NÃO for serviço E OBRIGATORIAMENTE TIVER IMEI
-          if (!isAcessorio && !isServico && temIMEI) {
-            isApar = cat === 'APARELHO' || 
-                     mod.includes('AP +') || 
-                     mod.includes('APARELHO') || 
-                     mod.includes('TROCA DE APARELHO') ||
-                     prod.includes('CELULAR') || 
-                     prod.includes('MOTOROLA') || 
-                     prod.includes('SAMSUNG') || 
-                     prod.includes('XIAOMI') || 
-                     prod.includes('IPHONE') || 
-                     prod.includes('SMARTPHONE');
-            
-            // Pente-fino: Se o produto tiver palavras de acessório, desclassifica como aparelho
-            if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
-              isApar = false;
-              isAcessorio = true;
-            }
-          } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
-            // Se veio como APARELHO mas não tem IMEI (ex: Smartband), joga para acessório
-            isAcessorio = true;
+          let isAcessorio = false;
+          let isServico = false;
+
+          // 🚀 REGRA INFALÍVEL PARA O GESTÃO CLICK
+          if (isGestaoClick) {
+              if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
+                  isServico = true;
+              } else {
+                  isAcessorio = true; // Tudo que vem do GC é acessório, mesmo se veio como OUTROS
+              }
+          } 
+          // Regra para Datasys
+          else {
+              isAcessorio = cat === 'ACESSORIO' || 
+                            mod.includes('ACESSORIO') || 
+                            prod.includes('PELICULA') || prod.includes('FILME') ||
+                            prod.includes('CAPA') || prod.includes('CASE') ||
+                            prod.includes('FONE') || prod.includes('HEADPHONE') || 
+                            prod.includes('EARBUD') || prod.includes('AUDIO') || 
+                            prod.includes('HEADSET') || prod.includes('CARREGADOR') || 
+                            prod.includes('CABO') || prod.includes('ADAPTADOR') ||
+                            prod.includes('SMARTBAND') || prod.includes('SMARTWATCH') || prod.includes('RELOGIO');
+
+              isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
+
+              if (!isAcessorio && !isServico && temIMEI) {
+                  isApar = cat === 'APARELHO' || mod.includes('AP +') || mod.includes('APARELHO') || prod.includes('CELULAR') || prod.includes('MOTOROLA') || prod.includes('SAMSUNG') || prod.includes('XIAOMI');
+                  
+                  if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
+                      isApar = false;
+                      isAcessorio = true;
+                  }
+              } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
+                  isAcessorio = true;
+              }
           }
 
           if (isApar || isAcessorio) {
@@ -1477,13 +1464,15 @@ async function verificarAuth() {
             const d = novoDiario[consultorObj.id];
 
             if (isApar) {
-              // Aparelhos: Puxa o valor do JSON
               let valorApar = Number(i.dados_originais?.['Valor Plano']) || Number(i.valor_total) || 0;
               d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
             } else if (isAcessorio) {
-              // Acessórios: Usa o valor_total
               const valorAce = Number(i.valor_total) || 0;
               d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
+
+              // Log para conferência
+              if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
+              logAcessorios[consultorObj.nome] += valorAce;
             }
           }
         });
@@ -1502,7 +1491,12 @@ async function verificarAuth() {
         await salvarEstado();
         recalcAll(); 
 
-        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}`);
+        // 🚀 RELATÓRIO NO CONSOLE
+        console.log("=== TOTAIS DE ACESSÓRIOS PUXADOS DO BANCO ===");
+        console.log(logAcessorios);
+        console.log(`Total de itens lidos: ${totalProdutosLidos}`);
+
+        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}\n\n(Abra o console F12 para ver os totais por vendedor)`);
 
       } catch (err) {
         console.error('[Sincronização]', err);
