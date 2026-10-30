@@ -2985,20 +2985,19 @@
         console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
       }
       for (const row of linhas) {
-        const nome = String(findCol(row, 'Cliente') || '').trim();
+        let nome = String(findCol(row, 'Cliente') || '').trim();
         const produto = String(findCol(row, 'Produto') || '').trim();
         
         let cpfCnpjRaw = String(findCol(row, 'Cliente › CPF / CNPJ', 'CPF / CNPJ', 'CPF') || '').replace(/\D/g, '');
         
-        // 🚀 Se não tiver CPF ou se for inválido, gera um CPF temporário para não perder a venda
+        // 🚀 1. Se não tiver CPF/CNPJ, gera um temporário para não perder a venda
         if (!cpfCnpjRaw || (cpfCnpjRaw.length !== 11 && cpfCnpjRaw.length !== 14)) {
             cpfCnpjRaw = `000000000${String(Math.floor(Math.random() * 99)).padStart(2, '0')}`; 
         }
         
+        // 🚀 2. Se o nome estiver vazio ou for 'Consumidor', define um nome padrão
         if (!nome || /^consumidor$/i.test(nome)) { 
-            ignorados.semNome++; 
-            listaIgnorados.push(`[Sem Nome] - ${produto}`);
-            continue; 
+            nome = 'CONSUMIDOR (Sem Nome)';
         }
         
         const dataVendaISO = parseDataISO(findCol(row, 'Data'));
