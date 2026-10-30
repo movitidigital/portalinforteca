@@ -1396,9 +1396,10 @@ async function verificarAuth() {
         });
 
         // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
+        // 🚀 Adicionado o campo 'imei' no select
         const { data: interacoes, error: errInt } = await supabaseClient
           .from('interacoes')
-          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais')
+          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei')
           .gte('data_venda', dtInicio)
           .lte('data_venda', dtFim);
 
@@ -1413,18 +1414,39 @@ async function verificarAuth() {
           const cat = String(i.categoria || '').toUpperCase();
           const mod = String(i.modalidade || '').toUpperCase();
           const prod = String(i.produto || '').toUpperCase();
+          
+          // 🚀 A REGRA DE OURO: Tem IMEI?
+          const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
 
-          // 🚀 1. DEFINIÇÃO ESTRITA DE ACESSÓRIO (Prioridade Máxima)
+          // 🚀 1. DEFINIÇÃO ESTRITA DE ACESSÓRIO
           let isAcessorio = cat === 'ACESSORIO' || 
                             mod.includes('ACESSORIO') || 
-                            prod.includes('PELICULA') || prod.includes('FILME') ||
-                            prod.includes('CAPA') || prod.includes('CASE') ||
-                            prod.includes('FONE') || prod.includes('HEADSET') ||
-                            prod.includes('CARREGADOR') || prod.includes('CABO') || prod.includes('ADAPTADOR');
+                            prod.includes('PELICULA') || 
+                            prod.includes('FILME') ||
+                            prod.includes('CAPA') || 
+                            prod.includes('CASE') ||
+                            prod.includes('FONE') || 
+                            prod.includes('HEADSET') ||
+                            prod.includes('CARREGADOR') || 
+                            prod.includes('CABO') || 
+                            prod.includes('ADAPTADOR') ||
+                            prod.includes('SMARTBAND') || // Bloqueio explícito
+                            prod.includes('SMARTWATCH') || // Bloqueio explícito
+                            prod.includes('RELOGIO'); // Bloqueio explícito
 
-          // 🚀 2. DEFINIÇÃO ESTRITA DE APARELHO
+          // 🚀 2. DEFINIÇÃO ESTRITA DE SERVIÇO
+          let isServico = mod.includes('SERVICO') || 
+                          prod.includes('FORMAT') || 
+                          prod.includes('MANUT') || 
+                          prod.includes('LIMPEZA') ||
+                          prod.includes('CONSERTO') ||
+                          prod.includes('INSTALA');
+
+          // 🚀 3. DEFINIÇÃO ESTRITA DE APARELHO
           let isApar = false;
-          if (!isAcessorio) { // Se não for acessório, testa se é aparelho
+          
+          // Só é aparelho se NÃO for acessório, NÃO for serviço E OBRIGATORIAMENTE TIVER IMEI
+          if (!isAcessorio && !isServico && temIMEI) {
             isApar = cat === 'APARELHO' || 
                      mod.includes('AP +') || 
                      mod.includes('APARELHO') || 
@@ -1436,11 +1458,14 @@ async function verificarAuth() {
                      prod.includes('IPHONE') || 
                      prod.includes('SMARTPHONE');
             
-            // 🚀 Pente-fino: Se o produto tiver "SAMSUNG" mas for "PELICULA PARA SAMSUNG", desclassifica como aparelho.
-            if (prod.includes('PELICULA') || prod.includes('CAPA')) {
+            // Pente-fino: Se o produto tiver palavras de acessório, desclassifica como aparelho
+            if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE')) {
               isApar = false;
               isAcessorio = true;
             }
+          } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
+            // 🚀 Se veio como APARELHO mas não tem IMEI (ex: Smartband), joga para acessório
+            isAcessorio = true;
           }
 
           if (isApar || isAcessorio) {
@@ -1449,11 +1474,11 @@ async function verificarAuth() {
             const d = novoDiario[consultorObj.id];
 
             if (isApar) {
-              // 🚀 Aparelhos: Puxa o valor do JSON ('Valor Plano' que é o valor da venda do aparelho no Datasys)
+              // Aparelhos: Puxa o valor do JSON
               let valorApar = Number(i.dados_originais?.['Valor Plano']) || Number(i.valor_total) || 0;
               d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
             } else if (isAcessorio) {
-              // 🚀 Acessórios: Usa o valor_total (que é o valor real da venda do acessório)
+              // Acessórios: Usa o valor_total
               const valorAce = Number(i.valor_total) || 0;
               d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
             }
