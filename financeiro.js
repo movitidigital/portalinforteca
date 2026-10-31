@@ -2818,13 +2818,34 @@ async function gerarEspelhosCompetencia() {
     const interacaoIds = [...new Set(conc.map(c => c.interacao_id).filter(Boolean))];
     if (interacaoIds.length === 0) throw new Error('As vendas conciliadas estão sem vínculo com interações.');
 
-    const { data: interacoes, error: interErr } = await supabaseClient
-      .from('interacoes')
-      .select('id, vendedor')
-      .in('id', interacaoIds);
+    // 🚀 CORREÇÃO: Separar UUIDs (Interações) de IDs numéricos (Planos)
+    const isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    const uuidIds = interacaoIds.filter(id => isUUID(id));
+    const numericIds = interacaoIds.filter(id => !isUUID(id));
 
-    if (interErr) throw new Error('Erro ao buscar vendedores: ' + interErr.message);
-    const vendedores = [...new Set(interacoes.map(i => i.vendedor).filter(Boolean))];
+    let vendedoresSet = new Set();
+
+    // 1. Busca vendedor na tabela interacoes (Acessórios)
+    if (uuidIds.length > 0) {
+      const { data: interacoes, error: interErr } = await supabaseClient
+        .from('interacoes')
+        .select('vendedor')
+        .in('id', uuidIds);
+      if (interErr) throw new Error('Erro ao buscar vendedores (interações): ' + interErr.message);
+      (interacoes || []).forEach(i => { if (i.vendedor) vendedoresSet.add(i.vendedor); });
+    }
+
+    // 2. Busca vendedor na tabela clientes_faturas (Planos)
+    if (numericIds.length > 0) {
+      const { data: faturas, error: fatErr } = await supabaseClient
+        .from('clientes_faturas')
+        .select('consultor')
+        .in('id', numericIds);
+      if (fatErr) throw new Error('Erro ao buscar vendedores (planos): ' + fatErr.message);
+      (faturas || []).forEach(f => { if (f.consultor) vendedoresSet.add(f.consultor); });
+    }
+
+    const vendedores = Array.from(vendedoresSet);
     if (vendedores.length === 0) throw new Error('Nenhum vendedor encontrado para as vendas conciliadas.');
 
     const [ano, m] = mes.split('-');
@@ -2930,7 +2951,6 @@ async function gerarEspelhosCompetencia() {
 
       const itens = [];
       
-      // 🚀 CORREÇÃO: Adicionando a coluna base_calculo_liquida
       if (p.itens_servicos?.length > 0) {
          p.itens_servicos.forEach(it => {
            const valorPorItem = it.total / it.qtd;
@@ -2939,7 +2959,7 @@ async function gerarEspelhosCompetencia() {
                espelho_id: espelho.id, 
                tipo_item: it.plano, 
                valor_referencia_base: it.vr, 
-               base_calculo_liquida: it.vr * it.qt, // 👈 ADICIONADO AQUI
+               base_calculo_liquida: it.vr * it.qt, 
                qualidade_aplicada: it.qt, 
                fator_remuneracao_aplicado: it.fator, 
                valor_comissao_final: valorPorItem
@@ -2953,7 +2973,7 @@ async function gerarEspelhosCompetencia() {
           espelho_id: espelho.id, 
           tipo_item: 'APARELHO', 
           valor_referencia_base: valAparelhos, 
-          base_calculo_liquida: valAparelhos, // 👈 ADICIONADO AQUI
+          base_calculo_liquida: valAparelhos, 
           qualidade_aplicada: 1, 
           fator_remuneracao_aplicado: fatorAparelho, 
           valor_comissao_final: comissaoAparelhos 
@@ -2965,7 +2985,7 @@ async function gerarEspelhosCompetencia() {
           espelho_id: espelho.id, 
           tipo_item: 'ACESSORIO', 
           valor_referencia_base: valAcessorios, 
-          base_calculo_liquida: valAcessorios, // 👈 ADICIONADO AQUI
+          base_calculo_liquida: valAcessorios, 
           qualidade_aplicada: 1, 
           fator_remuneracao_aplicado: fatorAcessorio, 
           valor_comissao_final: comissaoAcessorios 
@@ -2977,7 +2997,7 @@ async function gerarEspelhosCompetencia() {
           espelho_id: espelho.id, 
           tipo_item: 'ACELERADOR_PORTABILIDADE', 
           valor_referencia_base: totalServicos, 
-          base_calculo_liquida: totalServicos, // 👈 ADICIONADO AQUI
+          base_calculo_liquida: totalServicos, 
           qualidade_aplicada: 1, 
           fator_remuneracao_aplicado: 0.15, 
           valor_comissao_final: aceleradorPort 
