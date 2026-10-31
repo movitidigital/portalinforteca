@@ -2677,7 +2677,7 @@ async function cancelarVenda(id, nomeCliente, event) {
       // É um Plano (tabela clientes_faturas)
       const { error } = await supabaseClient
         .from('clientes_faturas')
-        .update({ status_thales: 'CANCELADO' }) // Marca como cancelado no sistema
+        .update({ status_thales: 'CANCELADO' })
         .eq('id', id);
       if (error) throw error;
     }
@@ -2686,23 +2686,21 @@ async function cancelarVenda(id, nomeCliente, event) {
       mostrarToastCopy('Venda cancelada com sucesso!');
     }
 
-    // Atualiza a interface visualmente
+    // 🚀 AJUSTE VISUAL: Remover o card da tela com animação
     if (event && event.target) {
       const btn = event.target.closest('button');
       const card = btn.closest('div.border');
       
       if (card) {
-        card.style.opacity = '0.6';
-        card.style.background = '#f8fafc';
+        // Efeito de sumir suavemente
+        card.style.transition = 'all 0.4s ease';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.95)';
         
-        const badgeContainer = card.querySelector('.flex.items-center.gap-4');
-        if (badgeContainer) {
-          badgeContainer.innerHTML = `<span class="px-2 py-1 rounded text-xs font-black bg-slate-200 text-slate-600 border border-slate-300">🚫 CANCELADO</span>`;
-        }
-
-        btn.disabled = true;
-        btn.innerHTML = 'Cancelado';
-        btn.className = 'flex items-center gap-1 bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-xs uppercase cursor-not-allowed';
+        // Remove do HTML depois da animação
+        setTimeout(() => {
+          card.remove();
+        }, 400);
       }
     }
     
