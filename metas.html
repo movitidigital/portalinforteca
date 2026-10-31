@@ -1290,223 +1290,237 @@ async function verificarAuth() {
     /* ==========================================================
        SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO DEFINITIVA)
        ========================================================== */
-    async function sincronizarVendasBanco() {
-      const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
-      if (!confirmar) return;
+async function sincronizarVendasBanco() {
+  const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
+  if (!confirmar) return;
 
-      const btn = document.getElementById('btnSincronizarMetas');
-      const htmlOriginal = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Sincronizando...';
-      lucide.createIcons();
+  const btn = document.getElementById('btnSincronizarMetas');
+  const htmlOriginal = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Sincronizando...';
+  lucide.createIcons();
 
-      try {
-        const m = mesAtivo();
-        const nomeMesStr = m.parametros.mes;
+  try {
+    const m = mesAtivo();
+    const nomeMesStr = m.parametros.mes;
 
-        const MESES_MAP = { 'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12 };
-        const match = nomeMesStr.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
-        if (!match) throw new Error("Formato de mês inválido.");
+    const MESES_MAP = { 'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12 };
+    const match = nomeMesStr.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
+    if (!match) throw new Error("Formato de mês inválido.");
 
-        const mesNome = match[1].toUpperCase();
-        const ano = parseInt(match[2]);
-        const mesNum = MESES_MAP[mesNome];
-        
-        const dtInicio = `${ano}-${String(mesNum).padStart(2, '0')}-01`;
-        const ultimoDia = new Date(ano, mesNum, 0).getDate();
-        const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+    const mesNome = match[1].toUpperCase();
+    const ano = parseInt(match[2]);
+    const mesNum = MESES_MAP[mesNome];
+    
+    const dtInicio = `${ano}-${String(mesNum).padStart(2, '0')}-01`;
+    const ultimoDia = new Date(ano, mesNum, 0).getDate();
+    const dtFim = `${ano}-${String(mesNum).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
 
-        const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-        const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim();
+    const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim();
 
-        // 1. BASE DE REMUNERAÇÃO (Família)
-        const { data: baseRemun } = await supabaseClient
-          .from('financeiro_base_remuneracao')
-          .select('nome_plano, valor_referencia')
-          .eq('ativo', true);
+    // 1. BASE DE REMUNERAÇÃO (Família)
+    const { data: baseRemun } = await supabaseClient
+      .from('financeiro_base_remuneracao')
+      .select('nome_plano, valor_referencia')
+      .eq('ativo', true);
 
-        const remunMap = {};
-        (baseRemun || []).forEach(r => {
-          remunMap[limparNomePlano(r.nome_plano)] = Number(r.valor_referencia);
-        });
+    const remunMap = {};
+    (baseRemun || []).forEach(r => {
+      remunMap[limparNomePlano(r.nome_plano)] = Number(r.valor_referencia);
+    });
 
-        const novoDiario = {};
-        m.consultores.forEach(c => {
-          novoDiario[c.id] = criarDiarioZerado();
-        });
+    const novoDiario = {};
+    m.consultores.forEach(c => {
+      novoDiario[c.id] = criarDiarioZerado();
+    });
 
-        let logAcessorios = {};
+    let logAcessorios = {};
 
-        // 2. VENDAS DE PLANOS (clientes_faturas)
-        // ... (código de planos mantido igual) ...
-        const { data: faturas, error: errFat } = await supabaseClient
-          .from('clientes_faturas')
-          .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
-          .gte('data_venda', dtInicio)
-          .lte('data_venda', dtFim);
+    // 2. VENDAS DE PLANOS (clientes_faturas)
+    const { data: faturas, error: errFat } = await supabaseClient
+      .from('clientes_faturas')
+      .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
+      .gte('data_venda', dtInicio)
+      .lte('data_venda', dtFim);
 
-        if (errFat) throw errFat;
+    if (errFat) throw errFat;
 
-        let totalPlanosLidos = 0;
-        let totalTrocasIgnoradas = 0;
+    let totalPlanosLidos = 0;
+    let totalTrocasIgnoradas = 0;
 
-        faturas.forEach(f => {
-          // 🚀 Correção de Nome: Busca se um nome contém o outro
-          const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(f.consultor)) || normStr(f.consultor).includes(normStr(c.nome)));
-          if (!consultorObj) return; 
+    faturas.forEach(f => {
+      // 🚀 Correção de Nome: Busca se um nome contém o outro
+      const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(f.consultor)) || normStr(f.consultor).includes(normStr(c.nome)));
+      if (!consultorObj) return; 
 
-          const planoOriginal = String(f.plano || '');
-          const planoNorm = normStr(planoOriginal);
-          const planoLimpo = limparNomePlano(planoOriginal);
-          const modalidade = normStr(f.modalidade);
-          
-          if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
-            totalTrocasIgnoradas++;
-            return;
+      const planoOriginal = String(f.plano || '');
+      const planoNorm = normStr(planoOriginal);
+      const planoLimpo = limparNomePlano(planoOriginal);
+      const modalidade = normStr(f.modalidade);
+      
+      if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
+        totalTrocasIgnoradas++;
+        return;
+      }
+
+      totalPlanosLidos++;
+      const dia = parseInt(f.data_venda.split('-')[2]) - 1;
+      let valorFat = Number(f.valor_receita_contratada) || 0;
+
+      if (planoNorm.includes('FAMILIA')) {
+        if (remunMap[planoLimpo] !== undefined) {
+          valorFat = remunMap[planoLimpo];
+        } else {
+          const chavesOrdenadas = Object.keys(remunMap).sort((a, b) => b.length - a.length);
+          const chaveEncontrada = chavesOrdenadas.find(k => planoLimpo.includes(k) || k.includes(planoLimpo));
+          if (chaveEncontrada) valorFat = remunMap[chaveEncontrada];
+        }
+      }
+
+      const d = novoDiario[consultorObj.id];
+
+      if (planoNorm.includes('CONTROLE')) {
+        d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
+        d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
+      }
+      
+      if (planoNorm.includes('BLACK') || planoNorm.includes('POS') || planoNorm.includes('FAMILIA')) {
+        d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
+        d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
+      }
+
+      if (modalidade.includes('PORT')) {
+        d['PORTABILIDADE'][dia] = (Number(d['PORTABILIDADE'][dia]) || 0) + 1;
+      }
+    });
+
+    // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
+    const { data: interacoes, error: errInt } = await supabaseClient
+      .from('interacoes')
+      .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte')
+      .gte('data_venda', dtInicio)
+      .lte('data_venda', dtFim);
+
+    if (errInt) throw errInt;
+
+    let totalProdutosLidos = 0;
+    
+    interacoes.forEach(i => {
+      // 🚀 Correção de Nome: Busca se um nome contém o outro
+      const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(i.vendedor)) || normStr(i.vendedor).includes(normStr(c.nome)));
+      if (!consultorObj) return;
+
+      const cat = String(i.categoria || '').toUpperCase();
+      const mod = String(i.modalidade || '').toUpperCase();
+      const prod = String(i.produto || '').toUpperCase();
+      const fonte = String(i.tipo_fonte || '').toUpperCase();
+      
+      const isGestaoClick = fonte === 'GESTAO_CLICK' || mod.includes('VENDA GESTAO CLICK');
+      const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
+
+      let isApar = false;
+      let isAcessorio = false;
+      let isServico = false;
+
+      // 🚀 REGRA INFALÍVEL PARA O GESTÃO CLICK
+      if (isGestaoClick) {
+          if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
+              isServico = true;
+          } else {
+              isAcessorio = true; // Tudo que vem do GC é acessório, mesmo se veio como OUTROS
           }
+      } 
+      // Regra para Datasys
+      else {
+          isAcessorio = cat === 'ACESSORIO' || 
+                        mod.includes('ACESSORIO') || 
+                        prod.includes('PELICULA') || prod.includes('FILME') ||
+                        prod.includes('CAPA') || prod.includes('CASE') ||
+                        prod.includes('FONE') || prod.includes('HEADPHONE') || 
+                        prod.includes('EARBUD') || prod.includes('AUDIO') || 
+                        prod.includes('HEADSET') || prod.includes('CARREGADOR') || 
+                        prod.includes('CABO') || prod.includes('ADAPTADOR') ||
+                        prod.includes('SMARTBAND') || prod.includes('SMARTWATCH') || prod.includes('RELOGIO');
 
-          totalPlanosLidos++;
-          const dia = parseInt(f.data_venda.split('-')[2]) - 1;
-          let valorFat = Number(f.valor_receita_contratada) || 0;
+          isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
 
-          if (planoNorm.includes('FAMILIA')) {
-            if (remunMap[planoLimpo] !== undefined) {
-              valorFat = remunMap[planoLimpo];
-            } else {
-              const chavesOrdenadas = Object.keys(remunMap).sort((a, b) => b.length - a.length);
-              const chaveEncontrada = chavesOrdenadas.find(k => planoLimpo.includes(k) || k.includes(planoLimpo));
-              if (chaveEncontrada) valorFat = remunMap[chaveEncontrada];
-            }
-          }
-
-          const d = novoDiario[consultorObj.id];
-
-          if (planoNorm.includes('CONTROLE')) {
-            d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
-            d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
-          }
-          
-          if (planoNorm.includes('BLACK') || planoNorm.includes('POS') || planoNorm.includes('FAMILIA')) {
-            d['PÓS FAT.'][dia] = (Number(d['PÓS FAT.'][dia]) || 0) + valorFat;
-            d['PÓS'][dia] = (Number(d['PÓS'][dia]) || 0) + 1;
-          }
-
-          if (modalidade.includes('PORT')) {
-            d['PORTABILIDADE'][dia] = (Number(d['PORTABILIDADE'][dia]) || 0) + 1;
-          }
-        });
-
-        // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
-        const { data: interacoes, error: errInt } = await supabaseClient
-          .from('interacoes')
-          .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte')
-          .gte('data_venda', dtInicio)
-          .lte('data_venda', dtFim);
-
-        if (errInt) throw errInt;
-
-        let totalProdutosLidos = 0;
-        
-        interacoes.forEach(i => {
-          // 🚀 Correção de Nome: Busca se um nome contém o outro
-          const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(i.vendedor)) || normStr(i.vendedor).includes(normStr(c.nome)));
-          if (!consultorObj) return;
-
-          const cat = String(i.categoria || '').toUpperCase();
-          const mod = String(i.modalidade || '').toUpperCase();
-          const prod = String(i.produto || '').toUpperCase();
-          const fonte = String(i.tipo_fonte || '').toUpperCase();
-          
-          const isGestaoClick = fonte === 'GESTAO_CLICK' || mod.includes('VENDA GESTAO CLICK');
-          const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
-
-          let isApar = false;
-          let isAcessorio = false;
-          let isServico = false;
-
-          // 🚀 REGRA INFALÍVEL PARA O GESTÃO CLICK
-          if (isGestaoClick) {
-              if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
-                  isServico = true;
-              } else {
-                  isAcessorio = true; // Tudo que vem do GC é acessório, mesmo se veio como OUTROS
-              }
-          } 
-          // Regra para Datasys
-          else {
-              isAcessorio = cat === 'ACESSORIO' || 
-                            mod.includes('ACESSORIO') || 
-                            prod.includes('PELICULA') || prod.includes('FILME') ||
-                            prod.includes('CAPA') || prod.includes('CASE') ||
-                            prod.includes('FONE') || prod.includes('HEADPHONE') || 
-                            prod.includes('EARBUD') || prod.includes('AUDIO') || 
-                            prod.includes('HEADSET') || prod.includes('CARREGADOR') || 
-                            prod.includes('CABO') || prod.includes('ADAPTADOR') ||
-                            prod.includes('SMARTBAND') || prod.includes('SMARTWATCH') || prod.includes('RELOGIO');
-
-              isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
-
-              if (!isAcessorio && !isServico && temIMEI) {
-                  isApar = cat === 'APARELHO' || mod.includes('AP +') || mod.includes('APARELHO') || prod.includes('CELULAR') || prod.includes('MOTOROLA') || prod.includes('SAMSUNG') || prod.includes('XIAOMI');
-                  
-                  if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
-                      isApar = false;
-                      isAcessorio = true;
-                  }
-              } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
+          if (!isAcessorio && !isServico && temIMEI) {
+              isApar = cat === 'APARELHO' || mod.includes('AP +') || mod.includes('APARELHO') || prod.includes('CELULAR') || prod.includes('MOTOROLA') || prod.includes('SAMSUNG') || prod.includes('XIAOMI');
+              
+              if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
+                  isApar = false;
                   isAcessorio = true;
               }
+          } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
+              isAcessorio = true;
           }
-
-          if (isApar || isAcessorio) {
-            totalProdutosLidos++;
-            const dia = parseInt(i.data_venda.split('-')[2]) - 1;
-            const d = novoDiario[consultorObj.id];
-
-            if (isApar) {
-              let valorApar = Number(i.dados_originais?.['Valor Plano']) || Number(i.valor_total) || 0;
-              d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
-            } else if (isAcessorio) {
-              const valorAce = Number(i.valor_total) || 0;
-              d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
-
-              // Log para conferência
-              if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
-              logAcessorios[consultorObj.nome] += valorAce;
-            }
-          }
-        });
-
-        // Limpa zeros e Salva
-        Object.keys(novoDiario).forEach(id => {
-          LINHAS_DIARIO.forEach(key => {
-            novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
-          });
-        });
-
-        m.consultores.forEach(c => {
-          c.diario = novoDiario[c.id];
-        });
-
-        await salvarEstado();
-        recalcAll(); 
-
-        // 🚀 RELATÓRIO NO CONSOLE
-        console.log("=== TOTAIS DE ACESSÓRIOS PUXADOS DO BANCO ===");
-        console.log(logAcessorios);
-        console.log(`Total de itens lidos: ${totalProdutosLidos}`);
-
-        alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}\n\n(Abra o console F12 para ver os totais por vendedor)`);
-
-      } catch (err) {
-        console.error('[Sincronização]', err);
-        alert("❌ Erro ao sincronizar: " + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = htmlOriginal;
-        lucide.createIcons();
       }
-    }
+
+      if (isApar || isAcessorio) {
+        totalProdutosLidos++;
+        const dia = parseInt(i.data_venda.split('-')[2]) - 1;
+        const d = novoDiario[consultorObj.id];
+
+        if (isApar) {
+          // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
+          const json = i.dados_originais || {};
+          let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
+                         json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
+                         i.valor_total;
+
+          let valorApar = 0;
+          if (typeof valorRaw === 'number') {
+            valorApar = valorRaw;
+          } else if (typeof valorRaw === 'string') {
+            let s = valorRaw.trim().replace(/[R$\s]/g, '');
+            if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+            else if (s.includes(',')) s = s.replace(',', '.');
+            valorApar = parseFloat(s) || 0;
+          }
+          
+          d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
+        } else if (isAcessorio) {
+          const valorAce = Number(i.valor_total) || 0;
+          d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
+
+          // Log para conferência
+          if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
+          logAcessorios[consultorObj.nome] += valorAce;
+        }
+      }
+    });
+
+    // Limpa zeros e Salva
+    Object.keys(novoDiario).forEach(id => {
+      LINHAS_DIARIO.forEach(key => {
+        novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
+      });
+    });
+
+    m.consultores.forEach(c => {
+      c.diario = novoDiario[c.id];
+    });
+
+    await salvarEstado();
+    recalcAll(); 
+
+    // 🚀 RELATÓRIO NO CONSOLE
+    console.log("=== TOTAIS DE ACESSÓRIOS PUXADOS DO BANCO ===");
+    console.log(logAcessorios);
+    console.log(`Total de itens lidos: ${totalProdutosLidos}`);
+
+    alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}\n\n(Abra o console F12 para ver os totais por vendedor)`);
+
+  } catch (err) {
+    console.error('[Sincronização]', err);
+    alert("❌ Erro ao sincronizar: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = htmlOriginal;
+    lucide.createIcons();
+  }
+}
     window.onload = async () => {
       lucide.createIcons();
       
