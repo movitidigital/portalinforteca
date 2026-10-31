@@ -3037,6 +3037,100 @@ async function carregarContratosThales() {
   lucide.createIcons();
 }
 
+/* ==========================================================
+   BUSCAR CLIENTES (Base Geral - Server Side)
+   ========================================================== */
+let _buscaClientesTimer = null;
+
+function debounceBuscarClientes() {
+  clearTimeout(_buscaClientesTimer);
+  _buscaClientesTimer = setTimeout(() => {
+    buscarClientes();
+  }, 400); // Espera 400ms após a última tecla para não sobrecarregar o banco
+}
+
+async function buscarClientes() {
+  const input = $('inputBuscaClientes');
+  const termo = input ? input.value.trim() : '';
+  const container = $('clientesResultados');
+  const contador = $('clientesContador');
+
+  if (!container) return;
+
+  // Se apagar tudo, volta para a tela inicial
+  if (termo.length < 2) {
+    container.innerHTML = `
+      <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
+        <i data-lucide="search" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+        <p class="text-slate-500 font-medium">Use a barra acima para pesquisar</p>
+        <p class="text-xs text-slate-400 mt-1">Busca em toda a base histórica de clientes TIM</p>
+      </div>`;
+    if (contador) contador.textContent = 'Digite ao menos 2 caracteres para buscar';
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  // Feedback visual de carregamento
+  container.innerHTML = `
+    <div class="bg-white p-12 rounded-2xl border border-slate-200 text-center shadow-sm">
+      <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
+      <p class="text-slate-500 font-medium">Buscando clientes...</p>
+    </div>`;
+  if (window.lucide) lucide.createIcons();
+
+  try {
+    const termoNum = termo.replace(/\D/g, '');
+    const termoSeguro = termo.replace(/[%,]/g, '');
+    
+    let query = supabaseClient.from('clientes_faturas').select('*');
+
+    // Lógica de busca: Se for número (CPF/Linha), busca nos campos numéricos. Se for texto, busca no Nome.
+    if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
+      query = query.or(`cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,telefone_provisorio.ilike.%${termoNum}%`);
+    } else {
+      query = query.ilike('nome', `%${termoSeguro}%`);
+    }
+
+    // Limita a 50 resultados para não travar a tela se o cliente tiver muitas linhas
+    const { data, error } = await query.order('data_venda', { ascending: false }).limit(50);
+
+    if (error) throw error;
+
+    // Salva no estado global para a função de copiar funcionar
+    state.clientesBusca = data || [];
+
+    // Atualiza o contador
+    if (contador) {
+      contador.textContent = `${state.clientesBusca.length} resultado(s) encontrado(s) para "${termo}"`;
+    }
+
+    // Se não achou nada
+    if (!state.clientesBusca.length) {
+      container.innerHTML = `
+        <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
+          <i data-lucide="user-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+          <p class="text-slate-500 font-medium">Nenhum cliente encontrado</p>
+          <p class="text-xs text-slate-400 mt-1">Tente buscar por outro nome, CPF ou número</p>
+        </div>`;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
+    // Renderiza os cards usando a função renderClienteCard que já está no seu código
+    container.innerHTML = state.clientesBusca.map(c => renderClienteCard(c)).join('');
+    
+    if (window.lucide) lucide.createIcons();
+
+  } catch (err) {
+    console.error('[Busca Clientes]', err);
+    container.innerHTML = `
+      <div class="bg-red-50 p-6 rounded-2xl border border-red-200 text-center">
+        <p class="text-red-700 font-bold mb-1">Erro ao buscar clientes</p>
+        <p class="text-sm text-red-600">${err.message}</p>
+      </div>`;
+  }
+}
+    
 function renderClienteCard(c) {
     const cpfFmt = formatarDoc(c.cpf);
   const telefone = normalizarTelefone(c.telefone);
