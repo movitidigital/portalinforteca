@@ -2929,120 +2929,127 @@ function limparDataExata() {
     }
 
 async function buscarClientes() {
-      const termo = $('inputBuscaClientes').value.trim();
-      const contador = $('clientesContador');
-      const resultados = $('clientesResultados');
+  const termo = $('inputBuscaClientes').value.trim();
+  const contador = $('clientesContador');
+  const resultados = $('clientesResultados');
 
-      if (termo.length < 2) {
-        contador.textContent = 'Digite ao menos 2 caracteres para buscar';
-        resultados.innerHTML = `
-          <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
-            <i data-lucide="search" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-            <p class="text-slate-500 font-medium">Use a barra acima para pesquisar</p>
-            <p class="text-xs text-slate-400 mt-1">Busca em toda a base histórica de clientes TIM</p>
-          </div>`;
-        lucide.createIcons();
-        return;
-      }
+  if (termo.length < 2) {
+    contador.textContent = 'Digite ao menos 2 caracteres para buscar';
+    resultados.innerHTML = `
+      <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
+        <i data-lucide="search" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+        <p class="text-slate-500 font-medium">Use a barra acima para pesquisar</p>
+        <p class="text-xs text-slate-400 mt-1">Busca em toda a base histórica de clientes TIM</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
 
-      contador.textContent = 'Buscando...';
-      resultados.innerHTML = `
-        <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
-          <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
-          <p class="text-slate-500">Consultando banco de dados...</p>
-        </div>`;
-      lucide.createIcons();
+  contador.textContent = 'Buscando...';
+  resultados.innerHTML = `
+    <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
+      <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
+      <p class="text-slate-500">Consultando banco de dados...</p>
+    </div>`;
+  lucide.createIcons();
 
-      const termoNum = termo.replace(/\D/g, '');
-      const termoSeguro = termo.replace(/[%,]/g, ''); // previne quebra do filtro OR
+  const termoNum = termo.replace(/\D/g, '');
+  const termoSeguro = termo.replace(/[%,]/g, ''); // previne quebra do filtro OR
 
-      let query = supabaseClient.from('clientes_faturas').select('*');
+  let query = supabaseClient.from('clientes_faturas').select('*');
 
-      if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
-        query = query.or(
-          `cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`
-        );
-      } else {
-        query = query.or(`nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`);
-      }
+  if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
+    query = query.or(
+      `cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`
+    );
+  } else {
+    query = query.or(`nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`);
+  }
 
-      const { data, error } = await query.limit(500);
+  const { data, error } = await query.limit(500);
 
-      if (error) {
-        console.error(error);
-        contador.textContent = 'Erro na busca';
-        resultados.innerHTML = `
-          <div class="bg-white p-12 rounded-2xl border border-red-200 shadow-sm text-center">
-            <i data-lucide="alert-circle" class="w-12 h-12 mx-auto text-red-400 mb-3"></i>
-            <p class="text-slate-600 font-semibold">Erro ao buscar</p>
-            <p class="text-xs text-slate-500 mt-1">${escapeHTML(error.message)}</p>
-          </div>`;
-        lucide.createIcons();
-        return;
-      }
+  if (error) {
+    console.error(error);
+    contador.textContent = 'Erro na busca';
+    resultados.innerHTML = `
+      <div class="bg-white p-12 rounded-2xl border border-red-200 shadow-sm text-center">
+        <i data-lucide="alert-circle" class="w-12 h-12 mx-auto text-red-400 mb-3"></i>
+        <p class="text-slate-600 font-semibold">Erro ao buscar</p>
+        <p class="text-xs text-slate-500 mt-1">${escapeHTML(error.message)}</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
 
-      const encontrados = data || [];
+  const encontrados = data || [];
 
-      // 🚀 NOVO: Buscar o valor do aparelho na tabela interacoes usando o IMEI
-      if (encontrados.length > 0) {
-        const imeis = encontrados.map(c => c.imei).filter(Boolean);
-        if (imeis.length > 0) {
-          const { data: vendasApar } = await supabaseClient
-            .from('interacoes')
-            .select('imei, valor_total, categoria, modalidade, produto, dados_originais') // 👈 Adicionado dados_originais
-            .in('imei', imeis);
+  // 🚀 BUSCA O VALOR DO APARELHO NA TABELA INTERACOES USANDO O IMEI
+  if (encontrados.length > 0) {
+    const imeis = encontrados.map(c => c.imei).filter(Boolean);
+    if (imeis.length > 0) {
+      const { data: vendasApar } = await supabaseClient
+        .from('interacoes')
+        .select('imei, valor_total, categoria, modalidade, produto, dados_originais')
+        .in('imei', imeis);
 
-          if (vendasApar) {
-            const mapaApar = {};
-            vendasApar.forEach(v => {
-              // Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
-              const isApar = v.categoria === 'APARELHO' || 
-                             String(v.modalidade || '').toUpperCase().includes('AP') || 
-                             String(v.produto || '').toUpperCase().includes('CELULAR');
+      if (vendasApar) {
+        const mapaApar = {};
+        vendasApar.forEach(v => {
+          const isApar = v.categoria === 'APARELHO' || 
+                         String(v.modalidade || '').toUpperCase().includes('AP') || 
+                         String(v.produto || '').toUpperCase().includes('CELULAR');
 
-              if (isApar) {
-                // 🚀 Puxa o valor correto de dentro do JSON do Datasys
-                let valorApar = Number(v.dados_originais?.['Valor Plano']) || 0;
-                
-                // Se por algum motivo o JSON não tiver o valor, usa o valor_total
-                if (valorApar === 0) {
-                  valorApar = Number(v.valor_total) || 0;
-                }
+          if (isApar) {
+            // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
+            const json = v.dados_originais || {};
+            let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
+                           json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
+                           v.valor_total;
 
-                if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-                mapaApar[v.imei] += valorApar;
-              }
-            });
-            
-            // Anexa o valor do aparelho ao objeto do cliente
-            encontrados.forEach(c => {
-              if (c.imei && mapaApar[c.imei]) {
-                c.valor_aparelho = mapaApar[c.imei];
-              }
-            });
+            let valorApar = 0;
+            if (typeof valorRaw === 'number') {
+              valorApar = valorRaw;
+            } else if (typeof valorRaw === 'string') {
+              let s = valorRaw.trim().replace(/[R$\s]/g, '');
+              if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+              else if (s.includes(',')) s = s.replace(',', '.');
+              valorApar = parseFloat(s) || 0;
+            }
+
+            if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
+            mapaApar[v.imei] += valorApar;
           }
-        }
+        });
+        
+        // Anexa o valor do aparelho ao objeto do cliente
+        encontrados.forEach(c => {
+          if (c.imei && mapaApar[c.imei]) {
+            c.valor_aparelho = mapaApar[c.imei];
+          }
+        });
       }
-
-      encontrados.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
-
-      contador.textContent = `${encontrados.length} ${encontrados.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}`;
-
-      if (!encontrados.length) {
-        resultados.innerHTML = `
-          <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
-            <i data-lucide="user-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-            <p class="text-slate-600 font-semibold">Nenhum cliente encontrado</p>
-            <p class="text-xs text-slate-400 mt-1">Tente buscar por outro nome, CPF ou número</p>
-          </div>`;
-        lucide.createIcons();
-        return;
-      }
-
-      state.clientesBusca = encontrados;
-      resultados.innerHTML = encontrados.map(c => renderClienteCard(c)).join('');
-      lucide.createIcons();
     }
+  }
+
+  encontrados.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
+
+  contador.textContent = `${encontrados.length} ${encontrados.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}`;
+
+  if (!encontrados.length) {
+    resultados.innerHTML = `
+      <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
+        <i data-lucide="user-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+        <p class="text-slate-600 font-semibold">Nenhum cliente encontrado</p>
+        <p class="text-xs text-slate-400 mt-1">Tente buscar por outro nome, CPF ou número</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+
+  state.clientesBusca = encontrados;
+  resultados.innerHTML = encontrados.map(c => renderClienteCard(c)).join('');
+  lucide.createIcons();
+}
 
 function renderClienteCard(c) {
     const cpfFmt = formatarDoc(c.cpf);
@@ -3548,7 +3555,7 @@ async function carregarContratosThales() {
     if (imeis.length > 0) {
       const { data: vendasApar } = await supabaseClient
         .from('interacoes')
-        .select('imei, valor_total, categoria, modalidade, produto, dados_originais') // 👈 Adicionado dados_originais
+        .select('imei, valor_total, categoria, modalidade, produto, dados_originais')
         .in('imei', imeis);
 
       if (vendasApar) {
@@ -3560,12 +3567,20 @@ async function carregarContratosThales() {
                          String(v.produto || '').toUpperCase().includes('CELULAR');
 
           if (isApar) {
-            // 🚀 Puxa o valor correto de dentro do JSON do Datasys
-            let valorApar = Number(v.dados_originais?.['Valor Plano']) || 0;
-            
-            // Se por algum motivo o JSON não tiver o valor, usa o valor_total
-            if (valorApar === 0) {
-              valorApar = Number(v.valor_total) || 0;
+            // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
+            const json = v.dados_originais || {};
+            let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
+                           json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
+                           v.valor_total;
+
+            let valorApar = 0;
+            if (typeof valorRaw === 'number') {
+              valorApar = valorRaw;
+            } else if (typeof valorRaw === 'string') {
+              let s = valorRaw.trim().replace(/[R$\s]/g, '');
+              if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+              else if (s.includes(',')) s = s.replace(',', '.');
+              valorApar = parseFloat(s) || 0;
             }
 
             if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
