@@ -4502,7 +4502,11 @@ async function processarDatasys(input) {
       consultor:  acharColuna('VENDEDOR', 'CONSULTOR'),
       fidelAp:    acharColuna('FIDELIZACAO', 'FIDELIZAÇÃO'),
       fidelPl:    acharColuna('FIDELIZACAO PLANO', 'FIDELIZAÇÃO PLANO'),
-      valorReceita: acharColuna( 'VALOR RECEITA CONTRATADA', 'VALOR DA RECEITA CONTRATADA', 'RECEITA CONTRATADA', 'VALOR RECEITA' ),
+      // 🚀 CORREÇÃO: Adicionado mais opções de nomes para a coluna de valor
+      valorReceita: acharColuna( 
+        'VALOR RECEITA CONTRATADA', 'VALOR DA RECEITA CONTRATADA', 'RECEITA CONTRATADA', 
+        'VALOR RECEITA', 'VALOR PLANO', 'VALOR TOTAL', 'VALOR APARELHO', 'VALOR'
+      ),
     };
 
     console.log('[Datasys] Colunas mapeadas:', COL);
@@ -4614,21 +4618,21 @@ async function processarDatasys(input) {
     statusEl.textContent = `🔍 Verificando ${payload.length} registros contra a base...`;
     const cpfs = payload.map(r => r.cpf);
     
-    // Adicionado modalidade, imei e plano na busca de existentes
     const { data: existentes, error: errCheck } = await supabaseClient
       .from('clientes_faturas')
       .select('cpf, telefone, data_venda, modalidade, imei, plano')
       .in('cpf', cpfs);
     if (errCheck) throw errCheck;
 
-    // Monta a chave exata de comparação
     const existentesSet = new Set((existentes || []).map(e =>
       `${e.cpf}|${e.telefone}|${e.data_venda}|${e.modalidade}|${e.imei || ''}|${e.plano || ''}`));
       
     const novos = payload.filter(r => {
       const chave = `${r.cpf}|${r.telefone}|${r.data_venda}|${r.modalidade}|${r.imei || ''}|${r.plano || ''}`;
       return !existentesSet.has(chave);
-    });    const pulados = payload.length - novos.length;
+    });
+    
+    const pulados = payload.length - novos.length;
 
     if (!novos.length) {
       statusEl.textContent = `✅ Nada novo para importar. ${pulados} já existem.`;
@@ -4663,14 +4667,10 @@ async function processarDatasys(input) {
       if (ignorados.semCpf)   partes.push(`${ignorados.semCpf} sem CPF`);
 
       statusEl.textContent = partes.join(' · ');
-      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
+      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1;
 
-      // 🚀 O BLOCO DE LOG FOI REMOVIDO. AGORA APENAS ATUALIZAMOS A TELA.
-      
       await carregarContratosThales();
       atualizarBadgeGestao();
-      
-      // Atualiza o calendário visual buscando os dias que têm venda na base
       carregarCalendarioDatasys();
     }
 
