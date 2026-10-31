@@ -4682,7 +4682,7 @@ async function processarDatasys(input) {
       if (ignorados.semCpf)   partes.push(`${ignorados.semCpf} sem CPF`);
 
       statusEl.textContent = partes.join(' · ');
-      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1;
+      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
 
       await carregarContratosThales();
       atualizarBadgeGestao();
