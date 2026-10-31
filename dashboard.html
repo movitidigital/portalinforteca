@@ -2928,64 +2928,31 @@ function limparDataExata() {
       _buscaClientesTimer = setTimeout(buscarClientes, 350);
     }
 
-async function buscarClientes() {
-  const termo = $('inputBuscaClientes').value.trim();
-  const contador = $('clientesContador');
-  const resultados = $('clientesResultados');
-
-  if (termo.length < 2) {
-    contador.textContent = 'Digite ao menos 2 caracteres para buscar';
-    resultados.innerHTML = `
-      <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
-        <i data-lucide="search" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-        <p class="text-slate-500 font-medium">Use a barra acima para pesquisar</p>
-        <p class="text-xs text-slate-400 mt-1">Busca em toda a base histórica de clientes TIM</p>
-      </div>`;
-    lucide.createIcons();
-    return;
-  }
-
-  contador.textContent = 'Buscando...';
-  resultados.innerHTML = `
-    <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
-      <i data-lucide="loader-2" class="w-8 h-8 mx-auto text-[#0e8890] animate-spin mb-3"></i>
-      <p class="text-slate-500">Consultando banco de dados...</p>
-    </div>`;
+async function carregarContratosThales() {
+  const tbody = $('tabelaContratos');
+  tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-slate-500">
+    <i data-lucide="loader-2" class="w-6 h-6 animate-spin inline-block mr-2 text-[#0e8890]"></i>
+    A carregar contratos pendentes…
+  </td></tr>`;
   lucide.createIcons();
 
-  const termoNum = termo.replace(/\D/g, '');
-  const termoSeguro = termo.replace(/[%,]/g, ''); // previne quebra do filtro OR
-
-  let query = supabaseClient.from('clientes_faturas').select('*');
-
-  if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
-    query = query.or(
-      `cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`
-    );
-  } else {
-    query = query.or(`nome.ilike.%${termoSeguro}%,consultor.ilike.%${termoSeguro}%`);
-  }
-
-  const { data, error } = await query.limit(500);
+  const { data, error } = await supabaseClient
+    .from('clientes_faturas')
+    .select('*')
+    .is('status_thales', null)
+    .order('data_venda', { ascending: false })
+    .limit(500);
 
   if (error) {
-    console.error(error);
-    contador.textContent = 'Erro na busca';
-    resultados.innerHTML = `
-      <div class="bg-white p-12 rounded-2xl border border-red-200 shadow-sm text-center">
-        <i data-lucide="alert-circle" class="w-12 h-12 mx-auto text-red-400 mb-3"></i>
-        <p class="text-slate-600 font-semibold">Erro ao buscar</p>
-        <p class="text-xs text-slate-500 mt-1">${escapeHTML(error.message)}</p>
-      </div>`;
-    lucide.createIcons();
+    tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-red-500">Erro: ${escapeHTML(error.message)}</td></tr>`;
     return;
   }
 
-  const encontrados = data || [];
-
-  // 🚀 BUSCA O VALOR DO APARELHO NA TABELA INTERACOES USANDO O IMEI
-  if (encontrados.length > 0) {
-    const imeis = encontrados.map(c => c.imei).filter(Boolean);
+  state.contratos = data || [];
+  
+  // 🚀 NOVO: Buscar valor do aparelho para a tabela de Gestão
+  if (state.contratos.length > 0) {
+    const imeis = state.contratos.map(c => String(c.imei || '').trim()).filter(Boolean);
     if (imeis.length > 0) {
       const { data: vendasApar } = await supabaseClient
         .from('interacoes')
@@ -2995,7 +2962,6 @@ async function buscarClientes() {
       if (vendasApar) {
         const mapaApar = {};
         vendasApar.forEach(v => {
-          // 🚀 Adicionado includes('TROCA') para garantir que trocas sejam identificadas
           const isApar = v.categoria === 'APARELHO' || 
                          String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
                          String(v.modalidade || '').toUpperCase().includes('TROCA') || 
@@ -3003,36 +2969,53 @@ async function buscarClientes() {
                          String(v.produto || '').toUpperCase().includes('SMARTPHONE');
 
           if (isApar) {
-            // 🚀 Busca o valor em várias chaves possíveis do JSON
-            const json = v.dados_originais || {};
-            let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
-                           json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
-                           json['Valor Aparelho'] ?? json['VALOR APARELHO'] ?? 
-                           v.valor_total;
-
             let valorApar = 0;
-            if (typeof valorRaw === 'number') {
-              valorApar = valorRaw;
-            } else if (typeof valorRaw === 'string') {
-              let s = valorRaw.trim().replace(/[R$\s]/g, '');
+            
+            if (typeof v.valor_total === 'string') {
+              let s = v.valor_total.trim().replace(/[R$\s]/g, '');
               if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
               else if (s.includes(',')) s = s.replace(',', '.');
               valorApar = parseFloat(s) || 0;
+            } else {
+              valorApar = Number(v.valor_total) || 0;
             }
 
-            if (!mapaApar[v.imei]) mapaApar[v.imei] = 0;
-            mapaApar[v.imei] += valorApar;
+            if (valorApar === 0 && v.dados_originais) {
+              const json = v.dados_originais;
+              const chaves = Object.keys(json);
+              
+              const chaveValor = chaves.find(k => 
+                k.toUpperCase().includes('VALOR APARELHO') || 
+                k.toUpperCase().includes('VALOR TOTAL') || 
+                k.toUpperCase() === 'VALOR'
+              );
+
+              if (chaveValor) {
+                const valorRaw = json[chaveValor];
+                if (typeof valorRaw === 'number') {
+                  valorApar = valorRaw;
+                } else if (typeof valorRaw === 'string') {
+                  let s = valorRaw.trim().replace(/[R$\s]/g, '');
+                  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+                  else if (s.includes(',')) s = s.replace(',', '.');
+                  valorApar = parseFloat(s) || 0;
+                }
+              }
+            }
+
+            const imeiChave = String(v.imei || '').trim();
+            if (!mapaApar[imeiChave]) mapaApar[imeiChave] = 0;
+            mapaApar[imeiChave] += valorApar;
           }
         });
         
-        // Anexa o valor do aparelho ao objeto do cliente
-        encontrados.forEach(c => {
-          if (c.imei && mapaApar[c.imei]) {
-            c.valor_aparelho = mapaApar[c.imei];
+        state.contratos.forEach(c => {
+          const imeiC = String(c.imei || '').trim();
+          if (imeiC && mapaApar[imeiC]) {
+            c.valor_aparelho = mapaApar[imeiC];
           }
           
-          // 🚀 FALLBACK: Se não achou na tabela de interações, mas é TROCA DE APARELHO e tem receita, usa ela.
-          if (!c.valor_aparelho && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
+          if ((!c.valor_aparelho || c.valor_aparelho === 0) && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
             c.valor_aparelho = Number(c.valor_receita_contratada);
           }
         });
@@ -3040,23 +3023,17 @@ async function buscarClientes() {
     }
   }
 
-  encontrados.sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || '')));
+  const cnt = $('countAbaThales');
+  if (cnt) cnt.textContent = state.contratos.length;
 
-  contador.textContent = `${encontrados.length} ${encontrados.length === 1 ? 'cliente encontrado' : 'clientes encontrados'}`;
-
-  if (!encontrados.length) {
-    resultados.innerHTML = `
-      <div class="bg-white p-12 rounded-2xl border border-slate-200 shadow-sm text-center">
-        <i data-lucide="user-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-        <p class="text-slate-600 font-semibold">Nenhum cliente encontrado</p>
-        <p class="text-xs text-slate-400 mt-1">Tente buscar por outro nome, CPF ou número</p>
-      </div>`;
-    lucide.createIcons();
+  if (!state.contratos.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="px-6 py-12 text-center text-slate-500">
+      ✨ Nenhuma pendência — todos os contratos já foram conferidos!
+    </td></tr>`;
     return;
   }
 
-  state.clientesBusca = encontrados;
-  resultados.innerHTML = encontrados.map(c => renderClienteCard(c)).join('');
+  tbody.innerHTML = state.contratos.map(c => linhaContratoHTML(c)).join('');
   lucide.createIcons();
 }
 
