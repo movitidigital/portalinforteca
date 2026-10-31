@@ -2995,15 +2995,19 @@ async function buscarClientes() {
       if (vendasApar) {
         const mapaApar = {};
         vendasApar.forEach(v => {
+          // 🚀 Adicionado includes('TROCA') para garantir que trocas sejam identificadas
           const isApar = v.categoria === 'APARELHO' || 
-                         String(v.modalidade || '').toUpperCase().includes('AP') || 
-                         String(v.produto || '').toUpperCase().includes('CELULAR');
+                         String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
+                         String(v.modalidade || '').toUpperCase().includes('TROCA') || 
+                         String(v.produto || '').toUpperCase().includes('CELULAR') ||
+                         String(v.produto || '').toUpperCase().includes('SMARTPHONE');
 
           if (isApar) {
-            // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
+            // 🚀 Busca o valor em várias chaves possíveis do JSON
             const json = v.dados_originais || {};
             let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
                            json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
+                           json['Valor Aparelho'] ?? json['VALOR APARELHO'] ?? 
                            v.valor_total;
 
             let valorApar = 0;
@@ -3025,6 +3029,11 @@ async function buscarClientes() {
         encontrados.forEach(c => {
           if (c.imei && mapaApar[c.imei]) {
             c.valor_aparelho = mapaApar[c.imei];
+          }
+          
+          // 🚀 FALLBACK: Se não achou na tabela de interações, mas é TROCA DE APARELHO e tem receita, usa ela.
+          if (!c.valor_aparelho && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
+            c.valor_aparelho = Number(c.valor_receita_contratada);
           }
         });
       }
@@ -3561,16 +3570,19 @@ async function carregarContratosThales() {
       if (vendasApar) {
         const mapaApar = {};
         vendasApar.forEach(v => {
-          // Lógica para identificar o aparelho mesmo que a categoria venha bagunçada
+          // 🚀 CORREÇÃO: Adicionado includes('TROCA') e 'SMARTPHONE'
           const isApar = v.categoria === 'APARELHO' || 
-                         String(v.modalidade || '').toUpperCase().includes('AP') || 
-                         String(v.produto || '').toUpperCase().includes('CELULAR');
+                         String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
+                         String(v.modalidade || '').toUpperCase().includes('TROCA') || 
+                         String(v.produto || '').toUpperCase().includes('CELULAR') ||
+                         String(v.produto || '').toUpperCase().includes('SMARTPHONE');
 
           if (isApar) {
-            // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
+            // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON
             const json = v.dados_originais || {};
             let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
                            json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
+                           json['Valor Aparelho'] ?? json['VALOR APARELHO'] ?? 
                            v.valor_total;
 
             let valorApar = 0;
@@ -3592,6 +3604,11 @@ async function carregarContratosThales() {
           if (c.imei && mapaApar[c.imei]) {
             c.valor_aparelho = mapaApar[c.imei];
           }
+          
+          // 🚀 FALLBACK: Se não achou na tabela de interações, mas é TROCA DE APARELHO e tem receita, usa ela.
+          if (!c.valor_aparelho && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
+            c.valor_aparelho = Number(c.valor_receita_contratada);
+          }
         });
       }
     }
@@ -3610,7 +3627,6 @@ async function carregarContratosThales() {
   tbody.innerHTML = state.contratos.map(c => linhaContratoHTML(c)).join('');
   lucide.createIcons();
 }
-
 async function carregarBoasVindas() {
   const tbody = $('tabelaBoasVindas');
   tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">
