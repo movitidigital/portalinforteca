@@ -3082,100 +3082,22 @@ async function buscarClientes() {
     
     let query = supabaseClient.from('clientes_faturas').select('*');
 
-    // Lógica de busca: Se for número (CPF/Linha), busca nos campos numéricos. Se for texto, busca no Nome.
     if (termoNum.length >= 3 && /^\d+$/.test(termoNum)) {
       query = query.or(`cpf.ilike.%${termoNum}%,telefone.ilike.%${termoNum}%,telefone_alt.ilike.%${termoNum}%,telefone_provisorio.ilike.%${termoNum}%`);
     } else {
       query = query.ilike('nome', `%${termoSeguro}%`);
     }
 
-    // Limita a 50 resultados para não travar a tela se o cliente tiver muitas linhas
     const { data, error } = await query.order('data_venda', { ascending: false }).limit(50);
 
     if (error) throw error;
 
-    // Salva no estado global para a função de copiar funcionar
     state.clientesBusca = data || [];
 
-        // 🚀 NOVO: Buscar valor do aparelho para os clientes encontrados na busca
-    if (state.clientesBusca.length > 0) {
-      const imeis = state.clientesBusca.map(c => String(c.imei || '').trim()).filter(Boolean);
-      if (imeis.length > 0) {
-        const { data: vendasApar } = await supabaseClient
-          .from('interacoes')
-          .select('imei, valor_total, categoria, modalidade, produto, dados_originais')
-          .in('imei', imeis);
-
-        if (vendasApar) {
-          const mapaApar = {};
-          vendasApar.forEach(v => {
-            const isApar = v.categoria === 'APARELHO' || 
-                           String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
-                           String(v.modalidade || '').toUpperCase().includes('TROCA') || 
-                           String(v.produto || '').toUpperCase().includes('CELULAR') ||
-                           String(v.produto || '').toUpperCase().includes('SMARTPHONE');
-
-            if (isApar) {
-              let valorApar = 0;
-              
-              if (typeof v.valor_total === 'string') {
-                let s = v.valor_total.trim().replace(/[R$\s]/g, '');
-                if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
-                else if (s.includes(',')) s = s.replace(',', '.');
-                valorApar = parseFloat(s) || 0;
-              } else {
-                valorApar = Number(v.valor_total) || 0;
-              }
-
-              if (valorApar === 0 && v.dados_originais) {
-                const json = v.dados_originais;
-                const chaves = Object.keys(json);
-                const chaveValor = chaves.find(k => 
-                  k.toUpperCase().includes('VALOR APARELHO') || 
-                  k.toUpperCase().includes('VALOR TOTAL') || 
-                  k.toUpperCase() === 'VALOR'
-                );
-
-                if (chaveValor) {
-                  const valorRaw = json[chaveValor];
-                  if (typeof valorRaw === 'number') {
-                    valorApar = valorRaw;
-                  } else if (typeof valorRaw === 'string') {
-                    let s = valorRaw.trim().replace(/[R$\s]/g, '');
-                    if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
-                    else if (s.includes(',')) s = s.replace(',', '.');
-                    valorApar = parseFloat(s) || 0;
-                  }
-                }
-              }
-
-              const imeiChave = String(v.imei || '').trim();
-              if (!mapaApar[imeiChave]) mapaApar[imeiChave] = 0;
-              mapaApar[imeiChave] += valorApar;
-            }
-          });
-          
-          state.clientesBusca.forEach(c => {
-            const imeiC = String(c.imei || '').trim();
-            if (imeiC && mapaApar[imeiC]) {
-              c.valor_aparelho = mapaApar[imeiC];
-            }
-            
-            // Fallback: Se for TROCA DE APARELHO e tiver valor de receita, usa ele
-            if ((!c.valor_aparelho || c.valor_aparelho === 0) && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
-              c.valor_aparelho = Number(c.valor_receita_contratada);
-            }
-          });
-        }
-      }
-    }
-
-    // Atualiza o contador
     if (contador) {
       contador.textContent = `${state.clientesBusca.length} resultado(s) encontrado(s) para "${termo}"`;
     }
 
-    // Se não achou nada
     if (!state.clientesBusca.length) {
       container.innerHTML = `
         <div class="bg-white p-12 rounded-2xl border border-dashed border-slate-200 text-center">
@@ -3187,9 +3109,74 @@ async function buscarClientes() {
       return;
     }
 
-    // Renderiza os cards usando a função renderClienteCard que já está no seu código
-    container.innerHTML = state.clientesBusca.map(c => renderClienteCard(c)).join('');
+    // 🚀 CRUZAMENTO DE DADOS: BUSCA O VALOR DO APARELHO NA TABELA DE COMISSÕES
+    const imeis = state.clientesBusca.map(c => String(c.imei || '').trim()).filter(Boolean);
     
+    if (imeis.length > 0) {
+      // Busca todas as interações que tenham esses IMEIs (sem filtrar categoria para não perder nada)
+      const { data: vendasApar } = await supabaseClient
+        .from('interacoes')
+        .select('imei, valor_total, categoria, modalidade, produto, dados_originais')
+        .in('imei', imeis);
+
+      if (vendasApar) {
+        const mapaApar = {};
+        
+        vendasApar.forEach(v => {
+          // Lógica idêntica à da Gestão Thales para extrair o valor
+          const isApar = v.categoria === 'APARELHO' || 
+                         String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
+                         String(v.modalidade || '').toUpperCase().includes('TROCA') || 
+                         String(v.produto || '').toUpperCase().includes('CELULAR') ||
+                         String(v.produto || '').toUpperCase().includes('SMARTPHONE');
+
+          if (isApar) {
+            let valorRaw = v.valor_total;
+
+            // Se o valor_total for nulo, tenta achar no JSON dados_originais
+            if (!valorRaw && v.dados_originais) {
+              const json = v.dados_originais;
+              const chaves = Object.keys(json);
+              const chaveValor = chaves.find(k => 
+                k.toUpperCase().includes('VALOR APARELHO') || 
+                k.toUpperCase().includes('VALOR TOTAL') || 
+                k.toUpperCase() === 'VALOR'
+              );
+              if (chaveValor) valorRaw = json[chaveValor];
+            }
+
+            let valorApar = 0;
+            if (typeof valorRaw === 'number') {
+              valorApar = valorRaw;
+            } else if (typeof valorRaw === 'string') {
+              let s = valorRaw.trim().replace(/[R$\s]/g, '');
+              if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+              else if (s.includes(',')) s = s.replace(',', '.');
+              valorApar = parseFloat(s) || 0;
+            }
+
+            const imeiChave = String(v.imei || '').trim();
+            if (!mapaApar[imeiChave]) mapaApar[imeiChave] = 0;
+            mapaApar[imeiChave] += valorApar;
+          }
+        });
+        
+        // Aplica os valores encontrados de volta na lista de clientes
+        state.clientesBusca.forEach(c => {
+          const imeiC = String(c.imei || '').trim();
+          if (imeiC && mapaApar[imeiC]) {
+            c.valor_aparelho = mapaApar[imeiC];
+          }
+          
+          // Se for TROCA e ainda não tiver valor, tenta usar o valor_receita_contratada como fallback
+          if ((!c.valor_aparelho || c.valor_aparelho === 0) && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
+            c.valor_aparelho = Number(c.valor_receita_contratada);
+          }
+        });
+      }
+    }
+
+    container.innerHTML = state.clientesBusca.map(c => renderClienteCard(c)).join('');
     if (window.lucide) lucide.createIcons();
 
   } catch (err) {
