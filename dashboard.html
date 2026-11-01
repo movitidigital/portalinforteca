@@ -1846,18 +1846,16 @@
         
         <!-- 🚀 WRAPPER RELATIVO PARA POSICIONAR O OLHINHO -->
         <div class="relative">
-          <!-- 1. Campo fantasma para enganar o navegador (ele acha que é o usuário) -->
-          <input type="text" name="username" autocomplete="username" style="display:none;">
-          
-          <!-- 2. O campo real da senha -->
+          <!-- 🚀 TRUQUE DE MESTRE: type="text" e CSS para esconder a senha -->
           <input 
-            type="password" 
+            type="text" 
             id="pinInput" 
-            name="pin_espelho" 
-            autocomplete="new-password" 
+            name="pin_fake_text"
+            autocomplete="off" 
             autocorrect="off" 
             autocapitalize="off" 
             spellcheck="false"
+            style="-webkit-text-security: disc; text-security: disc;"
             class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-12 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-[#0e8890] focus:ring-2 focus:ring-[#0e8890]/20 transition-all" 
             placeholder="••••••••">
           
@@ -7453,19 +7451,25 @@ async function excluirClienteVenda(id) {
   }
 }
 
-    function togglePinVisibility() {
+function togglePinVisibility() {
   const input = document.getElementById('pinInput');
   const icon = document.getElementById('pinEyeIcon');
   
-  if (input.type === 'password') {
-    input.type = 'text';
-    icon.setAttribute('data-lucide', 'eye-off'); // Muda o ícone para "olho cortado"
+  // Verifica o estado atual do CSS
+  const isHidden = input.style.webkitTextSecurity === 'disc' || input.style.textSecurity === 'disc';
+  
+  if (isHidden) {
+    // Mostra a senha
+    input.style.webkitTextSecurity = 'none';
+    input.style.textSecurity = 'none';
+    icon.setAttribute('data-lucide', 'eye-off');
   } else {
-    input.type = 'password';
-    icon.setAttribute('data-lucide', 'eye');     // Volta para o "olho aberto"
+    // Esconde a senha novamente
+    input.style.webkitTextSecurity = 'disc';
+    input.style.textSecurity = 'disc';
+    icon.setAttribute('data-lucide', 'eye');
   }
   
-  // Re-renderiza o ícone do Lucide para aplicar a mudança
   if (window.lucide) lucide.createIcons();
 }
 </script>
