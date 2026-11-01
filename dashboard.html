@@ -84,10 +84,21 @@
 <!-- ===== DASHBOARD ===== -->
 <div id="view-dashboard" class="animate-fade-in">
 
-  <!-- 👋 SAUDAÇÃO -->
-  <div class="mb-6">
-    <h1 id="greetingNome" class="text-2xl md:text-3xl font-black text-[#000033]">Bom dia!</h1>
-    <p id="greetingData" class="text-sm text-slate-500 mt-1">—</p>
+  <!-- 👋 SAUDAÇÃO E SELETOR DE MÊS -->
+  <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 id="greetingNome" class="text-2xl md:text-3xl font-black text-[#000033]">Bom dia!</h1>
+      <p id="greetingData" class="text-sm text-slate-500 mt-1">—</p>
+    </div>
+    
+    <!-- 🚀 NOVO SELETOR DE MÊS -->
+    <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+      <i data-lucide="calendar" class="w-4 h-4 text-[#0e8890]"></i>
+      <label class="text-xs font-black text-slate-500 uppercase tracking-wider">Mês Ref:</label>
+      <select id="dashMesSelect" onchange="mudarMesDashboard(this.value)" class="bg-transparent text-sm font-bold text-[#000033] focus:outline-none cursor-pointer">
+        <!-- Preenchido via JS -->
+      </select>
+    </div>
   </div>
 
 <!-- 📊 META + 🏆 RANKING (lado a lado em telas grandes) -->
@@ -6021,9 +6032,28 @@ async function importarCsvSuspensos(input) {
   });
 }
 
+
+/* Atalho: navega pra faturas e já aplica o filtro de atrasados */
+function aplicarFiltroAtrasados() {
+  const sel = $('selectSituacao');
+  if (sel) {
+    sel.value = 'atrasados';
+    filtrar();
+  }
+}
+
 /* ==========================================================
-   DASHBOARD — Saudação, Meta Pessoal e atalhos
+   DASHBOARD — Saudação, Meta Pessoal e Ranking
    ========================================================== */
+
+let _dashMesAtual = ''; // Guarda o mês selecionado no Dashboard
+let _rankingAvatares = {}; // Guarda as fotos para o ranking
+
+function mudarMesDashboard(valorStr) {
+  _dashMesAtual = valorStr;
+  carregarMetaPessoal();
+  carregarRankingEquipe();
+}
 
 async function carregarResumoDashboard() {
   // 1) Saudação dinâmica
@@ -6041,31 +6071,55 @@ async function carregarResumoDashboard() {
   if (elNome) elNome.textContent = `${saudacao}, ${primeiroNome}! 👋`;
   if (elData) elData.textContent = `Hoje é ${diaSemana}, ${dd}/${mm}`;
 
-  // 2) Meta pessoal
+  // 2) Carrega os meses disponíveis no seletor
+  const select = $('dashMesSelect');
+  if (select) {
+    const { data } = await supabaseClient.from('metas_mensais').select('mes');
+    const mesesDisponiveis = (data || []).map(d => d.mes);
+    
+    // Ordena de forma decrescente (o mais novo primeiro)
+    const MESES_MAP = { 'JANEIRO': 1, 'FEVEREIRO': 2, 'MARÇO': 3, 'ABRIL': 4, 'MAIO': 5, 'JUNHO': 6, 'JULHO': 7, 'AGOSTO': 8, 'SETEMBRO': 9, 'OUTUBRO': 10, 'NOVEMBRO': 11, 'DEZEMBRO': 12 };
+    mesesDisponiveis.sort((a, b) => {
+      const mA = a.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
+      const mB = b.match(/([A-ZÇ]+)\s*\/\s*(\d{4})/i);
+      if (!mA || !mB) return 0;
+      const pesoA = (parseInt(mA[2]) * 100) + (MESES_MAP[mA[1].toUpperCase()] || 0);
+      const pesoB = (parseInt(mB[2]) * 100) + (MESES_MAP[mB[1].toUpperCase()] || 0);
+      return pesoB - pesoA; // Decrescente
+    });
+
+    // Define o mês atual do sistema como padrão se estiver na lista, senão pega o primeiro
+    const nomeMesAtualSistema = `${['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'][agora.getMonth()]} / ${agora.getFullYear()}`;
+    
+    if (!_dashMesAtual) {
+      _dashMesAtual = mesesDisponiveis.includes(nomeMesAtualSistema) ? nomeMesAtualSistema : (mesesDisponiveis[0] || nomeMesAtualSistema);
+    }
+
+    select.innerHTML = mesesDisponiveis.map(m => `<option value="${m}" ${m === _dashMesAtual ? 'selected' : ''}>${m}</option>`).join('');
+  }
+
+  // 3) Carrega os dados com o mês selecionado
   await carregarMetaPessoal();
+  await carregarRankingEquipe();
 }
 
 async function carregarMetaPessoal() {
   const container = $('metaProgresso');
   const nomeMesEl = $('metaMesNome');
-  if (!container) return;
+  if (!container || !_dashMesAtual) return;
 
   try {
-    const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-    const agora = new Date();
-    const nomeMes = `${MESES[agora.getMonth()]} / ${agora.getFullYear()}`;
-
     const { data, error } = await supabaseClient
       .from('metas_mensais')
       .select('*')
-      .eq('mes', nomeMes)
+      .eq('mes', _dashMesAtual)
       .maybeSingle();
 
     if (error) throw error;
 
     if (!data || !data.dados) {
-      container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Nenhuma meta cadastrada para <strong>${nomeMes}</strong>.</p>`;
-      if (nomeMesEl) nomeMesEl.textContent = nomeMes;
+      container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Nenhuma meta cadastrada para <strong>${_dashMesAtual}</strong>.</p>`;
+      if (nomeMesEl) nomeMesEl.textContent = _dashMesAtual;
       return;
     }
 
@@ -6077,7 +6131,6 @@ async function carregarMetaPessoal() {
     const diasTrab = Number(parametros.diasTrabalhados) || 0;
     const diasRest = Number(parametros.diasRestantes) || 0;
 
-    // Tenta achar o consultor pelo primeiro nome
     const nomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim();
     const primeiroNomeUser = nomeUser.split(' ')[0];
     let consultor = consultores.find(c => {
@@ -6085,18 +6138,13 @@ async function carregarMetaPessoal() {
       return primeiroNomeC && primeiroNomeC === primeiroNomeUser;
     });
 
-    // Se não achou (admin p.ex), usa meta da LOJA
     const isLoja = !consultor;
     const metaBase = isLoja ? metaLoja : metaCons;
 
-    if (nomeMesEl) {
-      nomeMesEl.textContent = `${isLoja ? 'META DA LOJA' : 'SUA META'} — ${nomeMes}`;
-    }
+    if (nomeMesEl) nomeMesEl.textContent = `${isLoja ? 'META DA LOJA' : 'SUA META'} — ${_dashMesAtual}`;
 
-    // Função pra calcular o realizado
     const calcReal = (key) => {
       const somaArray = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
-
       if (isLoja) {
         return consultores.reduce((sum, c) => {
           const d = c.diario || {};
@@ -6109,7 +6157,6 @@ async function carregarMetaPessoal() {
       return somaArray(d[key]);
     };
 
-    // KPIs exibidos
     const KPIs = [
       { key: 'FAT TOTAL TIM', label: 'Fat. Total',  tipo: 'moeda' },
       { key: 'APARELHO',      label: 'Aparelho',    tipo: 'moeda' },
@@ -6153,7 +6200,6 @@ async function carregarMetaPessoal() {
         </div>`;
     });
 
-    // Média dos percentuais
     const pctMedio = countPct > 0 ? somaPct / countPct : 0;
     const corMedio = pctMedio >= 100 ? 'emerald' : pctMedio >= 70 ? 'amber' : 'red';
 
@@ -6177,47 +6223,46 @@ async function carregarMetaPessoal() {
   }
 }
 
-/* Atalho: navega pra faturas e já aplica o filtro de atrasados */
-function aplicarFiltroAtrasados() {
-  const sel = $('selectSituacao');
-  if (sel) {
-    sel.value = 'atrasados';
-    filtrar();
-  }
-}
-
 /* ==========================================================
-   RANKING DA EQUIPE
+   RANKING DA EQUIPE COM FOTOS
    ========================================================== */
-
-let _rankingDados = null;   // cache do mês carregado
+let _rankingDados = null;
 
 async function carregarRankingEquipe() {
   const container = $('rankingLista');
   const nomeMesEl = $('rankingMesNome');
-  if (!container) return;
+  if (!container || !_dashMesAtual) return;
 
   try {
-    const MESES = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-    const agora = new Date();
-    const nomeMes = `${MESES[agora.getMonth()]} / ${agora.getFullYear()}`;
-
     const { data, error } = await supabaseClient
       .from('metas_mensais')
       .select('*')
-      .eq('mes', nomeMes)
+      .eq('mes', _dashMesAtual)
       .maybeSingle();
 
     if (error) throw error;
 
     if (!data || !data.dados) {
-      container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Sem dados para <strong>${nomeMes}</strong>.</p>`;
-      if (nomeMesEl) nomeMesEl.textContent = nomeMes;
+      container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Sem dados para <strong>${_dashMesAtual}</strong>.</p>`;
+      if (nomeMesEl) nomeMesEl.textContent = _dashMesAtual;
       return;
     }
 
     _rankingDados = data.dados;
-    if (nomeMesEl) nomeMesEl.textContent = nomeMes;
+    if (nomeMesEl) nomeMesEl.textContent = _dashMesAtual;
+
+    // 🚀 BUSCA OS AVATARES DE PERFIL
+    const { data: perfis } = await supabaseClient
+      .from('perfis')
+      .select('nome_completo, avatar_url');
+      
+    _rankingAvatares = {};
+    (perfis || []).forEach(p => {
+      if (p.avatar_url) {
+        const primeiroNome = String(p.nome_completo || '').toLowerCase().trim().split(' ')[0];
+        _rankingAvatares[primeiroNome] = p.avatar_url;
+      }
+    });
 
     renderRanking();
   } catch (err) {
@@ -6226,7 +6271,7 @@ async function carregarRankingEquipe() {
   }
 }
 
-  function renderRanking() {
+function renderRanking() {
   const container = $('rankingLista');
   if (!container || !_rankingDados) return;
 
@@ -6283,9 +6328,19 @@ async function carregarRankingEquipe() {
       ? `ring-2 ring-[#0e8890] ring-offset-1 ${c.bg}`
       : `bg-slate-50 hover:bg-slate-100`;
 
+    // 🚀 BUSCA O AVATAR OU CRIA AS INICIAIS
+    const avatarUrl = _rankingAvatares[primeiroNomeR];
+    const iniciais = String(r.nome || '??').substring(0, 2).toUpperCase();
+    
+    const avatarHTML = avatarUrl
+      ? `<img src="${escapeHTML(avatarUrl)}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0">`
+      : `<div class="w-8 h-8 rounded-full bg-[#000033] text-white flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">${iniciais}</div>`;
+
     return `
       <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg border ${c.border} ${linhaBase} transition-all">
         <div class="shrink-0 w-6 flex items-center justify-center">${medalha(i)}</div>
+        
+        ${avatarHTML}
 
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5">
