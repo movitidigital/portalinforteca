@@ -6278,7 +6278,6 @@ function renderRanking() {
   const kpi = $('rankingKpi')?.value || 'FAT TOTAL TIM';
   const consultores = _rankingDados.consultores || [];
   const metaCons = _rankingDados.metaConsultor || {};
-  const metaKpi = Number(metaCons[kpi] || 0);
 
   if (!consultores.length) {
     container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Nenhum consultor cadastrado.</p>`;
@@ -6287,11 +6286,23 @@ function renderRanking() {
 
   const somaArr = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
 
-  const calcReal = (c) => {
-    const d = c.diario || {};
-    if (kpi === 'FAT TOTAL TIM') return somaArr(d['CONTROLE FAT.']) + somaArr(d['PÓS FAT.']);
-    return somaArr(d[kpi]);
-  };
+  // 🚀 LÓGICA CUSTOMIZADA DE MÉTRICAS E METAS
+  let metaKpi = 0;
+  let calcReal = () => 0;
+
+  if (kpi === 'FAT TOTAL TIM') {
+    // Faturamento Total (Soma Controle + Pós)
+    metaKpi = Number(metaCons['FAT TOTAL TIM']) || (Number(metaCons['CONTROLE FAT.'] || 0) + Number(metaCons['PÓS FAT.'] || 0));
+    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']) + somaArr(c.diario['PÓS FAT.']);
+  } else if (kpi === 'CONTROLE') {
+    // 🚀 ALTERAÇÃO SOLICITADA: CONTROLE agora usa a métrica de FATURAMENTO
+    metaKpi = Number(metaCons['CONTROLE FAT.'] || 0);
+    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']);
+  } else {
+    // PÓS, PORTABILIDADE, APARELHO, ACESSÓRIOS continuam com suas métricas padrão (Quantidade ou Receita)
+    metaKpi = Number(metaCons[kpi] || 0);
+    calcReal = (c) => somaArr(c.diario[kpi]);
+  }
 
   const ranking = consultores.map(c => {
     const real = calcReal(c);
@@ -6301,7 +6312,9 @@ function renderRanking() {
 
   const primeiroNomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim().split(' ')[0];
 
-  const isMoeda = ['FAT TOTAL TIM', 'APARELHO', 'ACESSÓRIOS'].includes(kpi);
+  // 🚀 ADICIONADO 'CONTROLE' NA LISTA DE MOEDA (Para mostrar R$ em vez de número quebrado)
+  const isMoeda = ['FAT TOTAL TIM', 'APARELHO', 'ACESSÓRIOS', 'CONTROLE'].includes(kpi);
+  
   const fmtV = (v) => isMoeda
     ? 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : String(Math.round(v || 0));
@@ -6328,7 +6341,7 @@ function renderRanking() {
       ? `ring-2 ring-[#0e8890] ring-offset-1 ${c.bg}`
       : `bg-slate-50 hover:bg-slate-100`;
 
-    // 🚀 BUSCA O AVATAR OU CRIA AS INICIAIS
+    // AVATAR DO USUÁRIO
     const avatarUrl = _rankingAvatares[primeiroNomeR];
     const iniciais = String(r.nome || '??').substring(0, 2).toUpperCase();
     
