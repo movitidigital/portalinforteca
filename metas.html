@@ -1291,7 +1291,7 @@ async function verificarAuth() {
        SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO DEFINITIVA)
        ========================================================== */
 async function sincronizarVendasBanco() {
-  const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
+  const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas (Planos e Aparelhos) e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
   if (!confirmar) return;
 
   const btn = document.getElementById('btnSincronizarMetas');
@@ -1337,10 +1337,11 @@ async function sincronizarVendasBanco() {
 
     let logAcessorios = {};
 
-    // 2. VENDAS DE PLANOS (clientes_faturas)
+    // 2. VENDAS DE PLANOS E APARELHOS (clientes_faturas)
+    // 🚀 ADICIONADO O 'valor_aparelho' NO SELECT
     const { data: faturas, error: errFat } = await supabaseClient
       .from('clientes_faturas')
-      .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, cpf')
+      .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, valor_aparelho, cpf')
       .gte('data_venda', dtInicio)
       .lte('data_venda', dtFim);
 
@@ -1348,9 +1349,10 @@ async function sincronizarVendasBanco() {
 
     let totalPlanosLidos = 0;
     let totalTrocasIgnoradas = 0;
+    let totalAparelhosLidos = 0;
 
     faturas.forEach(f => {
-      // 🚀 Correção de Nome: Busca se um nome contém o outro
+      // Busca o consultor na lista
       const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(f.consultor)) || normStr(f.consultor).includes(normStr(c.nome)));
       if (!consultorObj) return; 
 
@@ -1358,16 +1360,25 @@ async function sincronizarVendasBanco() {
       const planoNorm = normStr(planoOriginal);
       const planoLimpo = limparNomePlano(planoOriginal);
       const modalidade = normStr(f.modalidade);
-      
+      const dia = parseInt(f.data_venda.split('-')[2]) - 1;
+      const d = novoDiario[consultorObj.id];
+
+      // 🚀 1. PROCESSA O VALOR DO APARELHO PRIMEIRO (Se tiver no banco)
+      if (f.valor_aparelho && Number(f.valor_aparelho) > 0) {
+        d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + Number(f.valor_aparelho);
+        totalAparelhosLidos++;
+      }
+
+      // 🚀 2. IGNORA TROCA DE APARELHO PARA O FATURAMENTO (Para não somar o plano de novo)
       if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
         totalTrocasIgnoradas++;
-        return;
+        return; 
       }
 
       totalPlanosLidos++;
-      const dia = parseInt(f.data_venda.split('-')[2]) - 1;
       let valorFat = Number(f.valor_receita_contratada) || 0;
 
+      // Regra para planos Família
       if (planoNorm.includes('FAMILIA')) {
         if (remunMap[planoLimpo] !== undefined) {
           valorFat = remunMap[planoLimpo];
@@ -1378,8 +1389,7 @@ async function sincronizarVendasBanco() {
         }
       }
 
-      const d = novoDiario[consultorObj.id];
-
+      // Abastece as colunas de Faturamento (Controle e Pós)
       if (planoNorm.includes('CONTROLE')) {
         d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
         d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
@@ -1395,7 +1405,9 @@ async function sincronizarVendasBanco() {
       }
     });
 
-    // 3. VENDAS DE APARELHOS E ACESSÓRIOS (interacoes)
+    // 3. VENDAS DE ACESSÓRIOS (interacoes)
+    // Mantemos a busca na tabela interacoes APENAS para acessórios, 
+    // já que a tabela clientes_faturas só tem aparelhos e planos.
     const { data: interacoes, error: errInt } = await supabaseClient
       .from('interacoes')
       .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte')
@@ -1404,10 +1416,9 @@ async function sincronizarVendasBanco() {
 
     if (errInt) throw errInt;
 
-    let totalProdutosLidos = 0;
+    let totalAcessoriosLidos = 0;
     
     interacoes.forEach(i => {
-      // 🚀 Correção de Nome: Busca se um nome contém o outro
       const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(i.vendedor)) || normStr(i.vendedor).includes(normStr(c.nome)));
       if (!consultorObj) return;
 
@@ -1419,20 +1430,16 @@ async function sincronizarVendasBanco() {
       const isGestaoClick = fonte === 'GESTAO_CLICK' || mod.includes('VENDA GESTAO CLICK');
       const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
 
-      let isApar = false;
       let isAcessorio = false;
       let isServico = false;
 
-      // 🚀 REGRA INFALÍVEL PARA O GESTÃO CLICK
       if (isGestaoClick) {
           if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
               isServico = true;
           } else {
-              isAcessorio = true; // Tudo que vem do GC é acessório, mesmo se veio como OUTROS
+              isAcessorio = true; 
           }
-      } 
-      // Regra para Datasys
-      else {
+      } else {
           isAcessorio = cat === 'ACESSORIO' || 
                         mod.includes('ACESSORIO') || 
                         prod.includes('PELICULA') || prod.includes('FILME') ||
@@ -1445,49 +1452,22 @@ async function sincronizarVendasBanco() {
 
           isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
 
+          // Se tiver IMEI e for celular, a gente IGNORA AQUI, porque o APARELHO já foi puxado da clientes_faturas acima.
           if (!isAcessorio && !isServico && temIMEI) {
-              isApar = cat === 'APARELHO' || mod.includes('AP +') || mod.includes('APARELHO') || prod.includes('CELULAR') || prod.includes('MOTOROLA') || prod.includes('SAMSUNG') || prod.includes('XIAOMI');
-              
-              if (prod.includes('PELICULA') || prod.includes('CAPA') || prod.includes('FONE') || prod.includes('HEADPHONE')) {
-                  isApar = false;
-                  isAcessorio = true;
-              }
-          } else if (!temIMEI && cat === 'APARELHO' && !isServico) {
-              isAcessorio = true;
+              continue; 
           }
       }
 
-      if (isApar || isAcessorio) {
-        totalProdutosLidos++;
+      if (isAcessorio) {
+        totalAcessoriosLidos++;
         const dia = parseInt(i.data_venda.split('-')[2]) - 1;
         const d = novoDiario[consultorObj.id];
+        
+        const valorAce = Number(i.valor_total) || 0;
+        d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
 
-        if (isApar) {
-          // 🚀 CORREÇÃO: Busca o valor em várias chaves possíveis do JSON e limpa a formatação
-          const json = i.dados_originais || {};
-          let valorRaw = json['Valor Plano'] ?? json['Valor Receita Contratada'] ?? json['Valor Total'] ?? 
-                         json['VALOR PLANO'] ?? json['VALOR RECEITA CONTRATADA'] ?? json['VALOR TOTAL'] ?? 
-                         i.valor_total;
-
-          let valorApar = 0;
-          if (typeof valorRaw === 'number') {
-            valorApar = valorRaw;
-          } else if (typeof valorRaw === 'string') {
-            let s = valorRaw.trim().replace(/[R$\s]/g, '');
-            if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
-            else if (s.includes(',')) s = s.replace(',', '.');
-            valorApar = parseFloat(s) || 0;
-          }
-          
-          d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + valorApar;
-        } else if (isAcessorio) {
-          const valorAce = Number(i.valor_total) || 0;
-          d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
-
-          // Log para conferência
-          if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
-          logAcessorios[consultorObj.nome] += valorAce;
-        }
+        if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
+        logAcessorios[consultorObj.nome] += valorAce;
       }
     });
 
@@ -1505,12 +1485,11 @@ async function sincronizarVendasBanco() {
     await salvarEstado();
     recalcAll(); 
 
-    // 🚀 RELATÓRIO NO CONSOLE
-    console.log("=== TOTAIS DE ACESSÓRIOS PUXADOS DO BANCO ===");
-    console.log(logAcessorios);
-    console.log(`Total de itens lidos: ${totalProdutosLidos}`);
-
-    alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas: ${totalTrocasIgnoradas}\nAparelhos/Acessórios lidos: ${totalProdutosLidos}\n\n(Abra o console F12 para ver os totais por vendedor)`);
+    // 🚀 RELATÓRIO NO CONSOLE E NA TELA
+    console.log("=== TOTAIS PUXADOS DO BANCO ===");
+    console.log("Acessórios:", logAcessorios);
+    
+    alert(`✅ Sincronização Concluída!\n\nPlanos válidos: ${totalPlanosLidos}\nTrocas ignoradas p/ faturamento: ${totalTrocasIgnoradas}\nAparelhos atualizados: ${totalAparelhosLidos}\nAcessórios lidos: ${totalAcessoriosLidos}\n\n(Abra o console F12 para ver os totais por vendedor)`);
 
   } catch (err) {
     console.error('[Sincronização]', err);
