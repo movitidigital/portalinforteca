@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronizador de Valores de Aparelhos - TIM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 p-8 font-sans">
+
+    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="bg-indigo-600 p-6 text-white">
+            <h1 class="text-2xl font-black">Sincronizador de Aparelhos</h1>
+            <p class="text-indigo-200 mt-1">Importa o valor pago no aparelho (Coluna AD) e atualiza a tabela principal via IMEI.</p>
+        </div>
+
+        <div class="p-8">
+            <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors">
+                <input type="file" id="fileInput" accept=".xls,.xlsx" class="hidden" onchange="processarPlanilha(this)">
+                <button onclick="document.getElementById('fileInput').click()" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-6 py-3 rounded-xl font-bold text-lg transition-colors flex items-center justify-center gap-2 mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    Selecionar Planilha da TIM
+                </button>
+            </div>
+
+            <div id="statusBox" class="mt-6 hidden">
+                <div class="flex justify-between text-sm font-bold mb-2">
+                    <span id="statusText">Aguardando...</span>
+                    <span id="statusPct">0%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
+                    <div id="progressBar" class="bg-indigo-600 h-4 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div id="logArea" class="mt-4 h-48 bg-slate-900 text-green-400 font-mono text-xs p-4 rounded-lg overflow-y-auto whitespace-pre-wrap"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURAÇÃO DO SEU SUPABASE (Mude para sua URL e KEY se necessário)
+        const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function log(msg, cor = 'text-green-400') {
+            const area = document.getElementById('logArea');
+            area.innerHTML += `<div class="${cor}">> ${msg}</div>`;
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function atualizarProgresso(atual, total) {
+            const pct = Math.round((atual / total) * 100);
+            document.getElementById('progressBar').style.width = `${pct}%`;
+            document.getElementById('statusPct').textContent = `${pct}%`;
+            document.getElementById('statusText').textContent = `Processando... (${atual}/${total})`;
+        }
+
+        // Formata valor numérico
+        function parseValor(v) {
+            if (!v) return null;
+            if (typeof v === 'number') return v;
+            let s = String(v).replace(/[R$\s]/g, '');
+            if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+            else if (s.includes(',')) s = s.replace(',', '.');
+            const n = parseFloat(s);
+            return isNaN(n) ? null : n;
+        }
+
+        async function processarPlanilha(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            document.getElementById('statusBox').classList.remove('hidden');
+            document.getElementById('logArea').innerHTML = '';
+            
+            log(`Lendo arquivo: ${file.name}...`);
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+
+                    // Mapeando os índices das colunas (0 = A, 1 = B...)
+                    // Na sua planilha: A=0, G=6 (Data Venda), K=10 (IMEI), AD=29 (Valor Aparelho)
+                    const IDX_IMEI = 10; 
+                    const IDX_VALOR_AD = 29; 
+
+                    const registrosParaAtualizar = [];
+
+                    // Pula a primeira linha (cabeçalho)
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue;
+
+                        const imei = String(row[IDX_IMEI] || '').trim();
+                        const valorRaw = row[IDX_VALOR_AD];
+                        const valorLimpo = parseValor(valorRaw);
+
+                        // Só adiciona se tiver IMEI e um valor válido maior que zero
+                        if (imei.length >= 15 && valorLimpo !== null && valorLimpo > 0) {
+                            registrosParaAtualizar.push({ imei, valor: valorLimpo });
+                        }
+                    }
+
+                    log(`Planilha lida. ${registrosParaAtualizar.length} IMEIs com valor válido na coluna AD.`);
+
+                    if (registrosParaAtualizar.length === 0) {
+                        log('Nenhum valor na coluna AD foi encontrado para atualizar.', 'text-amber-400');
+                        return;
+                    }
+
+                    let atualizados = 0;
+                    let erros = 0;
+
+                    for (let i = 0; i < registrosParaAtualizar.length; i++) {
+                        const item = registrosParaAtualizar[i];
+                        
+                        const { error } = await supabase
+                            .from('clientes_faturas')
+                            .update({ valor_aparelho: item.valor })
+                            .eq('imei', item.imei);
+
+                        if (error) {
+                            log(`Erro no IMEI ${item.imei}: ${error.message}`, 'text-red-400');
+                            erros++;
+                        } else {
+                            atualizados++;
+                            log(`IMEI ${item.imei} atualizado para R$ ${item.valor.toFixed(2)}`);
+                        }
+
+                        atualizarProgresso(i + 1, registrosParaAtualizar.length);
+                    }
+
+                    log(`\n✅ Sincronização concluída!`, 'text-emerald-400 font-bold');
+                    log(`Atualizados com sucesso: ${atualizados}`, 'text-emerald-400');
+                    if (erros > 0) log(`Erros: ${erros}`, 'text-red-400');
+                    
+                    document.getElementById('statusText').textContent = 'Concluído!';
+
+                } catch (err) {
+                    console.error(err);
+                    log(`❌ Erro ao processar: ${err.message}`, 'text-red-500');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
