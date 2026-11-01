@@ -1454,7 +1454,7 @@ async function sincronizarVendasBanco() {
 
           // Se tiver IMEI e for celular, a gente IGNORA AQUI, porque o APARELHO já foi puxado da clientes_faturas acima.
           if (!isAcessorio && !isServico && temIMEI) {
-              continue; 
+              return; 
           }
       }
 
