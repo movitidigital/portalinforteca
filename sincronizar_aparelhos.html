@@ -39,10 +39,12 @@
     </div>
 
     <script>
-        // CONFIGURAÇÃO DO SEU SUPABASE (Mude para sua URL e KEY se necessário)
+        // 🚀 CORREÇÃO: O nome da variável agora é supabaseClient para não conflitar com o CDN global
         const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Usa o objeto global criado pelo CDN do Supabase
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         function log(msg, cor = 'text-green-400') {
             const area = document.getElementById('logArea');
@@ -86,7 +88,7 @@
                     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
 
                     // Mapeando os índices das colunas (0 = A, 1 = B...)
-                    // Na sua planilha: A=0, G=6 (Data Venda), K=10 (IMEI), AD=29 (Valor Aparelho)
+                    // Na sua planilha: K=10 (IMEI), AD=29 (Valor Aparelho)
                     const IDX_IMEI = 10; 
                     const IDX_VALOR_AD = 29; 
 
@@ -101,7 +103,7 @@
                         const valorRaw = row[IDX_VALOR_AD];
                         const valorLimpo = parseValor(valorRaw);
 
-                        // Só adiciona se tiver IMEI e um valor válido maior que zero
+                        // Só adiciona se tiver IMEI e um valor válido
                         if (imei.length >= 15 && valorLimpo !== null && valorLimpo > 0) {
                             registrosParaAtualizar.push({ imei, valor: valorLimpo });
                         }
@@ -120,7 +122,7 @@
                     for (let i = 0; i < registrosParaAtualizar.length; i++) {
                         const item = registrosParaAtualizar[i];
                         
-                        const { error } = await supabase
+                        const { error } = await supabaseClient
                             .from('clientes_faturas')
                             .update({ valor_aparelho: item.valor })
                             .eq('imei', item.imei);
