@@ -314,6 +314,9 @@
             <i data-lucide="calendar-plus" class="w-4 h-4"></i>
           </button>
           <div class="w-px h-6 bg-slate-300 mx-2 hidden sm:block"></div>
+         <button onclick="gerarArtesMetas()" id="btnGerarArtes" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors">
+  <i data-lucide="sparkles" class="w-4 h-4"></i> Gerar Arte do Quadro
+</button>
           <button onclick="exportarImagem()" id="btnExport" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-xs font-bold flex items-center gap-2 transition-colors">
             <i data-lucide="camera" class="w-4 h-4"></i> Exportar Imagem
           </button>
@@ -441,6 +444,13 @@
     <span id="toastText">Salvo com sucesso!</span>
   </div>
 
+  <!-- ==========================================
+       ÁREA OCULTA DE GERAÇÃO DE IMAGENS (CANVAS)
+       ========================================== -->
+  <div id="arteLojaWrapper" style="position: fixed; left: -9999px; top: 0; width: 1080px; height: 1080px; background: #fff; font-family: 'Inter', sans-serif;"></div>
+  
+  <div id="arteConsultoresWrapper" style="position: fixed; left: -9999px; top: 0; width: 1080px; background: #fff; font-family: 'Inter', sans-serif; padding-bottom: 40px;"></div>
+  
   <script>
     const SUPABASE_URL = 'https://zldugoqlcrzarpqvtaoh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsZHVnb3FsY3J6YXJwcXZ0YW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NTU5NzUsImV4cCI6MjEwNjAzMTk3NX0.wUzL7ZmMdoksTVC_PlIiT1nDkhJnf7l0UYMcY-NShWA';
@@ -1500,6 +1510,200 @@ async function sincronizarVendasBanco() {
     lucide.createIcons();
   }
 }
+
+/* ==========================================================
+   GERAÇÃO DE ARTES PARA O QUADRO (CANVA STYLE)
+   ========================================================== */
+
+async function gerarArtesMetas() {
+  const btn = document.getElementById('btnGerarArtes');
+  const htmlOrig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Desenhando Artes...';
+  lucide.createIcons();
+
+  try {
+    const m = mesAtivo();
+    const mesExtenso = m.parametros.mes; // Ex: NOVEMBRO / 2026
+    
+    // --- 1. MONTAR ARTE DA LOJA ---
+    const metaLoja = m.metaLoja;
+    const wrapperLoja = document.getElementById('arteLojaWrapper');
+    
+    wrapperLoja.innerHTML = `
+      <div style="width: 100%; height: 100%; background: linear-gradient(135deg, #000033 0%, #0e8890 100%); display: flex; flex-direction: column; position: relative; overflow: hidden; color: white;">
+        <!-- Elementos de fundo decorativos -->
+        <div style="position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -150px; left: -50px; width: 500px; height: 500px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+
+        <!-- Header -->
+        <div style="padding: 60px 80px; display: flex; align-items: center; justify-content: space-between; z-index: 10;">
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="width: 80px; height: 80px; background: white; border-radius: 20px; display: flex; align-items: center; justify-content: center;">
+              <img src="/LOGOINFORTECATIM2026.png" style="height: 60px; object-fit: contain;">
+            </div>
+            <div>
+              <h1 style="font-size: 32px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Inforteca TIM</h1>
+              <p style="font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.8); margin: 5px 0 0; text-transform: uppercase; letter-spacing: 2px;">Loja TIM Dom José</p>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <p style="font-size: 14px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 2px; margin: 0;">Meta Oficial</p>
+            <h2 style="font-size: 36px; font-weight: 900; margin: 5px 0 0;">${mesExtenso}</h2>
+          </div>
+        </div>
+
+        <!-- Título Principal -->
+        <div style="text-align: center; margin: 20px 0 40px; z-index: 10;">
+          <h2 style="font-size: 72px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: -2px; text-shadow: 0 4px 20px rgba(0,0,0,0.3);">Meta da Loja</h2>
+          <p style="font-size: 24px; font-weight: 600; color: rgba(255,255,255,0.9); margin: 10px 0 0;">A força da nossa equipe nos leva ao topo! 🚀</p>
+        </div>
+
+        <!-- Grid de Metas -->
+        <div style="flex: 1; padding: 0 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; z-index: 10;">
+          
+          <div style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 24px; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
+            <span style="font-size: 48px; margin-bottom: 10px;">💰</span>
+            <p style="font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; margin: 0 0 10px;">Faturamento Total TIM</p>
+            <p style="font-size: 56px; font-weight: 900; margin: 0; letter-spacing: -1px;">R$ ${Number(metaLoja['FAT TOTAL TIM']).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 24px; padding: 40px; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
+            <span style="font-size: 48px; margin-bottom: 10px;">📱</span>
+            <p style="font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; margin: 0 0 10px;">Venda de Aparelhos</p>
+            <p style="font-size: 56px; font-weight: 900; margin: 0; letter-spacing: -1px;">R$ ${Number(metaLoja['APARELHO']).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 24px; padding: 30px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; gap: 15px;">
+               <span style="font-size: 32px;">⚡</span>
+               <p style="font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; margin: 0;">Portabilidade</p>
+            </div>
+            <p style="font-size: 36px; font-weight: 900; margin: 0;">${metaLoja['PORTABILIDADE']} <span style="font-size: 16px; color: rgba(255,255,255,0.6);">vendas</span></p>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2); border-radius: 24px; padding: 30px; display: flex; align-items: center; justify-content: space-between; backdrop-filter: blur(10px);">
+            <div style="display: flex; align-items: center; gap: 15px;">
+               <span style="font-size: 32px;">🎁</span>
+               <p style="font-size: 18px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; margin: 0;">Acessórios</p>
+            </div>
+            <p style="font-size: 36px; font-weight: 900; margin: 0;">R$ ${Number(metaLoja['ACESSÓRIOS']).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 40px; text-align: center; z-index: 10;">
+          <p style="font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 4px; margin: 0;">Vamos juntos bater essa meta!</p>
+        </div>
+      </div>
+    `;
+
+    // --- 2. MONTAR ARTE DOS CONSULTORES ---
+    const wrapperCons = document.getElementById('arteConsultoresWrapper');
+    const consultores = m.consultores;
+    
+    let cardsHTML = '';
+    consultores.forEach(c => {
+      // Se o consultor for de experiência, usa a metaPlus. Se não, metaConsultor.
+      const metaUsada = c.emExperiencia ? m.metaPlus : m.metaConsultor;
+      const tagExp = c.emExperiencia ? `<span style="background: #8b5cf6; color: white; font-size: 12px; font-weight: 900; padding: 4px 12px; border-radius: 20px; margin-left: 10px; text-transform: uppercase;">Em Experiência</span>` : '';
+      
+      cardsHTML += `
+        <div style="background: white; border-radius: 24px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+          
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="width: 60px; height: 60px; border-radius: 50%; background: #0e8890; color: white; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900;">
+                ${c.nome.substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h3 style="font-size: 24px; font-weight: 900; color: #000033; margin: 0; text-transform: uppercase;">${c.nome.split(' ')[0]}</h3>
+                <p style="font-size: 12px; font-weight: 700; color: #64748b; margin: 4px 0 0; text-transform: uppercase; letter-spacing: 1px;">Consultor de Vendas ${tagExp}</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; flex: 1;">
+            <div style="background: #f8fafc; border-radius: 16px; padding: 15px; text-align: center;">
+              <p style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Fat. TIM</p>
+              <p style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 5px 0 0;">R$ ${Number(metaUsada['FAT TOTAL TIM']).toLocaleString('pt-BR')}</p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 15px; text-align: center;">
+              <p style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Aparelhos</p>
+              <p style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 5px 0 0;">R$ ${Number(metaUsada['APARELHO']).toLocaleString('pt-BR')}</p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 15px; text-align: center;">
+              <p style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Acessórios</p>
+              <p style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 5px 0 0;">R$ ${Number(metaUsada['ACESSÓRIOS']).toLocaleString('pt-BR')}</p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 15px; text-align: center;">
+              <p style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin: 0;">Portabilidade</p>
+              <p style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 5px 0 0;">${metaUsada['PORTABILIDADE']} <span style="font-size: 12px; color: #64748b;">vendas</span></p>
+            </div>
+          </div>
+          
+          <div style="margin-top: 20px; background: #e0f2fe; color: #0369a1; border-radius: 12px; padding: 10px; text-align: center; font-size: 14px; font-weight: 800; text-transform: uppercase;">
+             Meta Controle: ${metaUsada['CONTROLE']} | Pós: ${metaUsada['PÓS']}
+          </div>
+        </div>
+      `;
+    });
+
+    wrapperCons.innerHTML = `
+      <div style="padding: 60px; background: #f4f7f6; min-height: 1080px;">
+        <div style="text-align: center; margin-bottom: 50px;">
+          <img src="/LOGOINFORTECATIM2026.png" style="height: 80px; margin: 0 auto 20px;">
+          <h2 style="font-size: 48px; font-weight: 900; color: #000033; margin: 0; text-transform: uppercase; letter-spacing: -1px;">Metas da Equipe</h2>
+          <p style="font-size: 20px; font-weight: 600; color: #0e8890; margin: 10px 0 0;">Competência: ${mesExtenso}</p>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+          ${cardsHTML}
+        </div>
+        
+        <div style="text-align: center; margin-top: 60px;">
+           <p style="font-size: 16px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 4px;">Inforteca TIM · Juntos somos mais fortes</p>
+        </div>
+      </div>
+    `;
+
+    // --- 3. RENDERIZAR E BAIXAR ---
+    // Dá um pequeno delay para garantir que as imagens (logo) carreguem
+    await new Promise(r => setTimeout(r, 500));
+
+    // Função helper para baixar
+    const baixarElemento = async (elemento, nomeArquivo) => {
+      const canvas = await html2canvas(elemento, {
+        scale: 2, // Alta resolução
+        useCORS: true,
+        backgroundColor: null,
+        logging: false
+      });
+      const link = document.createElement('a');
+      link.download = nomeArquivo;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    // Baixa a Arte da Loja
+    await baixarElemento(wrapperLoja, `Meta_Loja_${mesExtenso.replace(/\W/g, '_')}.png`);
+    
+    // Espera 1 segundo para não bugar o navegador com dois downloads simultâneos
+    await new Promise(r => setTimeout(r, 1000));
+    
+    // Baixa a Arte dos Consultores
+    await baixarElemento(wrapperCons, `Metas_Equipe_${mesExtenso.replace(/\W/g, '_')}.png`);
+
+  } catch (error) {
+    console.error('Erro ao gerar artes:', error);
+    alert('❌ Ocorreu um erro ao gerar as imagens. Tente novamente.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = htmlOrig;
+    lucide.createIcons();
+  }
+}
+    
     window.onload = async () => {
       lucide.createIcons();
       
