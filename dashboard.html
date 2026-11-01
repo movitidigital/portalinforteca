@@ -1821,6 +1821,50 @@
   </div>
 </div>
 
+  <!-- ============ MODAL: SENHA DO ESPELHO DE COMISSÃO ============ -->
+<div id="modalPinEspelho" class="fixed inset-0 z-[9999] hidden bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in">
+    
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-[#000033] to-[#0e8890] px-6 py-5 text-center">
+      <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
+        <i data-lucide="lock" class="w-8 h-8 text-white"></i>
+      </div>
+      <h3 id="pinTitulo" class="text-white font-black text-lg">Área Protegida</h3>
+      <p id="pinSubtitulo" class="text-white/80 text-xs mt-1">Digite sua senha para ver o espelho.</p>
+    </div>
+
+    <!-- Body -->
+    <div class="p-6 space-y-4">
+      
+      <!-- Alerta -->
+      <div id="pinAlert" class="hidden text-xs p-3 rounded-xl border font-medium text-center"></div>
+
+      <!-- Formulário -->
+      <div id="pinFormGroup">
+        <label id="pinLabel" class="block text-[10px] font-black text-slate-500 uppercase mb-1">Sua Senha do Espelho</label>
+        <input type="password" id="pinInput" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-[#0e8890] focus:ring-2 focus:ring-[#0e8890]/20 transition-all" placeholder="••••••••">
+        <p id="pinDica" class="text-[10px] text-slate-400 mt-2 text-center hidden">Mínimo 6 caracteres, contendo letras e números.</p>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="pt-2 flex flex-col gap-2">
+        <button id="btnConfirmarPin" onclick="processarPinEspelho()" class="w-full bg-[#0e8890] hover:bg-[#0b6c72] text-white py-3 rounded-xl font-black uppercase tracking-wide shadow-sm transition-colors flex items-center justify-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i> Confirmar
+        </button>
+        
+        <button id="btnEsqueciPin" onclick="esqueceuSenhaEspelho()" class="text-xs text-slate-500 hover:text-slate-800 font-bold transition-colors hidden">
+          Esqueci minha senha
+        </button>
+        
+        <button onclick="fecharModalPinEspelho()" class="text-xs text-slate-400 hover:text-red-500 font-bold transition-colors mt-2">
+          Cancelar e voltar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
   <!-- ============ MODAL NOVA POLÍTICA ============ -->
 <div id="modalPolitica" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -2382,20 +2426,19 @@ document.getElementById('btnMenuUsuarios')?.classList.remove('hidden');
     };
 
 function navegar(destino) {
-  // 1. Esconde TODAS as views (incluindo a de bloqueio)
+  // 1. Esconde TODAS as views
   Object.keys(TITULOS).forEach(id => {
     const view = $(`view-${id}`);
     if (view) view.classList.add('hidden');
   });
   $('view-bloqueado')?.classList.add('hidden');
 
-  // 2. Verifica permissão (dashboard é sempre liberado)
+  // 2. Verifica permissão
   const nivel = state._permissoes?.[destino] || 'nenhum';
   const temAcesso = destino === 'dashboard' || nivel !== 'nenhum';
 
   // 3. Renderiza o que for
   if (!temAcesso) {
-    // 🚫 Usuário sem permissão → mostra tela de bloqueio
     const bloqueio = $('view-bloqueado');
     if (bloqueio) {
       bloqueio.classList.remove('hidden');
@@ -2403,11 +2446,10 @@ function navegar(destino) {
       if (nomeEl) nomeEl.textContent = TITULOS[destino] || destino;
     }
   } else {
-    // ✅ Usuário com permissão → mostra a view normal
     const view = $(`view-${destino}`);
     if (view) view.classList.remove('hidden');
 
-    // Carregamentos específicos de cada módulo
+    // Carregamentos específicos
     if (destino === 'portabilidades') carregarPortabilidades();
     if (destino === 'gestao')         { carregarGestao(); atualizarBadgeGestao(); }
     if (destino === 'faturas')        carregarClientes();
@@ -2416,9 +2458,26 @@ function navegar(destino) {
       setTimeout(() => $('inputBuscaClientes')?.focus(), 100);
     }
 
-    // 🆕 MÓDULO FINANCEIRO (Conciliação / Espelho / Políticas)
-    if (destino === 'conciliacao' || destino === 'espelho' || destino === 'politicas') {
+    // 🆕 MÓDULO FINANCEIRO COM TRAVA DE SEGURANÇA
+    if (destino === 'conciliacao' || destino === 'politicas') {
       setTimeout(() => window.inicializarModuloFinanceiro?.(destino), 100);
+    }
+
+    // 🚀 LÓGICA DE SEGURANÇA DO ESPELHO
+    if (destino === 'espelho') {
+      if (state._isAdmin) {
+        // Admin vê tudo direto
+        setTimeout(() => window.inicializarModuloFinanceiro?.('espelho'), 100);
+      } else {
+        // Consultor: verifica se já tem senha criada
+        if (!state.perfil.pin_espelho) {
+          // Primeira vez: obriga a criar
+          abrirModalPinEspelho('criar');
+        } else {
+          // Já tem senha: pede para digitar
+          abrirModalPinEspelho('verificar');
+        }
+      }
     }
   }
 
@@ -6225,6 +6284,154 @@ async function carregarRankingEquipe() {
   }).join('');
 
   lucide.createIcons();
+}
+
+/* ==========================================================
+   SEGURANÇA DO ESPELHO DE COMISSÃO
+   ========================================================== */
+let _acaoPinAtual = ''; // 'criar' ou 'verificar'
+
+// Função para criptografar a senha (SHA-256)
+async function hashPin(pin) {
+  const msgBuffer = new TextEncoder().encode(pin);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function abrirModalPinEspelho(acao) {
+  _acaoPinAtual = acao; // 'criar' ou 'verificar'
+  const modal = $('modalPinEspelho');
+  const titulo = $('pinTitulo');
+  const sub = $('pinSubtitulo');
+  const input = $('pinInput');
+  const btn = $('btnConfirmarPin');
+  const btnEsqueci = $('btnEsqueciPin');
+  const dica = $('pinDica');
+
+  $('pinAlert').classList.add('hidden');
+  input.value = '';
+
+  if (acao === 'criar') {
+    titulo.textContent = 'Crie sua Senha';
+    sub.textContent = 'Você precisa criar uma senha para proteger sua comissão.';
+    btn.innerHTML = '<i data-lucide="save" class="w-4 h-4"></i> Salvar Senha';
+    btnEsqueci.classList.add('hidden');
+    dica.classList.remove('hidden');
+  } else {
+    titulo.textContent = 'Espelho Protegido';
+    sub.textContent = 'Digite sua senha para visualizar seus ganhos.';
+    btn.innerHTML = '<i data-lucide="unlock" class="w-4 h-4"></i> Desbloquear';
+    btnEsqueci.classList.remove('hidden');
+    dica.classList.add('hidden');
+  }
+
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+  setTimeout(() => input.focus(), 100);
+}
+
+function fecharModalPinEspelho() {
+  $('modalPinEspelho').classList.add('hidden');
+  $('pinInput').value = '';
+  // Se ele cancelou a verificação, volta pro dashboard
+  if (_acaoPinAtual === 'verificar') navegar('dashboard');
+}
+
+async function processarPinEspelho() {
+  const pin = $('pinInput').value.trim();
+  const alertBox = $('pinAlert');
+  const btn = $('btnConfirmarPin');
+
+  if (!pin) return;
+
+  // Validação para criação
+  if (_acaoPinAtual === 'criar') {
+    if (pin.length < 6) {
+      alertBox.textContent = 'A senha deve ter no mínimo 6 caracteres.';
+      alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-red-50 border-red-200 text-red-600';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+    if (!/[A-Za-z]/.test(pin) || !/[0-9]/.test(pin)) {
+      alertBox.textContent = 'A senha deve conter letras e números.';
+      alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-red-50 border-red-200 text-red-600';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Verificando...';
+  lucide.createIcons();
+
+  try {
+    const hash = await hashPin(pin);
+
+    if (_acaoPinAtual === 'criar') {
+      // Salva no banco
+      const { error } = await supabaseClient
+        .from('perfis')
+        .update({ pin_espelho: hash })
+        .eq('id', state.user.id);
+
+      if (error) throw error;
+      
+      state.perfil.pin_espelho = hash; // Atualiza o state local
+      
+      fecharModalPinEspelho();
+      mostrarToastCopy('✅ Senha criada com sucesso!');
+      window.inicializarModuloFinanceiro('espelho');
+
+    } else {
+      // Verifica a senha
+      if (hash === state.perfil.pin_espelho) {
+        fecharModalPinEspelho();
+        window.inicializarModuloFinanceiro('espelho');
+      } else {
+        throw new Error('Senha incorreta. Tente novamente.');
+      }
+    }
+  } catch (err) {
+    alertBox.textContent = err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-red-50 border-red-200 text-red-600';
+    alertBox.classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = _acaoPinAtual === 'criar' ? '<i data-lucide="save" class="w-4 h-4"></i> Salvar Senha' : '<i data-lucide="unlock" class="w-4 h-4"></i> Desbloquear';
+    lucide.createIcons();
+  }
+}
+
+async function esqueceuSenhaEspelho() {
+  if (!confirm('Para recuperar o acesso ao espelho, enviaremos um link para o seu e-mail cadastrado. Deseja continuar?')) return;
+
+  const alertBox = $('pinAlert');
+  alertBox.textContent = 'Enviando e-mail...';
+  alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-blue-50 border-blue-200 text-blue-600';
+  alertBox.classList.remove('hidden');
+
+  try {
+    // Envia o e-mail de reset de senha do Supabase Auth
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(state.user.email, {
+      redirectTo: window.location.origin + '/dashboard.html'
+    });
+
+    if (error) throw error;
+
+    // Reseta o PIN no banco para que ele seja forçado a criar um novo quando voltar
+    await supabaseClient.from('perfis').update({ pin_espelho: null }).eq('id', state.user.id);
+
+    alertBox.textContent = '✅ E-mail enviado! Verifique sua caixa de entrada para redefinir sua senha principal. Ao voltar, você criará uma nova senha para o espelho.';
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-emerald-50 border-emerald-200 text-emerald-700';
+    
+    $('btnEsqueciPin').classList.add('hidden');
+    $('pinInput').disabled = true;
+    $('btnConfirmarPin').classList.add('hidden');
+
+  } catch (err) {
+    alertBox.textContent = 'Erro ao enviar e-mail: ' + err.message;
+    alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-red-50 border-red-200 text-red-600';
+  }
 }
     
     /* ==========================================================
