@@ -84,7 +84,7 @@
   <aside id="sidebar" class="w-64 bg-[#000033] text-white flex flex-col justify-between hidden md:flex transition-opacity duration-200 opacity-0 z-30 shadow-xl shrink-0"></aside>
 
   <!-- ============ MAIN ============ -->
-  <main class="flex-1 flex flex-col h-screen min-w-0 relative overflow-hidden bg-[#f4f7f6]">
+  <main class="flex-1 flex flex-col min-w-0 relative overflow-hidden bg-[#f4f7f6]">
 
     <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-40 shrink-0">
       <div class="flex items-center gap-3">
@@ -115,7 +115,7 @@
       </div>
     </header>
     <!-- NAVEGAÇÃO ENTRE VIEWS + AÇÕES -->
-    <div class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm">
+    <div class="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-30 shadow-sm shrink-0">
 
       <!-- ABAS (podem quebrar linha) -->
       <div class="flex flex-wrap gap-2 min-w-0 flex-1">
@@ -576,8 +576,8 @@
 
       <!-- ===== VIEW: ADMIN ===== -->
       <div id="view-premiada-admin" class="view-premiada hidden animate-fade-in">
-        <div class="max-w-6xl mx-auto space-y-6">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="max-w-6xl mx-auto">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
             <div class="border-b border-slate-100 flex flex-wrap">
               <button data-atab="geral" onclick="trocarAbaAdmin('geral')" class="admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all">
                 📊 Visão Geral
