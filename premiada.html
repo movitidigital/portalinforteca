@@ -211,7 +211,7 @@
     <!-- ÁREA DE CONTEÚDO -->
 <div class="flex-1 overflow-y-auto h-0 p-6 relative">
   <!-- ===== VIEW: HUB ===== -->
-      <div id="view-premiada-hub" class="view-premiada animate-fade-in">
+      <<div id="view-premiada-hub" class="view-premiada absolute inset-0 overflow-y-auto p-6 animate-fade-in">
         <div class="max-w-6xl mx-auto space-y-6">
 
           <!-- Greeting -->
@@ -474,7 +474,7 @@
       </div>
 
       <!-- ===== VIEW: CARTEIRA ===== -->
-      <div id="view-premiada-carteira" class="view-premiada hidden animate-fade-in">
+      <div id="view-premiada-carteira" class="view-premiada hidden absolute inset-0 overflow-y-auto p-6 animate-fade-in">
         <div class="max-w-4xl mx-auto space-y-6">
           <div class="bg-gradient-to-br from-[#0e8890] to-[#0b6c72] rounded-2xl shadow-lg p-6 text-white">
             <p class="text-[10px] font-black uppercase tracking-widest opacity-80">Saldo Atual</p>
@@ -537,7 +537,7 @@
       </div>
 
       <!-- ===== VIEW: RANKING ===== -->
-      <div id="view-premiada-ranking" class="view-premiada hidden animate-fade-in">
+      <div id="view-premiada-ranking" class="view-premiada hidden absolute inset-0 overflow-y-auto p-6 animate-fade-in">
         <div class="max-w-4xl mx-auto space-y-6">
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
@@ -581,7 +581,7 @@
       </div>
 
       <!-- ===== VIEW: ADMIN ===== -->
-      <div id="view-premiada-admin" class="view-premiada hidden animate-fade-in">
+      <div id="view-premiada-admin" class="view-premiada hidden absolute inset-0 overflow-y-auto p-6 animate-fade-in">
         
         <!-- 🚀 Container que ocupa 100% da altura -->
         <div class="max-w-6xl mx-auto h-full flex flex-col pb-2">
@@ -590,7 +590,7 @@
           <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden mb-6">
             
             <!-- TABS (Fixas no topo, com rolagem horizontal se a tela for pequena) -->
-            <div class="border-b border-slate-100 flex overflow-x-auto overflow-y-hidden bg-white hide-scrollbar shrink-0">
+            <div class="border-b border-slate-100 flex overflow-x-auto overflow-y-hidden bg-white sticky top-0 z-20 hide-scrollbar">
               <button data-atab="geral" onclick="trocarAbaAdmin('geral')" class="admin-tab flex-shrink-0 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all whitespace-nowrap">
                 📊 Visão Geral
               </button>
@@ -618,8 +618,7 @@
             </div>
 
             <!-- 🚀 CONTEÚDO ROLÁVEL: Aqui é onde a mágica acontece -->
-            <div class="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-50/20">
-              
+<div class="flex-1 relative overflow-hidden bg-[#f4f7f6]">              
               <!-- Admin: Visão Geral -->
               <div id="adminContent-geral" class="admin-content">
                 <div id="adminGeral" class="space-y-4">
