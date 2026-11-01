@@ -1857,9 +1857,9 @@
           Esqueci minha senha
         </button>
         
-        <button onclick="fecharModalPinEspelho()" class="text-xs text-slate-400 hover:text-red-500 font-bold transition-colors mt-2">
-          Cancelar e voltar
-        </button>
+<button onclick="fecharModalPinEspelho(false)" class="text-xs text-slate-400 hover:text-red-500 font-bold transition-colors mt-2">
+  Cancelar e voltar
+</button>
       </div>
     </div>
   </div>
@@ -6331,11 +6331,14 @@ function abrirModalPinEspelho(acao) {
   setTimeout(() => input.focus(), 100);
 }
 
-function fecharModalPinEspelho() {
+function fecharModalPinEspelho(sucesso = false) {
   $('modalPinEspelho').classList.add('hidden');
   $('pinInput').value = '';
-  // Se ele cancelou a verificação, volta pro dashboard
-  if (_acaoPinAtual === 'verificar') navegar('dashboard');
+  
+  // Se NÃO for sucesso (ex: o usuário clicou em "Cancelar"), aí sim volta pro dashboard
+  if (!sucesso) {
+    navegar('dashboard');
+  }
 }
 
 async function processarPinEspelho() {
@@ -6369,7 +6372,6 @@ async function processarPinEspelho() {
     const hash = await hashPin(pin);
 
     if (_acaoPinAtual === 'criar') {
-      // 🚀 USA A RPC PARA SALVAR NO BANCO (Driblando o RLS)
       const { data, error } = await supabaseClient.rpc('atualizar_pin_espelho', {
         p_pin: hash
       });
@@ -6377,16 +6379,17 @@ async function processarPinEspelho() {
       if (error) throw error;
       if (!data?.success) throw new Error(data?.erro || 'Erro ao salvar a senha no banco.');
       
-      state.perfil.pin_espelho = hash; // Atualiza o state local
+      state.perfil.pin_espelho = hash;
       
-      fecharModalPinEspelho();
+      // 🚀 Passamos 'true' avisando que foi um sucesso (não volta pro dashboard)
+      fecharModalPinEspelho(true); 
       mostrarToastCopy('✅ Senha criada com sucesso!');
       window.inicializarModuloFinanceiro('espelho');
 
     } else {
-      // Verifica a senha
       if (hash === state.perfil.pin_espelho) {
-        fecharModalPinEspelho();
+        // 🚀 Passamos 'true' avisando que foi um sucesso
+        fecharModalPinEspelho(true);
         window.inicializarModuloFinanceiro('espelho');
       } else {
         throw new Error('Senha incorreta. Tente novamente.');
