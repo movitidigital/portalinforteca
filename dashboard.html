@@ -3109,11 +3109,12 @@ async function buscarClientes() {
       return;
     }
 
-    // 🚀 CRUZAMENTO DE DADOS: BUSCA O VALOR DO APARELHO NA TABELA DE COMISSÕES
+    // 🚀 CRUZAMENTO DE DADOS: BUSCA O VALOR DO APARELHO (LEGADO)
+    // Mantemos a busca na tabela 'interacoes' apenas para clientes antigos 
+    // que ainda não tiveram o valor migrado para a tabela principal.
     const imeis = state.clientesBusca.map(c => String(c.imei || '').trim()).filter(Boolean);
     
     if (imeis.length > 0) {
-      // Busca todas as interações que tenham esses IMEIs (sem filtrar categoria para não perder nada)
       const { data: vendasApar } = await supabaseClient
         .from('interacoes')
         .select('imei, valor_total, categoria, modalidade, produto, dados_originais')
@@ -3123,7 +3124,6 @@ async function buscarClientes() {
         const mapaApar = {};
         
         vendasApar.forEach(v => {
-          // Lógica idêntica à da Gestão Thales para extrair o valor
           const isApar = v.categoria === 'APARELHO' || 
                          String(v.modalidade || '').toUpperCase().includes('APARELHO') || 
                          String(v.modalidade || '').toUpperCase().includes('TROCA') || 
@@ -3133,7 +3133,6 @@ async function buscarClientes() {
           if (isApar) {
             let valorRaw = v.valor_total;
 
-            // Se o valor_total for nulo, tenta achar no JSON dados_originais
             if (!valorRaw && v.dados_originais) {
               const json = v.dados_originais;
               const chaves = Object.keys(json);
@@ -3164,13 +3163,15 @@ async function buscarClientes() {
         // Aplica os valores encontrados de volta na lista de clientes
         state.clientesBusca.forEach(c => {
           const imeiC = String(c.imei || '').trim();
-          if (imeiC && mapaApar[imeiC]) {
-            c.valor_aparelho = mapaApar[imeiC];
-          }
           
-          // Se for TROCA e ainda não tiver valor, tenta usar o valor_receita_contratada como fallback
-          if ((!c.valor_aparelho || c.valor_aparelho === 0) && c.valor_receita_contratada && String(c.modalidade).toUpperCase().includes('TROCA')) {
-            c.valor_aparelho = Number(c.valor_receita_contratada);
+          // 🚀 LÓGICA CORRIGIDA: 
+          // 1. Se a tabela principal (clientes_faturas) já tem o valor, mantém ele.
+          // 2. Se estiver vazio/nulo, tenta pegar da tabela 'interacoes' (legado).
+          // 3. NÃO copia mais o valor do plano para o aparelho.
+          if (!c.valor_aparelho || c.valor_aparelho === 0) {
+            if (imeiC && mapaApar[imeiC]) {
+              c.valor_aparelho = mapaApar[imeiC];
+            }
           }
         });
       }
@@ -4662,11 +4663,11 @@ async function processarDatasys(input) {
       consultor:  acharColuna('VENDEDOR', 'CONSULTOR'),
       fidelAp:    acharColuna('FIDELIZACAO', 'FIDELIZAÇÃO'),
       fidelPl:    acharColuna('FIDELIZACAO PLANO', 'FIDELIZAÇÃO PLANO'),
-      // 🚀 AQUI ESTÁ O PULO DO GATO: Busca exaustiva por colunas que guardam o valor do aparelho
       valorReceita: acharColuna( 
         'VALOR RECEITA CONTRATADA', 'VALOR DA RECEITA CONTRATADA', 'RECEITA CONTRATADA', 
         'VALOR RECEITA', 'VALOR PLANO', 'VALOR TOTAL', 'VALOR APARELHO', 'VALOR UNITARIO', 'VALOR'
       ),
+      valorAparelho: acharColuna('VALOR APARELHO', 'VALOR DO APARELHO', 'VALOR CELULAR', 'VALOR DISPOSITIVO')
     };
 
     console.log('[Datasys] Colunas mapeadas:', COL);
@@ -4738,10 +4739,18 @@ async function processarDatasys(input) {
       const prov = COL.provisorio >= 0 ? normalizarTelefone(r[COL.provisorio]) : '';
       const celular = COL.celular >= 0 ? normalizarTelefone(r[COL.celular]) : '';
 
-      // 🚀 Captura o valor bruto da célula
+      // 🚀 Captura o valor da receita contratada (Plano)
       const valorBruto = COL.valorReceita >= 0 ? r[COL.valorReceita] : null;
       const valorLimpo = parseMoedaBR(valorBruto);
 
+      // 🚀 Captura o valor do aparelho (Coluna AD / índice 29)
+      let valorAparelhoBruto = COL.valorAparelho >= 0 ? r[COL.valorAparelho] : null;
+      if (valorAparelhoBruto === null && r.length > 29) {
+         // Fallback: Se não achou o nome da coluna, tenta ler a coluna AD (índice 29)
+         valorAparelhoBruto = r[29]; 
+      }
+      const valorAparelhoLimpo = parseMoedaBR(valorAparelhoBruto);
+      
       registros.push({
         ano_base: dtVendaISO.slice(0, 4),
         data_venda: dtVendaISO,
@@ -4759,8 +4768,10 @@ async function processarDatasys(input) {
         status_thales: null,
         status_saneamento: 'PENDENTE',
         debito_automatico: 'NÃO',
-        // 🚀 Salva o valor limpo na base de dados
+        
+        // 🚀 AQUI ESTÃO AS DUAS COLUNAS SEPARADAS SENDO SALVAS:
         valor_receita_contratada: valorLimpo !== null ? valorLimpo : null,
+        valor_aparelho: valorAparelhoLimpo !== null ? valorAparelhoLimpo : null,
       });
     }
 
@@ -4833,7 +4844,7 @@ async function processarDatasys(input) {
       if (ignorados.semCpf)   partes.push(`${ignorados.semCpf} sem CPF`);
 
       statusEl.textContent = partes.join(' · ');
-      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1'; // 🚀 CORREÇÃO DA ASPA AQUI
+      statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
 
       await carregarContratosThales();
       atualizarBadgeGestao();
