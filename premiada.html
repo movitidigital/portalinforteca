@@ -209,8 +209,8 @@
     </div>
 
     <!-- ÁREA DE CONTEÚDO -->
-    <div class="flex-1 overflow-y-auto h-0 p-6 relative">
-      <!-- ===== VIEW: HUB ===== -->
+<div class="flex-1 overflow-y-auto h-0 p-6 relative">
+  <!-- ===== VIEW: HUB ===== -->
       <div id="view-premiada-hub" class="view-premiada animate-fade-in">
         <div class="max-w-6xl mx-auto space-y-6">
 
@@ -582,9 +582,15 @@
 
       <!-- ===== VIEW: ADMIN ===== -->
       <div id="view-premiada-admin" class="view-premiada hidden animate-fade-in">
-        <div class="max-w-6xl mx-auto">
-          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-            <div class="border-b border-slate-100 flex overflow-x-auto overflow-y-hidden bg-white hide-scrollbar">
+        
+        <!-- 🚀 Container que ocupa 100% da altura -->
+        <div class="max-w-6xl mx-auto h-full flex flex-col pb-2">
+          
+          <!-- 🚀 Caixa branca flexível -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden mb-6">
+            
+            <!-- TABS (Fixas no topo, com rolagem horizontal se a tela for pequena) -->
+            <div class="border-b border-slate-100 flex overflow-x-auto overflow-y-hidden bg-white hide-scrollbar shrink-0">
               <button data-atab="geral" onclick="trocarAbaAdmin('geral')" class="admin-tab flex-shrink-0 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all whitespace-nowrap">
                 📊 Visão Geral
               </button>
@@ -611,157 +617,119 @@
               </button>
             </div>
 
-            <!-- Admin: Visão Geral -->
-            <div id="adminContent-geral" class="admin-content p-6">
-              <div id="adminGeral" class="space-y-4">
-                <p class="text-sm text-slate-400">Carregando…</p>
+            <!-- 🚀 CONTEÚDO ROLÁVEL: Aqui é onde a mágica acontece -->
+            <div class="flex-1 overflow-y-auto p-6 min-h-0 bg-slate-50/20">
+              
+              <!-- Admin: Visão Geral -->
+              <div id="adminContent-geral" class="admin-content">
+                <div id="adminGeral" class="space-y-4">
+                  <p class="text-sm text-slate-400">Carregando…</p>
+                </div>
               </div>
-            </div>
 
-            <!-- Admin: Resgates -->
-            <div id="adminContent-resgates" class="admin-content hidden p-6">
-              <div id="adminResgates" class="space-y-3">
-                <p class="text-sm text-slate-400">Carregando…</p>
+              <!-- Admin: Resgates -->
+              <div id="adminContent-resgates" class="admin-content hidden">
+                <div id="adminResgates" class="space-y-3">
+                  <p class="text-sm text-slate-400">Carregando…</p>
+                </div>
               </div>
-            </div>
 
-            <!-- Admin: Estoque -->
-            <div id="adminContent-premios" class="admin-content hidden p-6">
-              <div id="adminPremios" class="space-y-3">
-                <p class="text-sm text-slate-400">Carregando…</p>
+              <!-- Admin: Estoque -->
+              <div id="adminContent-premios" class="admin-content hidden">
+                <div id="adminPremios" class="space-y-3">
+                  <p class="text-sm text-slate-400">Carregando…</p>
+                </div>
               </div>
-            </div>
 
-<!-- Admin: Missões -->
-<div id="adminContent-missoes" class="admin-content hidden p-6">
-  <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
-    <div>
-      <h3 class="text-base font-black text-[#000033]">🎯 Gestão de Missões</h3>
-      <p class="text-xs text-slate-500 mt-0.5">Crie e gerencie missões diárias, semanais e mensais</p>
-    </div>
-    <button onclick="abrirModalMissao(null)"
-      class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
-      <i data-lucide="plus" class="w-4 h-4"></i> Nova Missão
-    </button>
-  </div>
+              <!-- Admin: Missões -->
+              <div id="adminContent-missoes" class="admin-content hidden">
+                <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+                  <div>
+                    <h3 class="text-base font-black text-[#000033]">🎯 Gestão de Missões</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Crie e gerencie missões diárias, semanais e mensais</p>
+                  </div>
+                  <button onclick="abrirModalMissao(null)" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Nova Missão
+                  </button>
+                </div>
+                <div id="adminMissoesKPIs" class="grid grid-cols-3 gap-3 mb-5"></div>
+                <div class="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-100">
+                  <button data-mfiltro="todas" onclick="filtrarAdminMissoes('todas')" class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">📋 Todas</button>
+                  <button data-mfiltro="ativas" onclick="filtrarAdminMissoes('ativas')" class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">✅ Ativas</button>
+                  <button data-mfiltro="encerradas" onclick="filtrarAdminMissoes('encerradas')" class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">⏹️ Encerradas</button>
+                  <button data-mfiltro="7dias" onclick="filtrarAdminMissoes('7dias')" class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">📅 Últimos 7 dias</button>
+                  <button data-mfiltro="automaticas" onclick="filtrarAdminMissoes('automaticas')" class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">🤖 Automáticas</button>
+                </div>
+                <div id="adminMissoesLista" class="space-y-3">
+                  <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
+                </div>
+              </div>   
 
-  <!-- KPIs -->
-  <div id="adminMissoesKPIs" class="grid grid-cols-3 gap-3 mb-5"></div>
-
-  <!-- 🎯 Filtros -->
-  <div class="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-100">
-    <button data-mfiltro="todas" onclick="filtrarAdminMissoes('todas')" 
-      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
-      📋 Todas
-    </button>
-    <button data-mfiltro="ativas" onclick="filtrarAdminMissoes('ativas')" 
-      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
-      ✅ Ativas
-    </button>
-    <button data-mfiltro="encerradas" onclick="filtrarAdminMissoes('encerradas')" 
-      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
-      ⏹️ Encerradas
-    </button>
-    <button data-mfiltro="7dias" onclick="filtrarAdminMissoes('7dias')" 
-      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
-      📅 Últimos 7 dias
-    </button>
-    <button data-mfiltro="automaticas" onclick="filtrarAdminMissoes('automaticas')" 
-      class="missao-filtro px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border-2 transition-all">
-      🤖 Automáticas
-    </button>
-  </div>
-
-  <!-- Lista -->
-  <div id="adminMissoesLista" class="space-y-3">
-    <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
-  </div>
-</div>   
-
-<!-- Admin: Badges -->
-<div id="adminContent-badges" class="admin-content hidden p-6">
-  <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
-    <div>
-      <h3 class="text-base font-black text-[#000033]">🏅 Gestão de Conquistas</h3>
-      <p class="text-xs text-slate-500 mt-0.5">Crie e edite badges que os consultores conquistam automaticamente</p>
-    </div>
-    <button onclick="abrirModalBadge(null)"
-      class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
-      <i data-lucide="plus" class="w-4 h-4"></i> Novo Badge
-    </button>
-  </div>
-
-  <!-- KPIs -->
-  <div id="adminBadgesKPIs" class="grid grid-cols-4 gap-3 mb-5"></div>
-
-  <!-- Lista -->
-  <div id="adminBadgesLista" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-    <p class="text-sm text-slate-400 py-6 text-center col-span-3">Carregando…</p>
-  </div>
-</div>            
-<!-- Admin: Configurações -->
-<div id="adminContent-config" class="admin-content hidden p-6">
-
-  <!-- Sub-abas -->
-  <div class="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-4">
-    <button data-ctab="pontos" onclick="trocarSubAbaConfig('pontos')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
-      💰 Régua de Pontos
-    </button>
-    <button data-ctab="niveis" onclick="trocarSubAbaConfig('niveis')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
-      🏅 Níveis
-    </button>
-    <button data-ctab="bonus" onclick="trocarSubAbaConfig('bonus')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
-      🎁 Bônus
-    </button>
-    <button data-ctab="roleta" onclick="trocarSubAbaConfig('roleta')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">
-      🎰 Roleta
-    </button>
-  </div>
-
-  <!-- Conteúdo dinâmico das sub-abas -->
-  <div id="configContent-pontos" class="config-content"></div>
-  <div id="configContent-niveis" class="config-content hidden"></div>
-  <div id="configContent-bonus" class="config-content hidden"></div>
-  <div id="configContent-roleta" class="config-content hidden"></div>
-
-</div>
-            
-            <!-- Admin: Orçamento -->
-            <div id="adminContent-orcamento" class="admin-content hidden p-6">
-              <div id="adminOrcamento" class="space-y-4">
-                <p class="text-sm text-slate-400">Carregando…</p>
+              <!-- Admin: Badges -->
+              <div id="adminContent-badges" class="admin-content hidden">
+                <div class="flex justify-between items-center mb-5 flex-wrap gap-2">
+                  <div>
+                    <h3 class="text-base font-black text-[#000033]">🏅 Gestão de Conquistas</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Crie e edite badges que os consultores conquistam automaticamente</p>
+                  </div>
+                  <button onclick="abrirModalBadge(null)" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Novo Badge
+                  </button>
+                </div>
+                <div id="adminBadgesKPIs" class="grid grid-cols-4 gap-3 mb-5"></div>
+                <div id="adminBadgesLista" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <p class="text-sm text-slate-400 py-6 text-center col-span-3">Carregando…</p>
+                </div>
+              </div>            
+              
+              <!-- Admin: Configurações -->
+              <div id="adminContent-config" class="admin-content hidden">
+                <div class="flex flex-wrap gap-2 mb-5 border-b border-slate-100 pb-4">
+                  <button data-ctab="pontos" onclick="trocarSubAbaConfig('pontos')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">💰 Régua de Pontos</button>
+                  <button data-ctab="niveis" onclick="trocarSubAbaConfig('niveis')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">🏅 Níveis</button>
+                  <button data-ctab="bonus" onclick="trocarSubAbaConfig('bonus')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">🎁 Bônus</button>
+                  <button data-ctab="roleta" onclick="trocarSubAbaConfig('roleta')" class="config-tab px-4 py-2 rounded-lg text-xs font-black uppercase border-2 transition-all">🎰 Roleta</button>
+                </div>
+                <div id="configContent-pontos" class="config-content"></div>
+                <div id="configContent-niveis" class="config-content hidden"></div>
+                <div id="configContent-bonus" class="config-content hidden"></div>
+                <div id="configContent-roleta" class="config-content hidden"></div>
               </div>
-            </div>
-            <!-- Admin: Operação Resgate -->
-<div id="adminContent-resgate-op" class="admin-content hidden p-6">
-  <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-2xl p-6 text-white mb-6">
-    <div class="flex items-start gap-4">
-      <div class="text-5xl">🚨</div>
-      <div class="flex-1">
-        <h3 class="text-xl font-black uppercase tracking-wide">Operação Resgate</h3>
-        <p class="text-sm opacity-90 mt-1">O sistema analisa as tendências do mês e cria automaticamente missões emergenciais quando a loja está abaixo de 85% da meta.</p>
-        <p class="text-xs opacity-75 mt-2">Quando ativa, todas as vendas da categoria em questão valem <strong>pontos em DOBRO</strong>.</p>
-      </div>
-    </div>
-  </div>
+              
+              <!-- Admin: Orçamento -->
+              <div id="adminContent-orcamento" class="admin-content hidden">
+                <div id="adminOrcamento" class="space-y-4">
+                  <p class="text-sm text-slate-400">Carregando…</p>
+                </div>
+              </div>
 
-  <div class="flex flex-wrap gap-3 mb-6">
-    <button onclick="executarVerificacaoResgate()" id="btnVerificarResgate"
-      class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-sm uppercase flex items-center gap-2 transition-colors">
-      <i data-lucide="zap" class="w-4 h-4"></i>
-      Verificar Tendências
-    </button>
-    <button onclick="carregarAdmin()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2">
-      <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-      Atualizar
-    </button>
-  </div>
+              <!-- Admin: Operação Resgate -->
+              <div id="adminContent-resgate-op" class="admin-content hidden">
+                <div class="bg-gradient-to-br from-red-500 to-red-700 rounded-2xl p-6 text-white mb-6">
+                  <div class="flex items-start gap-4">
+                    <div class="text-5xl">🚨</div>
+                    <div class="flex-1">
+                      <h3 class="text-xl font-black uppercase tracking-wide">Operação Resgate</h3>
+                      <p class="text-sm opacity-90 mt-1">O sistema analisa as tendências do mês e cria automaticamente missões emergenciais quando a loja está abaixo de 85% da meta.</p>
+                      <p class="text-xs opacity-75 mt-2">Quando ativa, todas as vendas da categoria em questão valem <strong>pontos em DOBRO</strong>.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-3 mb-6">
+                  <button onclick="executarVerificacaoResgate()" id="btnVerificarResgate" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-black text-sm uppercase flex items-center gap-2 transition-colors">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Verificar Tendências
+                  </button>
+                  <button onclick="carregarAdmin()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-3 rounded-xl font-bold text-sm flex items-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Atualizar
+                  </button>
+                </div>
+                <h4 class="text-sm font-black text-slate-800 uppercase mb-3">Missões Emergenciais Ativas</h4>
+                <div id="adminMissoesEmergenciais" class="space-y-3">
+                  <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
+                </div>
+              </div>
 
-  <h4 class="text-sm font-black text-slate-800 uppercase mb-3">Missões Emergenciais Ativas</h4>
-  <div id="adminMissoesEmergenciais" class="space-y-3">
-    <p class="text-sm text-slate-400 py-6 text-center">Carregando…</p>
-  </div>
-</div>
+            </div> <!-- Fim do conteúdo rolável -->
           </div>
         </div>
       </div>
