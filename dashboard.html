@@ -3040,8 +3040,6 @@ async function carregarContratosThales() {
 /* ==========================================================
    BUSCAR CLIENTES (Base Geral - Server Side)
    ========================================================== */
-let _buscaClientesTimer = null;
-
 function debounceBuscarClientes() {
   clearTimeout(_buscaClientesTimer);
   _buscaClientesTimer = setTimeout(() => {
