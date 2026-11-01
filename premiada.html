@@ -2949,8 +2949,8 @@ function trocarAbaAdmin(aba) {
   document.querySelectorAll('.admin-tab').forEach(t => {
     const ativo = t.dataset.atab === aba;
     t.className = ativo
-      ? 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all'
-      : 'admin-tab flex-1 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all';
+      ? 'admin-tab flex-shrink-0 px-5 py-4 text-xs font-black uppercase border-b-2 border-[#0e8890] text-[#0e8890] bg-[#0e8890]/5 transition-all whitespace-nowrap'
+      : 'admin-tab flex-shrink-0 px-5 py-4 text-xs font-black uppercase border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all whitespace-nowrap';
   });
 }
 
