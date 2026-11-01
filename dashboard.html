@@ -1846,7 +1846,20 @@
         
         <!-- 🚀 WRAPPER RELATIVO PARA POSICIONAR O OLHINHO -->
         <div class="relative">
-          <input type="password" id="pinInput" class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-12 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-[#0e8890] focus:ring-2 focus:ring-[#0e8890]/20 transition-all" placeholder="••••••••">
+          <!-- 1. Campo fantasma para enganar o navegador (ele acha que é o usuário) -->
+          <input type="text" name="username" autocomplete="username" style="display:none;">
+          
+          <!-- 2. O campo real da senha -->
+          <input 
+            type="password" 
+            id="pinInput" 
+            name="pin_espelho" 
+            autocomplete="new-password" 
+            autocorrect="off" 
+            autocapitalize="off" 
+            spellcheck="false"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-12 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-[#0e8890] focus:ring-2 focus:ring-[#0e8890]/20 transition-all" 
+            placeholder="••••••••">
           
           <!-- BOTÃO DO OLHINHO -->
           <button type="button" onclick="togglePinVisibility()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors" title="Mostrar/Ocultar senha">
