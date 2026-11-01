@@ -4690,7 +4690,7 @@ async function processarDatasys(input) {
        3. Processa as linhas
        =================================================== */
     const registros = [];
-    const ignorados = { esim: 0, invalido: 0, semData: 0, semNome: 0, semCpf: 0 };
+    const ignorados = { esim: 0, invalido: 0, semData: 0, semNome: 0, semCpf: 0, semAparelho: 0 };
 
     for (let i = headerIdx + 1; i < linhas.length; i++) {
       const r = linhas[i];
@@ -4739,22 +4739,33 @@ async function processarDatasys(input) {
       const prov = COL.provisorio >= 0 ? normalizarTelefone(r[COL.provisorio]) : '';
       const celular = COL.celular >= 0 ? normalizarTelefone(r[COL.celular]) : '';
 
+      // 🚀 CAPTURA E VALIDA O IMEI (Apenas números)
+      const imeiOriginal = COL.imei >= 0 ? String(r[COL.imei] || '').trim() : '';
+      const imeiLimpo = imeiOriginal.replace(/\D/g, ''); // Remove pontos, traços, letras
+      const imeiFinal = imeiLimpo.length > 0 ? imeiLimpo : null; 
+
       // 🚀 Captura o valor da receita contratada (Plano)
       const valorBruto = COL.valorReceita >= 0 ? r[COL.valorReceita] : null;
       const valorLimpo = parseMoedaBR(valorBruto);
 
-      // 🚀 Captura o valor do aparelho (Coluna AD / índice 29)
-      let valorAparelhoBruto = COL.valorAparelho >= 0 ? r[COL.valorAparelho] : null;
-      if (valorAparelhoBruto === null && r.length > 29) {
-         // Fallback: Se não achou o nome da coluna, tenta ler a coluna AD (índice 29)
-         valorAparelhoBruto = r[29]; 
+      // 🚀 CAPTURA O VALOR DO APARELHO - TRAVA DE SEGURANÇA AQUI
+      let valorAparelhoLimpo = null;
+      
+      // Só extrai o valor da coluna AD se o IMEI tiver exatamente 15 dígitos
+      if (imeiLimpo.length === 15) {
+         let valorAparelhoBruto = COL.valorAparelho >= 0 ? r[COL.valorAparelho] : null;
+         if (valorAparelhoBruto === null && r.length > 29) {
+            valorAparelhoBruto = r[29]; // Fallback para coluna AD
+         }
+         valorAparelhoLimpo = parseMoedaBR(valorAparelhoBruto);
+      } else if (String(r[29]).trim() !== '' && String(r[29]).trim() !== '0') {
+         ignorados.semAparelho++; // Registra que havia valor na coluna AD, mas foi ignorado por não ser IMEI de celular
       }
-      const valorAparelhoLimpo = parseMoedaBR(valorAparelhoBruto);
       
       registros.push({
         ano_base: dtVendaISO.slice(0, 4),
         data_venda: dtVendaISO,
-        imei: COL.imei >= 0 ? String(r[COL.imei] || '').trim() || null : null,
+        imei: imeiFinal,
         telefone: linha || prov || celular || '',
         telefone_provisorio: prov || null,
         telefone_alt: celular && celular !== linha ? celular : null,
@@ -4768,8 +4779,6 @@ async function processarDatasys(input) {
         status_thales: null,
         status_saneamento: 'PENDENTE',
         debito_automatico: 'NÃO',
-        
-        // 🚀 AQUI ESTÃO AS DUAS COLUNAS SEPARADAS SENDO SALVAS:
         valor_receita_contratada: valorLimpo !== null ? valorLimpo : null,
         valor_aparelho: valorAparelhoLimpo !== null ? valorAparelhoLimpo : null,
       });
@@ -4785,7 +4794,6 @@ async function processarDatasys(input) {
 
     const mapa = new Map();
     registros.forEach(r => {
-      // 🚀 Adicionado a modalidade e o IMEI na chave para não juntar Plano e Aparelho comprados no mesmo dia
       const chave = `${r.cpf}|${r.telefone}|${r.data_venda}|${r.modalidade}|${r.imei || ''}|${r.plano || ''}`;
       mapa.set(chave, r);
     });
@@ -4842,6 +4850,7 @@ async function processarDatasys(input) {
       if (ignorados.semData)  partes.push(`${ignorados.semData} sem data`);
       if (ignorados.semNome)  partes.push(`${ignorados.semNome} sem nome`);
       if (ignorados.semCpf)   partes.push(`${ignorados.semCpf} sem CPF`);
+      if (ignorados.semAparelho) partes.push(`${ignorados.semAparelho} valor AD ignorado (sem IMEI)`);
 
       statusEl.textContent = partes.join(' · ');
       statusEl.className = 'text-xs font-semibold text-emerald-600 mt-1';
