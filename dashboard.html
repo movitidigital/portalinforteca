@@ -6369,13 +6369,13 @@ async function processarPinEspelho() {
     const hash = await hashPin(pin);
 
     if (_acaoPinAtual === 'criar') {
-      // Salva no banco
-      const { error } = await supabaseClient
-        .from('perfis')
-        .update({ pin_espelho: hash })
-        .eq('id', state.user.id);
+      // 🚀 USA A RPC PARA SALVAR NO BANCO (Driblando o RLS)
+      const { data, error } = await supabaseClient.rpc('atualizar_pin_espelho', {
+        p_pin: hash
+      });
 
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.erro || 'Erro ao salvar a senha no banco.');
       
       state.perfil.pin_espelho = hash; // Atualiza o state local
       
@@ -6418,8 +6418,8 @@ async function esqueceuSenhaEspelho() {
 
     if (error) throw error;
 
-    // Reseta o PIN no banco para que ele seja forçado a criar um novo quando voltar
-    await supabaseClient.from('perfis').update({ pin_espelho: null }).eq('id', state.user.id);
+    // Reseta o PIN no banco via RPC para forçar a criação de um novo
+    await supabaseClient.rpc('atualizar_pin_espelho', { p_pin: null });
 
     alertBox.textContent = '✅ E-mail enviado! Verifique sua caixa de entrada para redefinir sua senha principal. Ao voltar, você criará uma nova senha para o espelho.';
     alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-emerald-50 border-emerald-200 text-emerald-700';
@@ -6432,8 +6432,7 @@ async function esqueceuSenhaEspelho() {
     alertBox.textContent = 'Erro ao enviar e-mail: ' + err.message;
     alertBox.className = 'text-xs p-3 rounded-xl border font-medium text-center bg-red-50 border-red-200 text-red-600';
   }
-}
-    
+} 
     /* ==========================================================
        BOOT
        ========================================================== */
