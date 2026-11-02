@@ -2962,16 +2962,25 @@
         const plano = String(findCol(row, 'Plano Operadora', 'Plano') || '').trim();
         const vendedor = String(findCol(row, 'Vendedor') || '').trim();
         const imei = String(findCol(row, 'IMEI') || '').trim();
-        const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizaçao') || '').trim();
+        const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizazao') || '').trim();
+        
+        // 🚀 CORREÇÃO DA QUANTIDADE
+        const qtdRaw = String(findCol(row, 'Quantidade', 'Qtd', 'Qtde') || '1').replace(/\D/g, '');
+        const quantidade = parseInt(qtdRaw) || 1;
+        
         const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
-        registros.push({
-          cpf: cpfRaw, nome: capitalizar(nome), telefone: celular || gsm,
-          dataVenda: dataVendaISO, modalidade,
-          categoria: classificarCategoriaDatasys(modalidade, produto),
-          produto: produto || plano || modalidade || 'Venda Datasys',
-          plano, vendedor, imei, fidelizacao,
-          valorTotal: valorReceita || 0, dadosOriginais: row,
-        });
+        const valorFinalPorItem = valorReceita !== null ? (valorReceita / quantidade) : 0;
+        
+        for (let q = 0; q < quantidade; q++) {
+            registros.push({
+              cpf: cpfRaw, nome: capitalizar(nome), telefone: celular || gsm,
+              dataVenda: dataVendaISO, modalidade,
+              categoria: classificarCategoriaDatasys(modalidade, produto),
+              produto: produto || plano || modalidade || 'Venda Datasys',
+              plano, vendedor, imei, fidelizacao,
+              valorTotal: valorFinalPorItem, dadosOriginais: row,
+            });
+        }
       }
       return { registros, ignorados };
     }
@@ -3017,18 +3026,36 @@
         const celular = normalizarTelefone(findCol(row, 'Cliente › Celular', 'Celular'));
         const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
         const vendedor = String(findCol(row, 'Vendedor') || '').trim();
-        const valorTotal = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total', 'Valor unitário'));
         
+        // 🚀 CORREÇÃO DA QUANTIDADE: Busca a quantidade na planilha (padrão 1 se não achar)
+        const qtdRaw = String(findCol(row, 'Quantidade', 'Qtd', 'Qtde') || '1').replace(/\D/g, '');
+        const quantidade = parseInt(qtdRaw) || 1;
+        
+        // Busca valor total ou unitário
+        const valorTotalRaw = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total'));
+        const valorUnitarioRaw = parseMoedaBR(findCol(row, 'Valor unitário', 'Valor Unitario', 'Valor unitario'));
+        
+        let valorFinalPorItem = 0;
+        if (valorTotalRaw !== null) {
+            valorFinalPorItem = valorTotalRaw / quantidade;
+        } else if (valorUnitarioRaw !== null) {
+            valorFinalPorItem = valorUnitarioRaw;
+        }
+
         if (!produto) continue;
 
-        registros.push({
-          cpf: cpfCnpjRaw, nome: capitalizar(nome),
-          telefone: celular || tel, dataVenda: dataVendaISO,
-          modalidade: 'VENDA GESTAO CLICK',
-          categoria: classificarCategoriaGestaoClick(produto),
-          produto, plano: null, vendedor, imei: null, fidelizacao: null,
-          valorTotal: valorTotal || 0, dadosOriginais: row,
-        });
+        // 🚀 CORREÇÃO DA QUANTIDADE: Duplica o registro se a quantidade for maior que 1
+        // Isso garante que o histórico mostre a quantidade exata e o valor total correto.
+        for (let q = 0; q < quantidade; q++) {
+            registros.push({
+              cpf: cpfCnpjRaw, nome: capitalizar(nome),
+              telefone: celular || tel, dataVenda: dataVendaISO,
+              modalidade: 'VENDA GESTAO CLICK',
+              categoria: classificarCategoriaGestaoClick(produto),
+              produto, plano: null, vendedor, imei: null, fidelizacao: null,
+              valorTotal: valorFinalPorItem, dadosOriginais: row,
+            });
+        }
       }
       
       window._ultimosIgnorados = listaIgnorados;
