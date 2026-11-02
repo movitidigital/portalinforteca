@@ -2281,19 +2281,26 @@
                 : { label: 'GESTÃO CLICK', cor: 'bg-amber-50 text-amber-700 border-amber-200' };
 
               const nomeCliente = capitalizar(g.cliente?.nome || 'Cliente');
-              const tel = g.cliente?.telefone_principal || '—';
 
-              // Múltiplas notas?
-              const multiNotas = g.qtdNotas > 1;
+              // 🚀 AQUI ESTÁ A MÁGICA: Agrupa itens idênticos para não mostrar 200 linhas
+              const produtosAgrupados = Object.values(
+                g.produtos.reduce((acc, p) => {
+                    const nome = p.nome || '—';
+                    if (!acc[nome]) acc[nome] = { nome, valorTotal: 0, qtd: 0 };
+                    acc[nome].valorTotal += p.valor;
+                    acc[nome].qtd++;
+                    return acc;
+                }, {})
+              );
 
-              // Lista de produtos
-              const produtosHTML = g.produtos.map(p => `
+              // Gera a lista de produtos agrupados (ex: "2x Película de Vidro - R$ 40,00")
+              const produtosHTML = produtosAgrupados.map(p => `
                 <div class="flex justify-between items-start gap-2 text-[11px] py-0.5">
                   <span class="text-slate-600 truncate flex-1" title="${escapeHTML(p.nome)}">
-                    • ${escapeHTML(p.nome || '—')}
+                    • ${p.qtd > 1 ? `<strong class="text-indigo-600">${p.qtd}x</strong> ` : ''}${escapeHTML(p.nome)}
                   </span>
                   <span class="text-slate-500 font-bold shrink-0">
-                    ${p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    ${p.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </span>
                 </div>
               `).join('');
@@ -2305,9 +2312,10 @@
                       <div class="flex items-center gap-2 flex-wrap mb-1">
                         <span class="badge-tipo ${tipo.cor} text-[8px]">${tipo.label}</span>
                         <span class="text-[10px] text-slate-500 font-bold uppercase">${escapeHTML(g.categoria || '—')}</span>
-                        ${multiNotas ? `
+                        
+                        ${g.qtdNotas > 1 ? `
                           <span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[8px] font-black uppercase">
-                            <i data-lucide="layers" class="w-2.5 h-2.5"></i> ${g.qtdNotas} notas
+                            <i data-lucide="layers" class="w-2.5 h-2.5"></i> ${g.qtdNotas} itens
                           </span>` : ''}
                       </div>
                       <p class="font-bold text-slate-800 text-sm uppercase truncate">${escapeHTML(nomeCliente)}</p>
@@ -2943,18 +2951,41 @@
     function mapearDatasys(linhas) {
       const registros = [];
       const ignorados = { semCpf: 0, semNome: 0, semData: 0, cnpj: 0 };
+      
+      // 🚀 HELPER: Lê a quantidade corretamente, tratando vírgulas (ex: "2,00" vira 2)
+      const parseQtd = (str) => {
+        if (str === null || str === undefined || str === '') return 1;
+        let s = String(str).trim();
+        if (!s) return 1;
+        
+        s = s.replace(/[^\d.,]/g, ''); // Remove tudo que não for número, ponto ou vírgula
+        
+        if (s.includes('.') && s.includes(',')) {
+          s = s.replace(/\./g, '').replace(',', '.'); // Ex: 1.000,50 -> 1000.50
+        } else if (s.includes(',')) {
+          s = s.replace(',', '.'); // Ex: 2,00 -> 2.00
+        }
+        
+        const num = parseFloat(s);
+        return isNaN(num) || num < 1 ? 1 : Math.round(num);
+      };
+
       if (linhas.length > 0) {
         console.log('[Datasys] Colunas:', Object.keys(linhas[0]));
       }
+      
       for (const row of linhas) {
         const cpfRaw = String(findCol(row, 'CPF') || '').replace(/\D/g, '');
         if (!cpfRaw) { ignorados.semCpf++; continue; }
         if (cpfRaw.length === 14) { ignorados.cnpj++; continue; }
         if (cpfRaw.length !== 11 || cpfRaw === '00000000000') { ignorados.semCpf++; continue; }
+        
         const nome = String(findCol(row, 'Cliente', 'Nome do Cliente') || '').trim();
         if (!nome || /^consumidor$/i.test(nome)) { ignorados.semNome++; continue; }
+        
         const dataVendaISO = parseDataISO(findCol(row, 'Data Venda', 'Data Ativação', 'Data Ativaçao'));
         if (!dataVendaISO) { ignorados.semData++; continue; }
+        
         const celular = normalizarTelefone(findCol(row, 'Celular', 'Telefone'));
         const gsm = normalizarTelefone(findCol(row, 'GSM'));
         const modalidade = String(findCol(row, 'Modalidade') || '').toUpperCase().trim();
@@ -2964,9 +2995,9 @@
         const imei = String(findCol(row, 'IMEI') || '').trim();
         const fidelizacao = String(findCol(row, 'Fidelização', 'Fidelizazao') || '').trim();
         
-        // 🚀 CORREÇÃO DA QUANTIDADE
-        const qtdRaw = String(findCol(row, 'Quantidade', 'Qtd', 'Qtde') || '1').replace(/\D/g, '');
-        const quantidade = parseInt(qtdRaw) || 1;
+        // 🚀 CORREÇÃO DA QUANTIDADE: Usa a nova função parseQtd
+        const qtdRaw = findCol(row, 'Quantidade', 'Qtd', 'Qtde');
+        const quantidade = parseQtd(qtdRaw);
         
         const valorReceita = parseMoedaBR(findCol(row, 'Valor Receita Contratada', 'Valor Plano'));
         const valorFinalPorItem = valorReceita !== null ? (valorReceita / quantidade) : 0;
@@ -2997,9 +3028,29 @@
         return '999' + String(Math.abs(hash)).padStart(8, '0').slice(0, 8);
       };
 
+      // 🚀 CORREÇÃO DA QUANTIDADE: Lê a quantidade tratando vírgulas e pontos corretamente
+      // Ex: "2,00" vira 2 | "2.00" vira 2 | "1.000,50" vira 1001
+      const parseQtd = (str) => {
+        if (str === null || str === undefined || str === '') return 1;
+        let s = String(str).trim();
+        if (!s) return 1;
+        
+        s = s.replace(/[^\d.,]/g, ''); // Remove tudo que não for número, ponto ou vírgula
+        
+        if (s.includes('.') && s.includes(',')) {
+          s = s.replace(/\./g, '').replace(',', '.'); // Ex: 1.000,50 -> 1000.50
+        } else if (s.includes(',')) {
+          s = s.replace(',', '.'); // Ex: 2,00 -> 2.00
+        }
+        
+        const num = parseFloat(s);
+        return isNaN(num) || num < 1 ? 1 : Math.round(num);
+      };
+
       if (linhas.length > 0) {
         console.log('[Gestão Click] Colunas:', Object.keys(linhas[0]));
       }
+
       for (const row of linhas) {
         let nome = String(findCol(row, 'Cliente') || '').trim();
         const produto = String(findCol(row, 'Produto') || '').trim();
@@ -3027,9 +3078,9 @@
         const tel = normalizarTelefone(findCol(row, 'Cliente › Telefone', 'Telefone'));
         const vendedor = String(findCol(row, 'Vendedor') || '').trim();
         
-        // 🚀 CORREÇÃO DA QUANTIDADE: Busca a quantidade na planilha (padrão 1 se não achar)
-        const qtdRaw = String(findCol(row, 'Quantidade', 'Qtd', 'Qtde') || '1').replace(/\D/g, '');
-        const quantidade = parseInt(qtdRaw) || 1;
+        // 🚀 CORREÇÃO DA QUANTIDADE: Busca a quantidade usando a função parseQtd
+        const qtdRaw = findCol(row, 'Quantidade', 'Qtd', 'Qtde');
+        const quantidade = parseQtd(qtdRaw);
         
         // Busca valor total ou unitário
         const valorTotalRaw = parseMoedaBR(findCol(row, 'Valor total', 'Valor Total'));
@@ -3045,7 +3096,6 @@
         if (!produto) continue;
 
         // 🚀 CORREÇÃO DA QUANTIDADE: Duplica o registro se a quantidade for maior que 1
-        // Isso garante que o histórico mostre a quantidade exata e o valor total correto.
         for (let q = 0; q < quantidade; q++) {
             registros.push({
               cpf: cpfCnpjRaw, nome: capitalizar(nome),
