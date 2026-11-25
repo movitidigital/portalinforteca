@@ -3131,3 +3131,41 @@ async function carregarAceites() {
     tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-red-500">Erro ao carregar dados: ${err.message}</td></tr>`;
   }
 }
+/* ==========================================================
+   REALTIME PROFISSIONAL: Atualiza o espelho e as vendas sem F5
+   ========================================================== */
+
+// Variável para evitar que múltiplos eventos disparem atualizações simultâneas e travem a tela
+let timeoutRealtimeFinanceiro;
+
+if (typeof supabaseClient !== 'undefined') {
+  // Escuta mudanças na tabela de vendas (interacoes)
+  supabaseClient
+    .channel('realtime-financeiro')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'interacoes' },
+      (payload) => {
+        console.log('🔄 Venda alterada no banco de dados...', payload);
+        
+        // Se o usuário estiver com a tela de Espelho aberta, recarrega os dados
+        const viewEspelho = document.getElementById('view-espelho');
+        if (viewEspelho && !viewEspelho.classList.contains('hidden')) {
+          
+          // Limpa o timeout anterior (debounce) para evitar várias atualizações de uma vez
+          clearTimeout(timeoutRealtimeFinanceiro);
+          
+          timeoutRealtimeFinanceiro = setTimeout(() => {
+            // Chama a função que já existe no seu arquivo para buscar os dados
+            carregarEspelho();
+            
+            // Mostra a notificaçãozinha elegante (se a função existir no seu sistema)
+            if (typeof mostrarToast === 'function') {
+              mostrarToast('Comissão recalculada em tempo real!');
+            }
+          }, 500); // Meio segundo de espera para agrupar várias alterações de uma vez
+        }
+      }
+    )
+    .subscribe();
+}
