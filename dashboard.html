@@ -5384,13 +5384,17 @@ async function confirmarCancelamento() {
     return;
   }
 
+  // Limpa o alerta caso exista um de erro anterior
+  alertBox.classList.add('hidden');
+
+  // Coloca o botão em estado de carregamento
   btn.disabled = true;
   btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Cancelando…`;
-  lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 
   const agora = new Date();
   const dataHora = `${String(agora.getDate()).padStart(2,'0')}/${String(agora.getMonth()+1).padStart(2,'0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}`;
-  const nomeUser = state.perfil?.nome_completo || 'Sistema';
+  const nomeUser = state?.perfil?.nome_completo || 'Sistema';
 
   try {
     const { error } = await supabaseClient
@@ -5401,18 +5405,28 @@ async function confirmarCancelamento() {
         protocolo_prazo: s.protocolo_prazo || protocolo,
       })
       .eq('id', s.id);
+      
     if (error) throw error;
+
+    // Limpa os campos para o próximo cliente
+    $('mcProtocolo').value = '';
+    $('mcObservacao').value = '';
+    _suspParaCancelar = null;
 
     fecharModalCancelamento();
     await carregarCancelamentos();
     atualizarBadgeSuspensoes();
+    
   } catch (err) {
-    alertBox.textContent = 'Erro: ' + err.message;
+    alertBox.textContent = 'Erro: ' + (err.message || JSON.stringify(err));
     alertBox.className = 'text-xs p-3 rounded-xl border font-medium bg-red-50 border-red-200 text-red-600';
     alertBox.classList.remove('hidden');
+  } finally {
+    // 🚀 AQUI ESTÁ A CORREÇÃO: O finally executa SEMPRE, 
+    // garantindo que o botão volte ao normal, mesmo se o modal fechar.
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i> Confirmar Cancelamento';
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
   }
 }
 
