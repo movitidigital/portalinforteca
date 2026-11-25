@@ -5823,18 +5823,57 @@ async function buscarSuspensoes() {
   `;
   lucide.createIcons();
 }
+// Função para mostrar a notificação flutuante (Toast)
+function mostrarToast(mensagem) {
+  // Remove toast anterior se já existir para não empilhar
+  const existingToast = document.getElementById('custom-toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
 
+  // Cria o elemento do Toast
+  const toast = document.createElement('div');
+  toast.id = 'custom-toast';
+  // Estilo: fixo no rodapé à direita, cor teal do sistema, com animação
+  toast.className = 'fixed bottom-6 right-6 bg-[#0e8890] text-white px-5 py-3 rounded-xl shadow-2xl font-bold text-sm z-[99999] flex items-center gap-2 transition-all duration-300 transform translate-y-10 opacity-0';
+  toast.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i> ${mensagem}`;
+  
+  document.body.appendChild(toast);
+
+  // Renderiza o ícone
+  if (window.lucide) lucide.createIcons();
+
+  // Animação de entrada (sobe e aparece)
+  setTimeout(() => {
+    toast.classList.remove('translate-y-10', 'opacity-0');
+  }, 10);
+
+  // Remove após 3 segundos
+  setTimeout(() => {
+    toast.classList.add('translate-y-10', 'opacity-0'); // Desce e some
+    setTimeout(() => toast.remove(), 300); // Remove do HTML após a animação
+  }, 3000);
+}
+
+// Função unificada para copiar
+function copiarTexto(texto, nomeCampo) {
+  if (!texto || texto === '—') return;
+  
+  navigator.clipboard.writeText(texto).then(() => {
+    mostrarToast(`${nomeCampo} copiado com sucesso!`);
+  }).catch(err => {
+    console.error('Erro ao copiar: ', err);
+  });
+}
 function cardSuspensaoHTML(s) {
   const isCancelado = String(s.status_cancelamento || '').toUpperCase().includes('CANCELADO');
   
-  // Cores e estilos do cabeçalho
   const corBorda = isCancelado ? 'border-l-emerald-500 bg-emerald-50/30' : 'border-l-red-500 bg-red-50/30';
   const corBadge = isCancelado 
     ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
     : 'bg-red-100 text-red-800 border-red-200';
   const textoBadge = isCancelado ? 'Cancelamento Confirmado' : 'Aguardando Cancelamento';
 
-  // Lógica do Chip (Deixou / Vai querer)
   const deixouChip = String(s.deixou_chip || '').toUpperCase() === 'SIM'
     ? (String(s.chip_devolvido || '').toUpperCase() === 'SIM'
         ? '<span class="text-emerald-600 font-bold text-xs">✓ Chip devolvido</span>'
@@ -5845,10 +5884,8 @@ function cardSuspensaoHTML(s) {
     ? '<span class="text-blue-600 font-bold text-xs">SIM</span>'
     : '<span class="text-slate-500 text-xs">NÃO</span>';
 
-  // Formatação segura das datas
   const formatarData = (dataStr) => {
     if (!dataStr) return '—';
-    // Adiciona T12:00:00 para evitar erro de fuso horário
     return new Date(dataStr.includes('T') ? dataStr : dataStr + 'T12:00:00').toLocaleDateString('pt-BR');
   };
 
@@ -5856,17 +5893,13 @@ function cardSuspensaoHTML(s) {
   const dataVencimento = formatarData(s.vencimento);
   const dataNascimento = formatarData(s.data_nascimento);
 
-  // Tenta pegar o plano de várias colunas possíveis
   const nomePlano = s.plano || s.nome_plano || s.plano_tim || 'Não inf.';
-
-  // Tenta pegar os arquivos (ajuste os nomes se necessário no seu banco)
   const linkFatura = s.url_fatura || s.arquivo_fatura || s.fatura_url;
   const linkDocumentos = s.url_documentos || s.arquivo_documentos || s.documentos_url;
 
   return `
     <div class="bg-white rounded-2xl border-l-4 ${corBorda} border-y border-r border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 relative overflow-hidden mb-4">
       
-      <!-- Topo: Nome, Telefone e Badge -->
       <div class="flex flex-col md:flex-row justify-between items-start mb-4 gap-3">
         <div>
           <h4 class="font-black text-[#000033] uppercase text-base flex items-center gap-2">
@@ -5877,7 +5910,8 @@ function cardSuspensaoHTML(s) {
             <div class="flex items-center gap-1">
               <p class="text-sm text-slate-700 font-mono font-bold">${escapeHTML(s.numero_linha || '—')}</p>
               ${s.numero_linha ? `
-                <button onclick="navigator.clipboard.writeText('${s.numero_linha}'); alert('Linha copiada!');" class="text-slate-400 hover:text-[#0e8890] transition-colors" title="Copiar número">
+                <!-- CHAMANDO A NOVA FUNÇÃO AQUI -->
+                <button onclick="copiarTexto('${s.numero_linha}', 'Linha')" class="text-slate-400 hover:text-[#0e8890] transition-colors" title="Copiar número">
                   <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                 </button>
               ` : ''}
@@ -5894,7 +5928,8 @@ function cardSuspensaoHTML(s) {
             <div class="flex items-center gap-1">
               <p class="text-[11px] font-bold text-slate-500 uppercase">CPF: <span class="font-mono text-slate-700">${escapeHTML(s.cpf || '—')}</span></p>
               ${s.cpf ? `
-                <button onclick="navigator.clipboard.writeText('${s.cpf}'); alert('CPF copiado!');" class="text-slate-400 hover:text-[#0e8890] transition-colors" title="Copiar CPF">
+                <!-- CHAMANDO A NOVA FUNÇÃO AQUI -->
+                <button onclick="copiarTexto('${s.cpf}', 'CPF')" class="text-slate-400 hover:text-[#0e8890] transition-colors" title="Copiar CPF">
                   <i data-lucide="copy" class="w-3 h-3"></i>
                 </button>
               ` : ''}
@@ -5906,7 +5941,6 @@ function cardSuspensaoHTML(s) {
         </span>
       </div>
 
-      <!-- Grid Principal: Dados Cadastrais e Suspensão -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-3 border-y border-slate-100 mb-3">
         <div>
           <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Data Suspensão</p>
@@ -5942,14 +5976,12 @@ function cardSuspensaoHTML(s) {
           <p class="font-mono text-slate-700 text-xs truncate" title="${escapeHTML(s.protocolo_prazo || s.protocolo || '—')}">${escapeHTML(s.protocolo_prazo || s.protocolo || '—')}</p>
         </div>
 
-        <!-- Endereço (ocupa a linha inteira) -->
         <div class="col-span-2 md:col-span-4 bg-slate-50 p-2 rounded-lg border border-slate-100">
           <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-0.5">Endereço Completo</p>
           <p class="text-xs text-slate-700">${escapeHTML(s.endereco || '—')}</p>
         </div>
       </div>
 
-      <!-- Arquivos Anexados (Fatura e Documentos) -->
       ${(linkFatura || linkDocumentos) ? `
         <div class="flex flex-wrap gap-3 mb-3">
           ${linkFatura ? `
@@ -5965,7 +5997,6 @@ function cardSuspensaoHTML(s) {
         </div>
       ` : ''}
 
-      <!-- Observações do Consultor -->
       ${s.observacao ? `
         <div class="bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 mb-3">
           <p class="text-[9px] font-black text-amber-600 uppercase mb-0.5">Observação do Consultor:</p>
@@ -5973,7 +6004,6 @@ function cardSuspensaoHTML(s) {
         </div>
       ` : ''}
 
-      <!-- Status Detalhado do Cancelamento -->
       ${s.status_cancelamento ? `
         <div class="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100 mb-3">
           <p class="text-[9px] font-black text-emerald-600 uppercase mb-0.5">Status Detalhado</p>
@@ -5982,7 +6012,6 @@ function cardSuspensaoHTML(s) {
         </div>
       ` : ''}
 
-      <!-- Rodapé: Botão de Ação -->
       <div class="flex justify-end mt-2 pt-2">
         <button onclick="verDetalhesSuspensao(${s.id})"
           class="text-[#0e8890] hover:text-[#0b6c72] bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-lg text-[11px] font-black uppercase flex items-center gap-1.5 transition-colors">
