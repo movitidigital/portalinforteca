@@ -5826,53 +5826,110 @@ async function buscarSuspensoes() {
 
 function cardSuspensaoHTML(s) {
   const isCancelado = String(s.status_cancelamento || '').toUpperCase().includes('CANCELADO');
-  const corBorda = isCancelado ? 'border-l-emerald-500 bg-emerald-50/40' : 'border-l-red-500 bg-red-50/40';
-  const corStatus = isCancelado ? 'emerald' : 'red';
+  
+  // Cores e estilos do cabeçalho
+  const corBorda = isCancelado ? 'border-l-emerald-500 bg-emerald-50/30' : 'border-l-red-500 bg-red-50/30';
+  const corBadge = isCancelado 
+    ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+    : 'bg-red-100 text-red-800 border-red-200';
+  const textoBadge = isCancelado ? 'Cancelamento Confirmado' : 'Aguardando Cancelamento';
 
+  // Lógica do Chip (mantida a sua)
   const chipInfo = String(s.deixou_chip || '').toUpperCase() === 'SIM'
     ? (String(s.chip_devolvido || '').toUpperCase() === 'SIM'
         ? '<span class="text-emerald-600 font-bold text-xs">✓ Chip devolvido</span>'
         : '<span class="text-red-600 font-bold text-xs">⚠ Chip com a Loja</span>')
-    : '<span class="text-slate-400 text-xs">Cliente não deixou chip</span>';
+    : '<span class="text-slate-400 text-xs">Cliente não deixou</span>';
+
+  // Formatação segura das datas
+  const dataSuspensao = s.criado_em 
+    ? new Date(s.criado_em).toLocaleDateString('pt-BR') 
+    : '—';
+    
+  // Evita erro de fuso horário na data de vencimento
+  const dataVencimento = s.vencimento 
+    ? new Date(s.vencimento + 'T12:00:00').toLocaleDateString('pt-BR') 
+    : '—';
 
   return `
-    <div class="bg-white rounded-2xl border-l-4 ${corBorda} border border-slate-200 shadow-sm p-5">
-      <div class="flex justify-between items-start mb-3 gap-4">
+    <div class="bg-white rounded-2xl border-l-4 ${corBorda} border-y border-r border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 relative overflow-hidden mb-3">
+      
+      <!-- Topo: Nome e Badge -->
+      <div class="flex flex-col md:flex-row justify-between items-start mb-4 gap-3">
         <div>
-          <h4 class="font-black text-slate-800 uppercase text-sm">${escapeHTML(capitalizar(s.nome_titular) || '—')}</h4>
-          <p class="text-xs text-slate-500 font-mono mt-1">${escapeHTML(s.numero_linha || '—')}</p>
+          <h4 class="font-black text-[#000033] uppercase text-base flex items-center gap-2">
+            ${escapeHTML(capitalizar(s.nome_titular) || '—')}
+          </h4>
+          <div class="flex items-center gap-2 mt-1">
+            <p class="text-sm text-slate-600 font-mono font-bold">${escapeHTML(s.numero_linha || '—')}</p>
+            ${s.numero_linha ? `
+              <button onclick="navigator.clipboard.writeText('${s.numero_linha}'); alert('Linha copiada!');" class="text-slate-400 hover:text-[#0e8890] transition-colors" title="Copiar número">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+            ` : ''}
+            <span class="text-slate-300">|</span>
+            <p class="text-[11px] font-bold text-slate-500 uppercase">Plano: <span class="text-[#0e8890]">${escapeHTML(s.plano || 'Não inf.')}</span></p>
+          </div>
         </div>
-        <span class="inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase border bg-${corStatus}-50 text-${corStatus}-700 border-${corStatus}-200">
-          ${isCancelado ? 'Cancelamento Confirmado' : 'Aguardando Cancelamento'}
+        <span class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase border ${corBadge}">
+          ${textoBadge}
         </span>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+
+      <!-- Grid Central: Dados -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-3 border-y border-slate-100 mb-3">
         <div>
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-1">CPF</p>
-          <p class="font-mono text-slate-700">${escapeHTML(s.cpf || '—')}</p>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">CPF</p>
+          <p class="font-mono text-xs text-slate-700">${escapeHTML(s.cpf || '—')}</p>
         </div>
         <div>
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Status do Chip</p>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Data Suspensão</p>
+          <p class="font-bold text-xs text-slate-700">${dataSuspensao}</p>
+        </div>
+        <div>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Venc. Fatura</p>
+          <p class="font-bold text-xs text-slate-700">${dataVencimento}</p>
+        </div>
+        <div>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Consultor</p>
+          <p class="font-bold text-xs text-slate-700">${escapeHTML(capitalizar(s.consultor) || '—')}</p>
+        </div>
+        
+        <div>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Status do Chip</p>
           ${chipInfo}
         </div>
         <div>
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Mês Cancelar</p>
-          <p class="font-bold text-slate-700">${escapeHTML(s.mes_cancelar || '—')}</p>
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Mês Cancelar</p>
+          <p class="font-bold text-xs text-slate-700 uppercase">${escapeHTML(s.mes_cancelar || '—')}</p>
         </div>
-        <div class="md:col-span-3">
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Protocolo</p>
-          <p class="font-mono text-slate-700 text-xs">${escapeHTML(s.protocolo_prazo || '—')}</p>
+        <div class="col-span-2">
+          <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Protocolo / Prazo</p>
+          <p class="font-mono text-slate-700 text-xs truncate">${escapeHTML(s.protocolo_prazo || s.protocolo || '—')}</p>
         </div>
-        ${s.status_cancelamento ? `
-        <div class="md:col-span-3 border-t border-slate-100 pt-2">
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-1">Status Detalhado</p>
-          <p class="text-slate-600 text-[11px]">${escapeHTML(s.status_cancelamento)}</p>
-        </div>` : ''}
       </div>
-      <div class="flex justify-end mt-3 pt-3 border-t border-slate-100">
+
+      <!-- Observações (se houver) -->
+      ${s.observacao ? `
+        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-3">
+          <p class="text-[9px] font-black text-slate-400 uppercase mb-0.5">Observação do Consultor:</p>
+          <p class="text-xs text-slate-600 italic leading-relaxed">"${escapeHTML(s.observacao)}"</p>
+        </div>
+      ` : ''}
+
+      <!-- Status Detalhado (se estiver cancelado) -->
+      ${s.status_cancelamento ? `
+        <div class="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100 mb-3">
+          <p class="text-[9px] font-black text-emerald-600 uppercase mb-0.5">Status Detalhado</p>
+          <p class="text-slate-700 text-[11px] font-medium">${escapeHTML(s.status_cancelamento)}</p>
+        </div>
+      ` : ''}
+
+      <!-- Rodapé: Botão de Ação -->
+      <div class="flex justify-end mt-2 pt-2">
         <button onclick="verDetalhesSuspensao(${s.id})"
-          class="text-[#0e8890] hover:text-[#0b6c72] text-[11px] font-black uppercase flex items-center gap-1">
-          <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Ver detalhes completos
+          class="text-[#0e8890] hover:text-[#0b6c72] bg-teal-50 hover:bg-teal-100 px-4 py-2 rounded-lg text-[11px] font-black uppercase flex items-center gap-1.5 transition-colors">
+          Ver detalhes completos <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
         </button>
       </div>
     </div>
