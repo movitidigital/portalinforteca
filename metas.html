@@ -1301,7 +1301,7 @@ async function verificarAuth() {
        SINCRONIZAR VENDAS DO BANCO DE DADOS (AUTOMAÇÃO DEFINITIVA)
        ========================================================== */
 async function sincronizarVendasBanco() {
-  const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas (Planos e Aparelhos) e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
+  const confirmar = confirm("⚡ Puxar Vendas do Banco?\n\nIsso vai buscar os dados mais recentes de vendas (Planos, Aparelhos e Acessórios) e substituir os valores já lançados neste mês.\n\nDeseja continuar?");
   if (!confirmar) return;
 
   const btn = document.getElementById('btnSincronizarMetas');
@@ -1329,6 +1329,36 @@ async function sincronizarVendasBanco() {
     const normStr = (s) => String(s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     const limparNomePlano = (s) => normStr(s).replace(/\s+\d+(\.\d+)?$/, '').trim();
 
+    // Helper para evitar o corte padrão de 1.000 linhas do Supabase
+    const buscarTodosRegistros = async (tabela, colunas) => {
+      let todos = [];
+      let inicio = 0;
+      const passo = 1000;
+      while (true) {
+        const { data, error } = await supabaseClient
+          .from(tabela)
+          .select(colunas)
+          .gte('data_venda', dtInicio)
+          .lte('data_venda', dtFim)
+          .range(inicio, inicio + passo - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        todos = todos.concat(data);
+        if (data.length < passo) break;
+        inicio += passo;
+      }
+      return todos;
+    };
+
+    const encontrarConsultor = (nomeVendedor) => {
+      const vendNorm = normStr(nomeVendedor);
+      if (!vendNorm) return null;
+      return m.consultores.find(c => {
+        const cNorm = normStr(c.nome);
+        return cNorm && (cNorm.includes(vendNorm) || vendNorm.includes(cNorm));
+      }) || null;
+    };
+
     // 1. BASE DE REMUNERAÇÃO (Família)
     const { data: baseRemun } = await supabaseClient
       .from('financeiro_base_remuneracao')
@@ -1348,38 +1378,36 @@ async function sincronizarVendasBanco() {
     let logAcessorios = {};
 
     // 2. VENDAS DE PLANOS E APARELHOS (clientes_faturas)
-    // 🚀 ADICIONADO O 'valor_aparelho' NO SELECT
-    const { data: faturas, error: errFat } = await supabaseClient
-      .from('clientes_faturas')
-      .select('data_venda, consultor, plano, modalidade, valor_receita_contratada, valor_aparelho, cpf')
-      .gte('data_venda', dtInicio)
-      .lte('data_venda', dtFim);
-
-    if (errFat) throw errFat;
+    const faturas = await buscarTodosRegistros(
+      'clientes_faturas',
+      'data_venda, consultor, plano, modalidade, valor_receita_contratada, valor_aparelho, cpf'
+    );
 
     let totalPlanosLidos = 0;
     let totalTrocasIgnoradas = 0;
     let totalAparelhosLidos = 0;
 
     faturas.forEach(f => {
-      // Busca o consultor na lista
-      const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(f.consultor)) || normStr(f.consultor).includes(normStr(c.nome)));
+      if (!f.data_venda) return;
+      const consultorObj = encontrarConsultor(f.consultor);
       if (!consultorObj) return; 
 
       const planoOriginal = String(f.plano || '');
       const planoNorm = normStr(planoOriginal);
       const planoLimpo = limparNomePlano(planoOriginal);
       const modalidade = normStr(f.modalidade);
-      const dia = parseInt(f.data_venda.split('-')[2]) - 1;
+      const dia = parseInt(String(f.data_venda).split('-')[2], 10) - 1;
+      if (isNaN(dia) || dia < 0 || dia > 30) return;
+
       const d = novoDiario[consultorObj.id];
 
-      // 🚀 1. PROCESSA O VALOR DO APARELHO PRIMEIRO (Se tiver no banco)
+      // 1. Processa o valor do aparelho primeiro
       if (f.valor_aparelho && Number(f.valor_aparelho) > 0) {
         d['APARELHO'][dia] = (Number(d['APARELHO'][dia]) || 0) + Number(f.valor_aparelho);
         totalAparelhosLidos++;
       }
 
-      // 🚀 2. IGNORA TROCA DE APARELHO PARA O FATURAMENTO (Para não somar o plano de novo)
+      // 2. Ignora troca de aparelho para o faturamento
       if (modalidade.includes('TROCA') || modalidade.includes('E-SIM') || modalidade.includes('ESIM')) {
         totalTrocasIgnoradas++;
         return; 
@@ -1388,7 +1416,6 @@ async function sincronizarVendasBanco() {
       totalPlanosLidos++;
       let valorFat = Number(f.valor_receita_contratada) || 0;
 
-      // Regra para planos Família
       if (planoNorm.includes('FAMILIA')) {
         if (remunMap[planoLimpo] !== undefined) {
           valorFat = remunMap[planoLimpo];
@@ -1399,7 +1426,6 @@ async function sincronizarVendasBanco() {
         }
       }
 
-      // Abastece as colunas de Faturamento (Controle e Pós)
       if (planoNorm.includes('CONTROLE')) {
         d['CONTROLE FAT.'][dia] = (Number(d['CONTROLE FAT.'][dia]) || 0) + valorFat;
         d['CONTROLE'][dia] = (Number(d['CONTROLE'][dia]) || 0) + 1;
@@ -1416,75 +1442,73 @@ async function sincronizarVendasBanco() {
     });
 
     // 3. VENDAS DE ACESSÓRIOS (interacoes)
-    // Mantemos a busca na tabela interacoes APENAS para acessórios, 
-    // já que a tabela clientes_faturas só tem aparelhos e planos.
-    const { data: interacoes, error: errInt } = await supabaseClient
-      .from('interacoes')
-      .select('data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte')
-      .gte('data_venda', dtInicio)
-      .lte('data_venda', dtFim);
-
-    if (errInt) throw errInt;
+    const interacoes = await buscarTodosRegistros(
+      'interacoes',
+      'data_venda, vendedor, categoria, modalidade, produto, valor_total, dados_originais, imei, tipo_fonte'
+    );
 
     let totalAcessoriosLidos = 0;
     
     interacoes.forEach(i => {
-      const consultorObj = m.consultores.find(c => normStr(c.nome).includes(normStr(i.vendedor)) || normStr(i.vendedor).includes(normStr(c.nome)));
+      if (!i.data_venda) return;
+      const consultorObj = encontrarConsultor(i.vendedor);
       if (!consultorObj) return;
 
-      const cat = String(i.categoria || '').toUpperCase();
-      const mod = String(i.modalidade || '').toUpperCase();
-      const prod = String(i.produto || '').toUpperCase();
-      const fonte = String(i.tipo_fonte || '').toUpperCase();
+      // Normaliza acentos e espaços de todas as colunas
+      const cat = normStr(i.categoria);
+      const mod = normStr(i.modalidade);
+      const prod = normStr(i.produto);
+      const fonte = normStr(i.tipo_fonte);
       
-      const isGestaoClick = fonte === 'GESTAO_CLICK' || mod.includes('VENDA GESTAO CLICK');
+      const isGestaoClick = fonte.includes('GESTAO') || mod.includes('GESTAO');
       const temIMEI = i.imei && String(i.imei).trim() !== '' && String(i.imei).trim() !== 'null';
 
       let isAcessorio = false;
       let isServico = false;
 
       if (isGestaoClick) {
-          if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
-              isServico = true;
-          } else {
-              isAcessorio = true; 
-          }
+        if (prod.includes('FORMAT') || prod.includes('MANUT') || prod.includes('LIMPEZA')) {
+          isServico = true;
+        } else {
+          // 100% das vendas do Gestão Click (exceto serviços) entram como Acessório
+          isAcessorio = true; 
+        }
       } else {
-          isAcessorio = cat === 'ACESSORIO' || 
-                        mod.includes('ACESSORIO') || 
-                        prod.includes('PELICULA') || prod.includes('FILME') ||
-                        prod.includes('CAPA') || prod.includes('CASE') ||
-                        prod.includes('FONE') || prod.includes('HEADPHONE') || 
-                        prod.includes('EARBUD') || prod.includes('AUDIO') || 
-                        prod.includes('HEADSET') || prod.includes('CARREGADOR') || 
-                        prod.includes('CABO') || prod.includes('ADAPTADOR') ||
-                        prod.includes('SMARTBAND') || prod.includes('SMARTWATCH') || prod.includes('RELOGIO');
+        isAcessorio = cat.includes('ACESSORIO') || 
+                      mod.includes('ACESSORIO') || 
+                      prod.includes('PELICULA') || prod.includes('FILME') ||
+                      prod.includes('CAPA') || prod.includes('CASE') ||
+                      prod.includes('FONE') || prod.includes('HEADPHONE') || 
+                      prod.includes('EARBUD') || prod.includes('AUDIO') || 
+                      prod.includes('HEADSET') || prod.includes('CARREGADOR') || 
+                      prod.includes('CABO') || prod.includes('ADAPTADOR') ||
+                      prod.includes('SMARTBAND') || prod.includes('SMARTWATCH') || prod.includes('RELOGIO');
 
-          isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
+        isServico = mod.includes('SERVICO') || prod.includes('FORMAT') || prod.includes('MANUT');
 
-          // Se tiver IMEI e for celular, a gente IGNORA AQUI, porque o APARELHO já foi puxado da clientes_faturas acima.
-          if (!isAcessorio && !isServico && temIMEI) {
-              return; 
-          }
+        if (!isAcessorio && !isServico && temIMEI) {
+          return; 
+        }
       }
 
       if (isAcessorio) {
         totalAcessoriosLidos++;
-        const dia = parseInt(i.data_venda.split('-')[2]) - 1;
+        const dia = parseInt(String(i.data_venda).split('-')[2], 10) - 1;
+        if (isNaN(dia) || dia < 0 || dia > 30) return;
+
         const d = novoDiario[consultorObj.id];
-        
         const valorAce = Number(i.valor_total) || 0;
         d['ACESSÓRIOS'][dia] = (Number(d['ACESSÓRIOS'][dia]) || 0) + valorAce;
 
         if (!logAcessorios[consultorObj.nome]) logAcessorios[consultorObj.nome] = 0;
-        logAcessorios[consultorObj.nome] += valorAce;
+        logAcessorios[consultorObj.nome] = Number((logAcessorios[consultorObj.nome] + valorAce).toFixed(2));
       }
     });
 
-    // Limpa zeros e Salva
+    // Limpa zeros e salva
     Object.keys(novoDiario).forEach(id => {
       LINHAS_DIARIO.forEach(key => {
-        novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : v);
+        novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : Number(v.toFixed(2)));
       });
     });
 
@@ -1495,7 +1519,6 @@ async function sincronizarVendasBanco() {
     await salvarEstado();
     recalcAll(); 
 
-    // 🚀 RELATÓRIO NO CONSOLE E NA TELA
     console.log("=== TOTAIS PUXADOS DO BANCO ===");
     console.log("Acessórios:", logAcessorios);
     
