@@ -1274,7 +1274,14 @@ async function renderizarPrevisao() {
 
   const linhasServicos = (p.itens_servicos || []).map(it => `
     <tr class="border-b border-slate-100 hover:bg-slate-50">
-      <td class="px-4 py-3 text-sm font-medium text-slate-800">${it.plano}</td>
+      <td class="px-4 py-3 text-sm font-medium text-slate-800">
+        <div class="flex items-center gap-2">
+          <span>${it.plano}</span>
+          <button onclick="abrirModalClientesPlano('${it.plano}', '${vendedor}', '${competencia}')" class="text-slate-400 hover:text-[#0e8890] hover:bg-teal-50 p-1 rounded transition-colors" title="Ver clientes deste plano">
+            <i data-lucide="list" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </td>
       <td class="px-4 py-3 text-center text-sm text-slate-600">${it.qtd}</td>
       <td class="px-4 py-3 text-right text-sm text-slate-600">R$ ${fmt(it.vr)}</td>
       <td class="px-4 py-3 text-center text-xs text-slate-500">${(it.qt * 100).toFixed(2)}%</td>
