@@ -662,50 +662,50 @@ async function carregarEspelho() {
           carregarEspelho();
         });
       }
+
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
 
-        // 1. Tenta buscar dos espelhos já gerados
-        const { data: vendedores } = await supabaseClient
-          .from('financeiro_espelhos_b2c')
-          .select('vendedor_id')
-          .eq('mes_competencia_venda', mes)
-          .order('vendedor_id');
-        let lista = (vendedores || []).map(v => v.vendedor_id);
+        // Calcula o último dia do mês com segurança
+        const [anoStr, mesStr] = competencia.split('-');
+        const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
+        const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
 
-        // 2. Se não achou espelhos, busca exclusivamente em clientes_faturas (fonte oficial)
-        if (lista.length === 0) {
-          const [anoStr, mesStr] = competencia.split('-');
-          const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
-          const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
+        // Busca a coluna 'consultor' na tabela clientes_faturas
+        const { data: faturas, error: errFat } = await supabaseClient
+          .from('clientes_faturas')
+          .select('consultor')
+          .gte('data_venda', mes)
+          .lte('data_venda', dataFimMes);
 
-          const { data: faturas, error: fatErr } = await supabaseClient
-            .from('clientes_faturas')
-            .select('vendedor')
-            .gte('data_venda', mes)
-            .lte('data_venda', dataFimMes);
+        if (errFat) console.error('Erro ao buscar consultores:', errFat);
 
-          if (fatErr) throw fatErr;
-
-          lista = [...new Set(
-            (faturas || [])
-              .map(f => (f.vendedor || '').trim().toUpperCase())
-              .filter(Boolean)
-          )].sort();
+        let lista = [];
+        if (faturas) {
+          lista = [...new Set(faturas.map(f => f.consultor))]
+            .filter(v => v && v.trim() !== '' && !v.toUpperCase().includes('CAIXA') && !v.toUpperCase().includes('INFORTECA LTDA'))
+            .sort();
         }
 
-        if (lista.length) {
+        if (lista.length > 0) {
           selectVend.innerHTML = lista.map(v => `<option value="${v}">${v}</option>`).join('');
         } else {
-          selectVend.innerHTML = '<option value="">— Sem dados —</option>';
+          selectVend.innerHTML = '<option value="">— Nenhuma venda no mês —</option>';
         }
 
+        // Seleciona o usuário logado se estiver na lista; caso contrário, o primeiro consultor disponível
         const nomeUser = (state.perfil?.nome_completo || '').toUpperCase();
-        if (Array.from(selectVend.options).some(o => o.value === nomeUser)) {
+        if (lista.includes(nomeUser)) {
           selectVend.value = nomeUser;
+        } else if (lista.length > 0) {
+          selectVend.value = lista[0];
         }
       }
-      vendedor = selectVend.value || (state.perfil?.nome_completo || '').toUpperCase();
+
+      vendedor = selectVend.value;
+      if (!vendedor && state.perfil?.nome_completo) {
+        vendedor = (state.perfil?.nome_completo || '').toUpperCase();
+      }
     } else {
       selectVend.style.display = 'none';
       vendedor = (state.perfil?.nome_completo || '').toUpperCase();
