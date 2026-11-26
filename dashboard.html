@@ -6454,108 +6454,93 @@ async function carregarRankingEquipe() {
   }
 }
 
-function renderRanking() {
-  const container = $('rankingLista');
-  if (!container || !_rankingDados) return;
-
-  const kpi = $('rankingKpi')?.value || 'FAT TOTAL TIM';
-  const consultores = _rankingDados.consultores || [];
-  const metaCons = _rankingDados.metaConsultor || {};
-
-  if (!consultores.length) {
-    container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Nenhum consultor cadastrado.</p>`;
-    return;
-  }
-
-  const somaArr = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
-
-  // 🚀 LÓGICA CUSTOMIZADA DE MÉTRICAS E METAS
-  let metaKpi = 0;
-  let calcReal = () => 0;
-
-  if (kpi === 'FAT TOTAL TIM') {
-    // Faturamento Total (Soma Controle + Pós)
-    metaKpi = Number(metaCons['FAT TOTAL TIM']) || (Number(metaCons['CONTROLE FAT.'] || 0) + Number(metaCons['PÓS FAT.'] || 0));
-    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']) + somaArr(c.diario['PÓS FAT.']);
-  } else if (kpi === 'CONTROLE') {
-    // 🚀 ALTERAÇÃO SOLICITADA: CONTROLE agora usa a métrica de FATURAMENTO
-    metaKpi = Number(metaCons['CONTROLE FAT.'] || 0);
-    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']);
-  } else {
-    // PÓS, PORTABILIDADE, APARELHO, ACESSÓRIOS continuam com suas métricas padrão (Quantidade ou Receita)
-    metaKpi = Number(metaCons[kpi] || 0);
-    calcReal = (c) => somaArr(c.diario[kpi]);
-  }
-
-  const ranking = consultores.map(c => {
-    const real = calcReal(c);
-    const pct = metaKpi > 0 ? (real / metaKpi) * 100 : 0;
-    return { nome: c.nome, real, pct };
-  }).sort((a, b) => b.pct - a.pct);
-
-  const primeiroNomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim().split(' ')[0];
-
-  // 🚀 ADICIONADO 'CONTROLE' NA LISTA DE MOEDA (Para mostrar R$ em vez de número quebrado)
-  const isMoeda = ['FAT TOTAL TIM', 'APARELHO', 'ACESSÓRIOS', 'CONTROLE'].includes(kpi);
+async function renderRanking() {
+  const metrica = document.getElementById('rankingKpi').value;
+  const container = document.getElementById('rankingLista');
   
-  const fmtV = (v) => isMoeda
-    ? 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : String(Math.round(v || 0));
+  // Coloque aqui a lógica que você já usa para buscar os dados do banco
+  // Exemplo genérico: (Busque o total de cada vendedor baseado na métrica escolhida)
+  
+  // Dados simulados para você ver o layout (substitua pelos dados reais do seu banco)
+  const dadosRanking = [
+    { nome: 'GABRIEL VALENÇA DE LIMA', valor: 3450.50, meta: 3000.00 },
+    { nome: 'JEAN BRENO CARNEIRO DA SILVA', valor: 2467.87, meta: 3000.00 },
+    { nome: 'DANIEL ALVES FERREIRA', valor: 1200.00, meta: 3000.00 }
+  ];
 
-  const medalha = (pos) => {
-    if (pos === 0) return '🥇';
-    if (pos === 1) return '🥈';
-    if (pos === 2) return '🥉';
-    return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-500 font-black text-[9px]">${pos + 1}</span>`;
-  };
+  // Ordena do maior para o menor
+  dadosRanking.sort((a, b) => b.valor - a.valor);
 
-  const corPct = (p) => {
-    if (p >= 100) return { text: 'text-emerald-600', bar: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-    if (p >= 70)  return { text: 'text-amber-600',   bar: 'bg-amber-500',   bg: 'bg-amber-50',   border: 'border-amber-200' };
-    return              { text: 'text-red-600',     bar: 'bg-red-500',     bg: 'bg-red-50',     border: 'border-red-200' };
-  };
+  // Encontra o maior valor para calcular a porcentagem da barra
+  const maiorValor = dadosRanking[0]?.valor || 1;
 
-  container.innerHTML = ranking.map((r, i) => {
-    const c = corPct(r.pct);
-    const primeiroNomeR = String(r.nome || '').toLowerCase().trim().split(' ')[0];
-    const euSouEu = primeiroNomeR && primeiroNomeR === primeiroNomeUser;
+  const html = dadosRanking.map((v, index) => {
+    const posicao = index + 1;
+    let medalha = '';
+    let corBg = 'bg-white';
+    let corBorda = 'border-slate-200';
+    let corTexto = 'text-slate-800';
 
-    const linhaBase = euSouEu
-      ? `ring-2 ring-[#0e8890] ring-offset-1 ${c.bg}`
-      : `bg-slate-50 hover:bg-slate-100`;
+    // Estilização do Pódio
+    if (posicao === 1) {
+      medalha = '🥇';
+      corBg = 'bg-gradient-to-r from-amber-50 to-white';
+      corBorda = 'border-amber-300 shadow-amber-100';
+    } else if (posicao === 2) {
+      medalha = '🥈';
+      corBg = 'bg-gradient-to-r from-slate-50 to-white';
+      corBorda = 'border-slate-300';
+    } else if (posicao === 3) {
+      medalha = '🥉';
+      corBg = 'bg-gradient-to-r from-orange-50 to-white';
+      corBorda = 'border-orange-200';
+    }
 
-    // AVATAR DO USUÁRIO
-    const avatarUrl = _rankingAvatares[primeiroNomeR];
-    const iniciais = String(r.nome || '??').substring(0, 2).toUpperCase();
+    // Pega as iniciais do nome
+    const iniciais = v.nome.split(' ').map(n => n[0]).slice(0, 2).join('');
     
-    const avatarHTML = avatarUrl
-      ? `<img src="${escapeHTML(avatarUrl)}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0">`
-      : `<div class="w-8 h-8 rounded-full bg-[#000033] text-white flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">${iniciais}</div>`;
+    // Calcula a porcentagem em relação ao primeiro lugar (para a barra visual)
+    const pctBarra = (v.valor / maiorValor) * 100;
+    const corBarra = posicao === 1 ? 'bg-amber-500' : 'bg-[#0e8890]';
+
+    // Formata o valor
+    const isMoeda = metrica.includes('FAT') || metrica.includes('APARELHO') || metrica.includes('ACESSÓRIOS');
+    const valorFormatado = isMoeda 
+      ? `R$ ${v.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
+      : `${Math.round(v.valor)} un`;
 
     return `
-      <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg border ${c.border} ${linhaBase} transition-all">
-        <div class="shrink-0 w-6 flex items-center justify-center">${medalha(i)}</div>
+      <div class="relative flex items-center p-3 rounded-xl border-2 ${corBorda} ${corBg} transition-all hover:scale-[1.02] shadow-sm overflow-hidden mb-3">
         
-        ${avatarHTML}
-
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-1.5">
-            <p class="font-black text-slate-800 uppercase text-[11px] truncate leading-tight">${r.nome}</p>
-            ${euSouEu ? `<span class="shrink-0 bg-[#0e8890] text-white text-[7px] font-black px-1 py-0.5 rounded uppercase">você</span>` : ''}
+        <!-- Posição e Avatar -->
+        <div class="flex items-center gap-3 w-1/2 md:w-[40%] shrink-0 z-10">
+          <span class="text-2xl drop-shadow-sm">${medalha}</span>
+          <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-black text-sm shadow-md">
+            ${iniciais}
           </div>
-          <div class="w-full bg-white rounded-full h-1 mt-1 overflow-hidden border border-slate-200">
-            <div class="${c.bar} h-1 rounded-full transition-all" style="width:${Math.min(100, r.pct)}%"></div>
+          <div class="min-w-0">
+            <p class="text-sm font-black text-[#000033] uppercase truncate leading-tight">${v.nome.split(' ')[0]} ${v.nome.split(' ').slice(-1)}</p>
+            <p class="text-[10px] text-slate-500 font-bold uppercase truncate">${v.nome}</p>
           </div>
         </div>
 
-        <div class="shrink-0 text-right min-w-[78px] leading-tight">
-          <p class="text-[10px] font-black ${c.text}">${r.pct.toFixed(0)}%</p>
-          <p class="text-[8px] text-slate-400 font-bold uppercase">${fmtV(r.real)}</p>
+        <!-- Barra de Progresso -->
+        <div class="flex-1 px-4 z-10 hidden md:block">
+          <div class="w-full bg-slate-200/50 rounded-full h-3 overflow-hidden">
+            <div class="h-3 rounded-full ${corBarra} transition-all duration-1000 ease-out" style="width: ${pctBarra}%"></div>
+          </div>
         </div>
-      </div>`;
+
+        <!-- Valor -->
+        <div class="text-right z-10 w-[30%] shrink-0">
+          <p class="text-base font-black text-slate-800">${valorFormatado}</p>
+          <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Realizado</p>
+        </div>
+      </div>
+    `;
   }).join('');
 
-  lucide.createIcons();
+  container.innerHTML = html;
 }
 
 /* ==========================================================
