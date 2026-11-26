@@ -1455,6 +1455,76 @@ async function renderizarPrevisao() {
   if (window.lucide) lucide.createIcons();
 }
 
+async function abrirModalClientesPlano(plano, vendedor, competencia) {
+  const modal = document.getElementById('modalClientesPlano');
+  const listaDiv = document.getElementById('listaClientesPlano');
+  const titulo = document.getElementById('modalPlanoTitulo');
+
+  titulo.textContent = `${plano} — ${vendedor} (${fmtMes(competencia + '-01')})`;
+  listaDiv.innerHTML = '<div class="text-center py-8"><i data-lucide="loader-2" class="w-6 h-6 animate-spin text-[#0e8890] mx-auto"></i><p class="text-xs text-slate-500 mt-2">Buscando clientes...</p></div>';
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+
+  const [anoStr, mesStr] = competencia.split('-');
+  const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
+  const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
+
+  // Filtro rigoroso com base nas modalidades que geram comissão
+  const filtroModalidades = [
+    'ATIVAÇÃO CONTROLE', 'PORTABILIDADE CONTROLE', 'PORTABILIDADE EXPRESS', 
+    'MIGRAÇÃO CONTROLE + TC', 'MIGRAÇÃO EXPRESS + TC', 'MIGRAÇÃO PRÉ-PÓS', 
+    'ATIVAÇÃO EXPRESS', 'PORTABILIDADE PÓS PURO', 'MIGRAÇÃO PÓS PURO + TC', 
+    'DEPENDENTE FAMILIA', 'PORTABILIDADE CONTROLE AP + CH', 'MIGRAÇÃO CONTROLE + AP + TC', 
+    'MIGRAÇÃO CONTROLE + AP', 'ATIVAÇÃO PÓS PURO'
+  ].map(m => `modalidade.ilike.%${m}%`).join(',');
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('clientes_faturas')
+      .select('nome, telefone, cpf, data_venda, modalidade')
+      .eq('consultor', vendedor)
+      .gte('data_venda', `${competencia}-01`)
+      .lte('data_venda', dataFimMes)
+      .ilike('plano', plano) // Pega o plano exato ignorando maiúsculas/minúsculas
+      .or(filtroModalidades)
+      .order('nome');
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      listaDiv.innerHTML = `<div class="text-slate-500 text-sm text-center bg-white p-6 rounded-xl border border-slate-200">Nenhum cliente encontrado para este plano.</div>`;
+      return;
+    }
+
+    // Renderiza os cartõezinhos dos clientes
+    listaDiv.innerHTML = data.map(c => `
+      <div class="bg-white border border-slate-200 rounded-xl p-3 flex flex-col md:flex-row justify-between items-start md:items-center shadow-sm hover:border-[#0e8890] transition-colors gap-3">
+        <div>
+          <p class="text-sm font-black text-[#000033] uppercase">${escapeHTML(capitalizar(c.nome) || '—')}</p>
+          <div class="flex flex-wrap items-center gap-3 mt-1 text-[11px] text-slate-500 font-medium">
+            <span class="flex items-center gap-1 font-mono"><i data-lucide="credit-card" class="w-3 h-3"></i> CPF: ${escapeHTML(c.cpf || '—')}</span>
+            <span class="flex items-center gap-1 font-mono"><i data-lucide="phone" class="w-3 h-3"></i> ${escapeHTML(c.telefone || '—')}</span>
+            <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3 h-3"></i> ${new Date(c.data_venda + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+          </div>
+        </div>
+        <span class="text-[9px] font-bold px-2 py-1 bg-slate-100 rounded text-slate-600 uppercase tracking-wider border border-slate-200">
+          ${escapeHTML(c.modalidade)}
+        </span>
+      </div>
+    `).join('');
+    
+    if (window.lucide) lucide.createIcons();
+
+  } catch (err) {
+    console.error(err);
+    listaDiv.innerHTML = `<div class="text-red-500 text-sm text-center bg-red-50 p-4 rounded-xl border border-red-200">Erro: ${err.message}</div>`;
+  }
+}
+
+function fecharModalClientesPlano() {
+  document.getElementById('modalClientesPlano').classList.add('hidden');
+}
+
 /* ==========================================================
    MÓDULO FINANCEIRO - CONTROLE DE ACESSO E RENDERIZAÇÃO
    ========================================================== */
