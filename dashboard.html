@@ -6454,172 +6454,110 @@ async function carregarRankingEquipe() {
   }
 }
 
-async function renderRanking() {
-  const metrica = document.getElementById('rankingKpi').value;
-  const container = document.getElementById('rankingLista');
-  const competencia = document.getElementById('dashMesSelect')?.value || new Date().toISOString().slice(0, 7); // Ex: '2026-11'
+function renderRanking() {
+  const container = $('rankingLista');
+  if (!container || !_rankingDados) return;
 
-  container.innerHTML = `<div class="text-center py-8"><i data-lucide="loader-2" class="w-6 h-6 animate-spin text-[#0e8890] mx-auto"></i><p class="text-xs text-slate-500 mt-2">Carregando ranking...</p></div>`;
-  if (window.lucide) lucide.createIcons();
+  const kpi = $('rankingKpi')?.value || 'FAT TOTAL TIM';
+  const consultores = _rankingDados.consultores || [];
+  const metaCons = _rankingDados.metaConsultor || {};
 
-  try {
-    // 1. Buscar dados das metas do mês para saber quem está ativo e qual a meta
-    const [anoStr, mesStr] = competencia.split('-');
-    const nomeMesA = formatarMesMeta(competencia);
-    const nomeMesB = nomeMesA.replace('/', ' / ');
+  if (!consultores.length) {
+    container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">Nenhum consultor cadastrado.</p>`;
+    return;
+  }
+
+  const somaArr = (arr) => (arr || []).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  // 🚀 LÓGICA CUSTOMIZADA DE MÉTRICAS E METAS
+  let metaKpi = 0;
+  let calcReal = () => 0;
+
+  if (kpi === 'FAT TOTAL TIM') {
+    // Faturamento Total (Soma Controle + Pós)
+    metaKpi = Number(metaCons['FAT TOTAL TIM']) || (Number(metaCons['CONTROLE FAT.'] || 0) + Number(metaCons['PÓS FAT.'] || 0));
+    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']) + somaArr(c.diario['PÓS FAT.']);
+  } else if (kpi === 'CONTROLE') {
+    // 🚀 ALTERAÇÃO SOLICITADA: CONTROLE agora usa a métrica de FATURAMENTO
+    metaKpi = Number(metaCons['CONTROLE FAT.'] || 0);
+    calcReal = (c) => somaArr(c.diario['CONTROLE FAT.']);
+  } else {
+    // PÓS, PORTABILIDADE, APARELHO, ACESSÓRIOS continuam com suas métricas padrão (Quantidade ou Receita)
+    metaKpi = Number(metaCons[kpi] || 0);
+    calcReal = (c) => somaArr(c.diario[kpi]);
+  }
+
+  const ranking = consultores.map(c => {
+    const real = calcReal(c);
+    const pct = metaKpi > 0 ? (real / metaKpi) * 100 : 0;
+    return { nome: c.nome, real, pct };
+  }).sort((a, b) => b.pct - a.pct);
+
+  const primeiroNomeUser = String(state.perfil?.nome_completo || '').toLowerCase().trim().split(' ')[0];
+
+  // 🚀 ADICIONADO 'CONTROLE' NA LISTA DE MOEDA (Para mostrar R$ em vez de número quebrado)
+  const isMoeda = ['FAT TOTAL TIM', 'APARELHO', 'ACESSÓRIOS', 'CONTROLE'].includes(kpi);
+  
+  const fmtV = (v) => isMoeda
+    ? 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : String(Math.round(v || 0));
+
+  const medalha = (pos) => {
+    if (pos === 0) return '🥇';
+    if (pos === 1) return '🥈';
+    if (pos === 2) return '🥉';
+    return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-500 font-black text-[9px]">${pos + 1}</span>`;
+  };
+
+  const corPct = (p) => {
+    if (p >= 100) return { text: 'text-emerald-600', bar: 'bg-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+    if (p >= 70)  return { text: 'text-amber-600',   bar: 'bg-amber-500',   bg: 'bg-amber-50',   border: 'border-amber-200' };
+    return              { text: 'text-red-600',     bar: 'bg-red-500',     bg: 'bg-red-50',     border: 'border-red-200' };
+  };
+
+  container.innerHTML = ranking.map((r, i) => {
+    const c = corPct(r.pct);
+    const primeiroNomeR = String(r.nome || '').toLowerCase().trim().split(' ')[0];
+    const euSouEu = primeiroNomeR && primeiroNomeR === primeiroNomeUser;
+
+    const linhaBase = euSouEu
+      ? `ring-2 ring-[#0e8890] ring-offset-1 ${c.bg}`
+      : `bg-slate-50 hover:bg-slate-100`;
+
+    // AVATAR DO USUÁRIO
+    const avatarUrl = _rankingAvatares[primeiroNomeR];
+    const iniciais = String(r.nome || '??').substring(0, 2).toUpperCase();
     
-    let { data: metaData } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesA).maybeSingle();
-    if (!metaData) {
-      const { data: alt } = await supabaseClient.from('metas_mensais').select('dados').eq('mes', nomeMesB).maybeSingle();
-      metaData = alt;
-    }
+    const avatarHTML = avatarUrl
+      ? `<img src="${escapeHTML(avatarUrl)}" class="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0">`
+      : `<div class="w-8 h-8 rounded-full bg-[#000033] text-white flex items-center justify-center font-black text-[10px] shadow-sm shrink-0">${iniciais}</div>`;
 
-    if (!metaData?.dados?.consultores) {
-      container.innerHTML = `<div class="text-center py-6 text-slate-400 text-sm">Nenhuma meta definida para ${nomeMesA}.</div>`;
-      return;
-    }
+    return `
+      <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg border ${c.border} ${linhaBase} transition-all">
+        <div class="shrink-0 w-6 flex items-center justify-center">${medalha(i)}</div>
+        
+        ${avatarHTML}
 
-    const consultoresMeta = metaData.dados.consultores || [];
-    const metaCons = metaData.dados.metaConsultor || {};
-
-    // 2. Buscar os perfis para pegar as fotos (avatar_url)
-    const { data: perfis } = await supabaseClient.from('perfis').select('nome_completo, avatar_url');
-    const mapaAvatares = {};
-    (perfis || []).forEach(p => {
-      mapaAvatares[p.nome_completo.toUpperCase()] = p.avatar_url;
-    });
-
-    // 3. Buscar as vendas do mês (na tabela onde o espelho agora confia)
-    const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
-    const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
-
-    const { data: vendas, error: errVendas } = await supabaseClient
-      .from('clientes_faturas')
-      .select('consultor, plano, valor_receita_contratada')
-      .gte('data_venda', `${competencia}-01`)
-      .lte('data_venda', dataFimMes);
-      
-    if (errVendas) throw errVendas;
-
-    // 4. Montar o array de dados dinamicamente
-    let dadosBanco = consultoresMeta.map(cons => {
-      const nomeCompleto = cons.nome.toUpperCase();
-      const vendasDoCons = vendas.filter(v => v.consultor === nomeCompleto);
-
-      let valorRealizado = 0;
-      
-      // Lógica de cálculo baseada na métrica escolhida
-      if (metrica === 'FAT TOTAL TIM') {
-        valorRealizado = vendasDoCons.reduce((acc, v) => acc + (Number(v.valor_receita_contratada) || 0), 0);
-      } else if (metrica === 'APARELHO' || metrica === 'ACESSÓRIOS') {
-        // Ajuste essa lógica se o valor de aparelho vier de outra coluna ou plano específico
-        valorRealizado = vendasDoCons.filter(v => v.plano && v.plano.toUpperCase().includes(metrica)).length;
-      } else {
-        // Controle, Pós, Portabilidade - conta a quantidade de vendas que contém a palavra
-        valorRealizado = vendasDoCons.filter(v => v.plano && v.plano.toUpperCase().includes(metrica)).length;
-      }
-
-      // Define a meta baseada na métrica
-      let metaAlvo = Number(metaCons[metrica] || 0);
-      // Se for FAT TOTAL TIM a meta costuma ser a soma de PÓS FAT + CONTROLE FAT
-      if (metrica === 'FAT TOTAL TIM' && metaAlvo === 0) {
-        metaAlvo = Number(metaCons['PÓS FAT.'] || 0) + Number(metaCons['CONTROLE FAT.'] || 0);
-      }
-
-      return {
-        nome: nomeCompleto,
-        valor: valorRealizado,
-        meta: metaAlvo,
-        avatar_url: mapaAvatares[nomeCompleto] || null
-      };
-    });
-
-    // 5. O FILTRO MÁGICO: Só fica quem vendeu (valor > 0)
-    dadosBanco = dadosBanco
-      .filter(v => v.valor > 0)
-      .sort((a, b) => b.valor - a.valor);
-
-    if (dadosBanco.length === 0) {
-      container.innerHTML = `<div class="text-center py-6 text-slate-400 text-sm">Nenhuma venda registrada para este mês ainda.</div>`;
-      return;
-    }
-
-    const maiorValor = dadosBanco[0].valor;
-
-    // 6. Renderizar o HTML
-    const html = dadosBanco.map((v, index) => {
-      const posicao = index + 1;
-      let medalha = posicao === 1 ? '🥇' : posicao === 2 ? '🥈' : posicao === 3 ? '🥉' : `<span class="text-sm font-bold text-slate-400">#${posicao}</span>`;
-      
-      let corBg = posicao === 1 ? 'bg-gradient-to-r from-amber-50 to-white border-amber-300 shadow-amber-100' : 
-                  posicao === 2 ? 'bg-gradient-to-r from-slate-50 to-white border-slate-300' : 
-                  posicao === 3 ? 'bg-gradient-to-r from-orange-50 to-white border-orange-200' : 
-                  'bg-white border-slate-200';
-
-      const bateuMeta = v.meta > 0 && v.valor >= v.meta;
-      const corBarra = bateuMeta ? 'bg-emerald-500' : 'bg-[#0e8890]';
-      // A barra mostra a porcentagem em relação ao líder, para dar efeito visual
-      const pctBarra = (v.valor / maiorValor) * 100; 
-
-      const iniciais = v.nome.split(' ').map(n => n[0]).slice(0, 2).join('');
-      
-      // 🚀 TRATAMENTO DA FOTO COM FALLBACK
-      let avatarHTML = '';
-      if (v.avatar_url && v.avatar_url.trim() !== '') {
-        // Se tem URL, tenta carregar a imagem. Se der erro (onerror), troca pelo círculo com iniciais.
-        avatarHTML = `
-          <div class="relative w-10 h-10 shrink-0">
-            <img src="${v.avatar_url}" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md absolute inset-0" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div style="display:none;" class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-black text-sm shadow-md absolute inset-0">${iniciais}</div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5">
+            <p class="font-black text-slate-800 uppercase text-[11px] truncate leading-tight">${r.nome}</p>
+            ${euSouEu ? `<span class="shrink-0 bg-[#0e8890] text-white text-[7px] font-black px-1 py-0.5 rounded uppercase">você</span>` : ''}
           </div>
-        `;
-      } else {
-        // Se não tem URL, mostra as iniciais direto
-        avatarHTML = `<div class="w-10 h-10 shrink-0 rounded-full bg-slate-800 text-white flex items-center justify-center font-black text-sm shadow-md">${iniciais}</div>`;
-      }
-
-      const isMoeda = metrica.includes('FAT') || metrica.includes('APARELHO') || metrica.includes('ACESSÓRIOS');
-      const valorFormatado = isMoeda ? `R$ ${v.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : `${Math.round(v.valor)} un`;
-      const metaFormatada = isMoeda ? `Meta: R$ ${v.meta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : `Meta: ${v.meta} un`;
-
-      return `
-        <div class="relative flex items-center p-3 rounded-xl border-2 ${corBg} transition-all hover:scale-[1.02] shadow-sm overflow-hidden mb-3">
-          
-          <div class="flex items-center gap-3 w-1/2 md:w-[40%] shrink-0 z-10">
-            <span class="text-2xl drop-shadow-sm w-6 text-center">${medalha}</span>
-            ${avatarHTML}
-            <div class="min-w-0">
-              <div class="flex items-center gap-1">
-                <p class="text-sm font-black text-[#000033] uppercase truncate leading-tight">${v.nome.split(' ')[0]} ${v.nome.split(' ').slice(-1)}</p>
-                ${bateuMeta ? `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500" title="Meta Batida!"></i>` : ''}
-              </div>
-              <p class="text-[10px] text-slate-500 font-bold uppercase truncate">${v.nome}</p>
-            </div>
-          </div>
-
-          <div class="flex-1 px-4 z-10 hidden md:block">
-            <div class="w-full bg-slate-200/50 rounded-full h-3 overflow-hidden">
-              <div class="h-3 rounded-full ${corBarra} transition-all duration-1000 ease-out" style="width: ${pctBarra}%"></div>
-            </div>
-            ${v.meta > 0 ? `<span class="text-[9px] font-bold text-slate-400 mt-1 block uppercase">${metaFormatada}</span>` : ''}
-          </div>
-
-          <div class="text-right z-10 w-[30%] shrink-0">
-            <p class="text-base font-black ${bateuMeta ? 'text-emerald-600' : 'text-slate-800'}">${valorFormatado}</p>
-            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Realizado</p>
+          <div class="w-full bg-white rounded-full h-1 mt-1 overflow-hidden border border-slate-200">
+            <div class="${c.bar} h-1 rounded-full transition-all" style="width:${Math.min(100, r.pct)}%"></div>
           </div>
         </div>
-      `;
-    }).join('');
 
-    container.innerHTML = html;
-    if (window.lucide) lucide.createIcons();
+        <div class="shrink-0 text-right min-w-[78px] leading-tight">
+          <p class="text-[10px] font-black ${c.text}">${r.pct.toFixed(0)}%</p>
+          <p class="text-[8px] text-slate-400 font-bold uppercase">${fmtV(r.real)}</p>
+        </div>
+      </div>`;
+  }).join('');
 
-  } catch (err) {
-    console.error('[Ranking]', err);
-    container.innerHTML = `<div class="text-red-500 text-sm text-center">Erro ao carregar ranking: ${err.message}</div>`;
-  }
+  lucide.createIcons();
 }
+
 /* ==========================================================
    SEGURANÇA DO ESPELHO DE COMISSÃO
    ========================================================== */
