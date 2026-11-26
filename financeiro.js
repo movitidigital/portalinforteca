@@ -664,28 +664,34 @@ async function carregarEspelho() {
       }
       if (selectVend._mesCarregado !== mes) {
         selectVend._mesCarregado = mes;
-        
+
         // 1. Tenta buscar dos espelhos já gerados
         const { data: vendedores } = await supabaseClient
-          .from('financeiro_espelhos_b2c').select('vendedor_id').eq('mes_competencia_venda', mes).order('vendedor_id');
+          .from('financeiro_espelhos_b2c')
+          .select('vendedor_id')
+          .eq('mes_competencia_venda', mes)
+          .order('vendedor_id');
         let lista = (vendedores || []).map(v => v.vendedor_id);
 
-        // 2. Se não achou espelhos, busca os vendedores que tiveram vendas no mês
+        // 2. Se não achou espelhos, busca exclusivamente em clientes_faturas (fonte oficial)
         if (lista.length === 0) {
-          // 🚀 CORREÇÃO: Calcula o último dia do mês corretamente (ex: Setembro = 30, Fevereiro = 28/29)
           const [anoStr, mesStr] = competencia.split('-');
           const ultimoDia = new Date(Number(anoStr), Number(mesStr), 0).getDate();
           const dataFimMes = `${competencia}-${String(ultimoDia).padStart(2, '0')}`;
 
-          const { data: inter } = await supabaseClient
-            .from('interacoes')
+          const { data: faturas, error: fatErr } = await supabaseClient
+            .from('clientes_faturas')
             .select('vendedor')
             .gte('data_venda', mes)
             .lte('data_venda', dataFimMes);
-            
-          lista = [...new Set((inter || []).map(i => i.vendedor))]
-            .filter(v => v && !v.includes('CAIXA') && !v.includes('INFORTECA LTDA'))
-            .sort();
+
+          if (fatErr) throw fatErr;
+
+          lista = [...new Set(
+            (faturas || [])
+              .map(f => (f.vendedor || '').trim().toUpperCase())
+              .filter(Boolean)
+          )].sort();
         }
 
         if (lista.length) {
@@ -751,23 +757,23 @@ async function carregarEspelho() {
         let realizadoAcessorios = 0;
         try {
           const [anoComp, mesComp] = competencia.split('-');
-          let proxAno = parseInt(anoComp);
-          let proxMes = parseInt(mesComp) + 1;
+          let proxAno = parseInt(anoComp, 10);
+          let proxMes = parseInt(mesComp, 10) + 1;
           if (proxMes > 12) { proxMes = 1; proxAno++; }
-          
+
           const compAcessorios = `${proxAno}-${String(proxMes).padStart(2, '0')}`;
           const nomeMesAcessA = formatarMesMeta(compAcessorios);
           const nomeMesAcessB = nomeMesAcessA.replace('/', ' / ');
-          
+
           let { data: metaAcessData } = await supabaseClient
             .from('metas_mensais').select('dados').eq('mes', nomeMesAcessA).maybeSingle();
-            
+
           if (!metaAcessData) {
             const { data: altAcess } = await supabaseClient
               .from('metas_mensais').select('dados').eq('mes', nomeMesAcessB).maybeSingle();
             metaAcessData = altAcess;
           }
-          
+
           if (metaAcessData?.dados) {
             const consultoresAcess = metaAcessData.dados.consultores || [];
             const consultorAcess = consultoresAcess.find(c => String(c.nome || '').toLowerCase().split(' ')[0] === primeiroNome);
