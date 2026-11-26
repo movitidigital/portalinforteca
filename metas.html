@@ -1505,10 +1505,13 @@ async function sincronizarVendasBanco() {
       }
     });
 
-    // Limpa zeros e salva
+// Limpa zeros e salva
     Object.keys(novoDiario).forEach(id => {
       LINHAS_DIARIO.forEach(key => {
-        novoDiario[id][key] = novoDiario[id][key].map(v => v === 0 ? '' : Number(v.toFixed(2)));
+        novoDiario[id][key] = novoDiario[id][key].map(v => {
+          const num = Number(v) || 0;
+          return num === 0 ? '' : Number(num.toFixed(2));
+        });
       });
     });
 
