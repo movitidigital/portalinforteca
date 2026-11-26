@@ -6458,82 +6458,81 @@ async function renderRanking() {
   const metrica = document.getElementById('rankingKpi').value;
   const container = document.getElementById('rankingLista');
   
-  // Coloque aqui a lógica que você já usa para buscar os dados do banco
-  // Exemplo genérico: (Busque o total de cada vendedor baseado na métrica escolhida)
-  
-  // Dados simulados para você ver o layout (substitua pelos dados reais do seu banco)
-  const dadosRanking = [
-    { nome: 'GABRIEL VALENÇA DE LIMA', valor: 3450.50, meta: 3000.00 },
-    { nome: 'JEAN BRENO CARNEIRO DA SILVA', valor: 2467.87, meta: 3000.00 },
-    { nome: 'DANIEL ALVES FERREIRA', valor: 1200.00, meta: 3000.00 }
+  // 1. AQUI VOCÊ BUSCA OS DADOS (Mantenha a sua lógica de busca aqui)
+  // Exemplo: const dadosBanco = await buscarDadosRanking(metrica);
+  // Simulei o array abaixo com o avatar e a meta incluídos:
+  const dadosBanco = [
+    { nome: 'GABRIEL VALENÇA DE LIMA', valor: 3450.50, meta: 3000.00, avatar_url: 'URL_DA_FOTO_DO_GABRIEL' },
+    { nome: 'JEAN BRENO CARNEIRO DA SILVA', valor: 2467.87, meta: 3000.00, avatar_url: null },
+    { nome: 'DANIEL ALVES FERREIRA', valor: 0, meta: 0, avatar_url: null } // Daniel entra aqui, mas vai ser filtrado
   ];
 
-  // Ordena do maior para o menor
-  dadosRanking.sort((a, b) => b.valor - a.valor);
+  // 2. FILTRO INTELIGENTE: Remove quem não vendeu e quem não tem meta no mês
+  const dadosFiltrados = dadosBanco
+    .filter(v => v.valor > 0) // 🚀 AQUI O DANIEL SOME! Se o valor é 0, ele não entra.
+    .sort((a, b) => b.valor - a.valor);
 
-  // Encontra o maior valor para calcular a porcentagem da barra
-  const maiorValor = dadosRanking[0]?.valor || 1;
+  // Se todo mundo zerou, mostra uma mensagem
+  if (dadosFiltrados.length === 0) {
+    container.innerHTML = `<div class="text-center text-slate-400 py-6">Nenhuma venda registrada neste mês ainda.</div>`;
+    return;
+  }
 
-  const html = dadosRanking.map((v, index) => {
+  // Encontra o maior valor para calcular a porcentagem da barra em relação ao líder
+  const maiorValor = dadosFiltrados[0].valor;
+
+  const html = dadosFiltrados.map((v, index) => {
     const posicao = index + 1;
-    let medalha = '';
-    let corBg = 'bg-white';
-    let corBorda = 'border-slate-200';
-    let corTexto = 'text-slate-800';
+    let medalha = posicao === 1 ? '🥇' : posicao === 2 ? '🥈' : posicao === 3 ? '🥉' : `<span class="text-sm font-bold text-slate-400">#${posicao}</span>`;
+    let corBg = posicao === 1 ? 'bg-gradient-to-r from-amber-50 to-white border-amber-300 shadow-amber-100' : 
+                posicao === 2 ? 'bg-gradient-to-r from-slate-50 to-white border-slate-300' : 
+                posicao === 3 ? 'bg-gradient-to-r from-orange-50 to-white border-orange-200' : 
+                'bg-white border-slate-200';
 
-    // Estilização do Pódio
-    if (posicao === 1) {
-      medalha = '🥇';
-      corBg = 'bg-gradient-to-r from-amber-50 to-white';
-      corBorda = 'border-amber-300 shadow-amber-100';
-    } else if (posicao === 2) {
-      medalha = '🥈';
-      corBg = 'bg-gradient-to-r from-slate-50 to-white';
-      corBorda = 'border-slate-300';
-    } else if (posicao === 3) {
-      medalha = '🥉';
-      corBg = 'bg-gradient-to-r from-orange-50 to-white';
-      corBorda = 'border-orange-200';
-    }
-
-    // Pega as iniciais do nome
-    const iniciais = v.nome.split(' ').map(n => n[0]).slice(0, 2).join('');
-    
-    // Calcula a porcentagem em relação ao primeiro lugar (para a barra visual)
+    // 3. CHECAGEM DE META BATIDA
+    const bateuMeta = v.meta > 0 && v.valor >= v.meta;
+    const corBarra = bateuMeta ? 'bg-emerald-500' : 'bg-[#0e8890]';
     const pctBarra = (v.valor / maiorValor) * 100;
-    const corBarra = posicao === 1 ? 'bg-amber-500' : 'bg-[#0e8890]';
+
+    // 4. LÓGICA DA FOTO (Se tem avatar usa, se não usa as iniciais)
+    const iniciais = v.nome.split(' ').map(n => n[0]).slice(0, 2).join('');
+    const avatarHTML = v.avatar_url 
+      ? `<img src="${v.avatar_url}" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md">`
+      : `<div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-black text-sm shadow-md">${iniciais}</div>`;
 
     // Formata o valor
     const isMoeda = metrica.includes('FAT') || metrica.includes('APARELHO') || metrica.includes('ACESSÓRIOS');
-    const valorFormatado = isMoeda 
-      ? `R$ ${v.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
-      : `${Math.round(v.valor)} un`;
+    const valorFormatado = isMoeda ? `R$ ${v.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : `${Math.round(v.valor)} un`;
+    const metaFormatada = isMoeda ? `Meta: R$ ${v.meta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}` : `Meta: ${v.meta} un`;
 
     return `
-      <div class="relative flex items-center p-3 rounded-xl border-2 ${corBorda} ${corBg} transition-all hover:scale-[1.02] shadow-sm overflow-hidden mb-3">
+      <div class="relative flex items-center p-3 rounded-xl border-2 ${corBg} transition-all hover:scale-[1.02] shadow-sm overflow-hidden mb-3">
         
-        <!-- Posição e Avatar -->
         <div class="flex items-center gap-3 w-1/2 md:w-[40%] shrink-0 z-10">
-          <span class="text-2xl drop-shadow-sm">${medalha}</span>
-          <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center font-black text-sm shadow-md">
-            ${iniciais}
-          </div>
+          <span class="text-2xl drop-shadow-sm w-6 text-center">${medalha}</span>
+          
+          <!-- FOTO AQUI -->
+          ${avatarHTML}
+          
           <div class="min-w-0">
-            <p class="text-sm font-black text-[#000033] uppercase truncate leading-tight">${v.nome.split(' ')[0]} ${v.nome.split(' ').slice(-1)}</p>
+            <div class="flex items-center gap-1">
+              <p class="text-sm font-black text-[#000033] uppercase truncate leading-tight">${v.nome.split(' ')[0]} ${v.nome.split(' ').slice(-1)}</p>
+              <!-- SELO DE META BATIDA -->
+              ${bateuMeta ? `<i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500" title="Meta Batida!"></i>` : ''}
+            </div>
             <p class="text-[10px] text-slate-500 font-bold uppercase truncate">${v.nome}</p>
           </div>
         </div>
 
-        <!-- Barra de Progresso -->
         <div class="flex-1 px-4 z-10 hidden md:block">
           <div class="w-full bg-slate-200/50 rounded-full h-3 overflow-hidden">
             <div class="h-3 rounded-full ${corBarra} transition-all duration-1000 ease-out" style="width: ${pctBarra}%"></div>
           </div>
+          ${v.meta > 0 ? `<span class="text-[9px] font-bold text-slate-400 mt-1 block uppercase">${metaFormatada}</span>` : ''}
         </div>
 
-        <!-- Valor -->
         <div class="text-right z-10 w-[30%] shrink-0">
-          <p class="text-base font-black text-slate-800">${valorFormatado}</p>
+          <p class="text-base font-black ${bateuMeta ? 'text-emerald-600' : 'text-slate-800'}">${valorFormatado}</p>
           <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Realizado</p>
         </div>
       </div>
@@ -6541,6 +6540,7 @@ async function renderRanking() {
   }).join('');
 
   container.innerHTML = html;
+  if (window.lucide) lucide.createIcons(); // Para renderizar o ícone de check
 }
 
 /* ==========================================================
